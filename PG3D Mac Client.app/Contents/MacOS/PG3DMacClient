@@ -1,0 +1,4 @@
+#!/bin/zsh
+set -u
+APP_ROOT="$(cd "$(dirname "$0")/../Resources/app" && pwd)"
+exec "$APP_ROOT/launch.sh"

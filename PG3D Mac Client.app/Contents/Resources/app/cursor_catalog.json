@@ -1,0 +1,344 @@
+[
+ {
+  "id": "micro_dot",
+  "name": "Micro Dot",
+  "category": "Minimal",
+  "file": "cursors/micro_dot.png"
+ },
+ {
+  "id": "clean_dot",
+  "name": "Clean Dot",
+  "category": "Minimal",
+  "file": "cursors/clean_dot.png"
+ },
+ {
+  "id": "bold_dot",
+  "name": "Bold Dot",
+  "category": "Minimal",
+  "file": "cursors/bold_dot.png"
+ },
+ {
+  "id": "corners",
+  "name": "Four Corners",
+  "category": "Minimal",
+  "file": "cursors/corners.png"
+ },
+ {
+  "id": "brackets",
+  "name": "Brackets",
+  "category": "Minimal",
+  "file": "cursors/brackets.png"
+ },
+ {
+  "id": "four_dots",
+  "name": "Four Dots",
+  "category": "Minimal",
+  "file": "cursors/four_dots.png"
+ },
+ {
+  "id": "chevron",
+  "name": "Chevron",
+  "category": "Minimal",
+  "file": "cursors/chevron.png"
+ },
+ {
+  "id": "double_chevron",
+  "name": "Double Chevron",
+  "category": "Minimal",
+  "file": "cursors/double_chevron.png"
+ },
+ {
+  "id": "minimal_circle",
+  "name": "Minimal Circle",
+  "category": "Minimal",
+  "file": "cursors/minimal_circle.png"
+ },
+ {
+  "id": "dot_soft",
+  "name": "Soft Dot",
+  "category": "Minimal",
+  "file": "cursors/dot_soft.png"
+ },
+ {
+  "id": "dot_ring",
+  "name": "Halo Dot",
+  "category": "Minimal",
+  "file": "cursors/dot_ring.png"
+ },
+ {
+  "id": "micro_plus",
+  "name": "Micro Plus",
+  "category": "Minimal",
+  "file": "cursors/micro_plus.png"
+ },
+ {
+  "id": "quad_dots",
+  "name": "Quad Dots",
+  "category": "Minimal",
+  "file": "cursors/quad_dots.png"
+ },
+ {
+  "id": "thin_cross",
+  "name": "Thin Cross",
+  "category": "Crosshair",
+  "file": "cursors/thin_cross.png"
+ },
+ {
+  "id": "gap_cross",
+  "name": "Gap Cross",
+  "category": "Crosshair",
+  "file": "cursors/gap_cross.png"
+ },
+ {
+  "id": "cross_dot",
+  "name": "Cross + Dot",
+  "category": "Crosshair",
+  "file": "cursors/cross_dot.png"
+ },
+ {
+  "id": "short_cross",
+  "name": "Short Cross",
+  "category": "Crosshair",
+  "file": "cursors/short_cross.png"
+ },
+ {
+  "id": "classic_plus",
+  "name": "Classic Plus",
+  "category": "Crosshair",
+  "file": "cursors/classic_plus.png"
+ },
+ {
+  "id": "t_cross",
+  "name": "T Cross",
+  "category": "Crosshair",
+  "file": "cursors/t_cross.png"
+ },
+ {
+  "id": "scope",
+  "name": "Scope",
+  "category": "Crosshair",
+  "file": "cursors/scope.png"
+ },
+ {
+  "id": "target",
+  "name": "Target",
+  "category": "Crosshair",
+  "file": "cursors/target.png"
+ },
+ {
+  "id": "precision",
+  "name": "Precision",
+  "category": "Crosshair",
+  "file": "cursors/precision.png"
+ },
+ {
+  "id": "open_cross",
+  "name": "Open Cross",
+  "category": "Crosshair",
+  "file": "cursors/open_cross.png"
+ },
+ {
+  "id": "hairline",
+  "name": "Hairline",
+  "category": "Crosshair",
+  "file": "cursors/hairline.png"
+ },
+ {
+  "id": "hair_dot",
+  "name": "Hairline Dot",
+  "category": "Crosshair",
+  "file": "cursors/hair_dot.png"
+ },
+ {
+  "id": "thick_gap",
+  "name": "Bold Gap",
+  "category": "Crosshair",
+  "file": "cursors/thick_gap.png"
+ },
+ {
+  "id": "long_thin",
+  "name": "Long Thin",
+  "category": "Crosshair",
+  "file": "cursors/long_thin.png"
+ },
+ {
+  "id": "duplex",
+  "name": "Duplex",
+  "category": "Crosshair",
+  "file": "cursors/duplex.png"
+ },
+ {
+  "id": "center_pip",
+  "name": "Center Pip",
+  "category": "Crosshair",
+  "file": "cursors/center_pip.png"
+ },
+ {
+  "id": "t_reticle",
+  "name": "T Reticle",
+  "category": "Crosshair",
+  "file": "cursors/t_reticle.png"
+ },
+ {
+  "id": "thin_ring2",
+  "name": "Thin Ring",
+  "category": "Circle",
+  "file": "cursors/thin_ring2.png"
+ },
+ {
+  "id": "ring_pip",
+  "name": "Ring + Pip",
+  "category": "Circle",
+  "file": "cursors/ring_pip.png"
+ },
+ {
+  "id": "scope_fine",
+  "name": "Fine Scope",
+  "category": "Circle",
+  "file": "cursors/scope_fine.png"
+ },
+ {
+  "id": "double_ring",
+  "name": "Double Ring",
+  "category": "Circle",
+  "file": "cursors/double_ring.png"
+ },
+ {
+  "id": "reticle2",
+  "name": "Reticle",
+  "category": "Circle",
+  "file": "cursors/reticle2.png"
+ },
+ {
+  "id": "diamond_soft",
+  "name": "Soft Diamond",
+  "category": "Geometric",
+  "file": "cursors/diamond_soft.png"
+ },
+ {
+  "id": "diamond_ring",
+  "name": "Diamond Ring",
+  "category": "Geometric",
+  "file": "cursors/diamond_ring.png"
+ },
+ {
+  "id": "chevrons",
+  "name": "Chevrons",
+  "category": "Geometric",
+  "file": "cursors/chevrons.png"
+ },
+ {
+  "id": "soft_corners",
+  "name": "Soft Corners",
+  "category": "Geometric",
+  "file": "cursors/soft_corners.png"
+ },
+ {
+  "id": "wide_brackets",
+  "name": "Wide Brackets",
+  "category": "Geometric",
+  "file": "cursors/wide_brackets.png"
+ },
+ {
+  "id": "arrow",
+  "name": "Arrow",
+  "category": "Pointer",
+  "file": "cursors/arrow.png"
+ },
+ {
+  "id": "small_arrow",
+  "name": "Small Arrow",
+  "category": "Pointer",
+  "file": "cursors/small_arrow.png"
+ },
+ {
+  "id": "needle",
+  "name": "Needle",
+  "category": "Pointer",
+  "file": "cursors/needle.png"
+ },
+ {
+  "id": "ring",
+  "name": "Ring",
+  "category": "Shapes",
+  "file": "cursors/ring.png"
+ },
+ {
+  "id": "ring_dot",
+  "name": "Ring + Dot",
+  "category": "Shapes",
+  "file": "cursors/ring_dot.png"
+ },
+ {
+  "id": "tiny_ring",
+  "name": "Tiny Ring",
+  "category": "Shapes",
+  "file": "cursors/tiny_ring.png"
+ },
+ {
+  "id": "square",
+  "name": "Square",
+  "category": "Shapes",
+  "file": "cursors/square.png"
+ },
+ {
+  "id": "square_dot",
+  "name": "Square + Dot",
+  "category": "Shapes",
+  "file": "cursors/square_dot.png"
+ },
+ {
+  "id": "diamond",
+  "name": "Diamond",
+  "category": "Shapes",
+  "file": "cursors/diamond.png"
+ },
+ {
+  "id": "diamond_dot",
+  "name": "Diamond + Dot",
+  "category": "Shapes",
+  "file": "cursors/diamond_dot.png"
+ },
+ {
+  "id": "triangle",
+  "name": "Triangle",
+  "category": "Shapes",
+  "file": "cursors/triangle.png"
+ },
+ {
+  "id": "triangle_dot",
+  "name": "Triangle + Dot",
+  "category": "Shapes",
+  "file": "cursors/triangle_dot.png"
+ },
+ {
+  "id": "x_mark",
+  "name": "X Mark",
+  "category": "Shapes",
+  "file": "cursors/x_mark.png"
+ },
+ {
+  "id": "x_dot",
+  "name": "X + Dot",
+  "category": "Shapes",
+  "file": "cursors/x_dot.png"
+ },
+ {
+  "id": "pixel_cross",
+  "name": "Pixel Cross",
+  "category": "Retro",
+  "file": "cursors/pixel_cross.png"
+ },
+ {
+  "id": "pixel_dot",
+  "name": "Pixel Dot",
+  "category": "Retro",
+  "file": "cursors/pixel_dot.png"
+ },
+ {
+  "id": "pixel_ring",
+  "name": "Pixel Ring",
+  "category": "Retro",
+  "file": "cursors/pixel_ring.png"
+ }
+]

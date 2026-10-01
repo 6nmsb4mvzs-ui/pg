@@ -1,0 +1,178 @@
+#!/bin/zsh
+
+set -euo pipefail
+
+script_dir=${0:A:h}
+dylib="$script_dir/build/PG3DFPSUnlock.dylib"
+default_game="$HOME/Library/Application Support/Steam/steamapps/common/Pixel Gun 3D PC Edition/Pixel Gun 3D.app"
+game="$default_game"
+fps="-1"
+dry_run=0
+show_status=0
+observe=0
+show_hud=0
+log_directory="$HOME/Library/Logs/PG3DFPSUnlocker"
+latest_record="$log_directory/latest"
+
+usage() {
+  cat <<'EOF'
+Usage: ./pg3d-fps-unlock [options]
+
+  --fps N          30–1000, or 0 / uncapped for no cap (default: uncapped)
+  --observe        Measure the game's original pacing without changing it
+  --hud            Show Apple's Metal performance overlay for this run
+  --game PATH      Path to Pixel Gun 3D.app
+  --dry-run        Validate prerequisites without launching
+  --status         Show the latest run's process status and measurements
+  -h, --help       Show this help
+EOF
+}
+
+while (( $# )); do
+  case "$1" in
+    --fps)
+      (( $# >= 2 )) || { print -u2 -- "--fps needs a value"; exit 2; }
+      case "$2" in
+        0|uncapped) fps="-1" ;;
+        <->)
+          if (( $2 >= 30 && $2 <= 1000 )); then
+            fps="$2"
+          else
+            print -u2 -- "FPS must be 30–1000, 0, or uncapped."
+            exit 2
+          fi
+          ;;
+        *) print -u2 -- "FPS must be 30–1000, 0, or uncapped."; exit 2 ;;
+      esac
+      shift 2
+      ;;
+    --observe) observe=1; shift ;;
+    --hud) show_hud=1; shift ;;
+    --game)
+      (( $# >= 2 )) || { print -u2 -- "--game needs a path"; exit 2; }
+      game="$2"
+      shift 2
+      ;;
+    --dry-run) dry_run=1; shift ;;
+    --status) show_status=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) print -u2 -- "Unknown option: $1"; usage >&2; exit 2 ;;
+  esac
+done
+
+process_is_alive() {
+  local process_details process_uid process_state process_command
+  [[ "$1" == <-> ]] || return 1
+  process_details=$(ps -p "$1" -o uid=,stat=,comm= 2>/dev/null) || return 1
+  read -r process_uid process_state process_command <<< "$process_details"
+  [[ "$process_uid" == "$UID" && -n "$process_state" && "$process_state" != *Z* && "$process_command" == *"/Contents/MacOS/Pixel Gun 3D" ]]
+}
+
+if (( show_status )); then
+  if [[ ! -f "$latest_record" ]]; then
+    print -- "No run has been recorded by this version of the launcher."
+    print -- "Start with ./pg3d-fps-unlock to collect current status and FPS measurements."
+    exit 0
+  fi
+  log_file=$(< "$latest_record")
+  if [[ "$log_file" != "$log_directory/"run-*.log || ! -f "$log_file" ]]; then
+    print -u2 -- "The latest run log is missing or invalid: $log_file"
+    exit 1
+  fi
+  game_pid=""
+  [[ ! -f "${log_file}.pid" ]] || game_pid=$(< "${log_file}.pid")
+  if process_is_alive "$game_pid"; then
+    print -- "Latest run: PID $game_pid is running."
+  else
+    print -- "Latest run: game process has exited. Measurements below are historical."
+  fi
+  print -- "Log: $log_file"
+  tail -n 60 "$log_file"
+  exit 0
+fi
+
+if [[ ! -f "$dylib" || ! -x "$script_dir/build/launch-game" || "$script_dir/src/launch_game.c" -nt "$script_dir/build/launch-game" || "$script_dir/src/pg3d_fps_unlock.c" -nt "$dylib" || "$script_dir/src/presentation_probe.m" -nt "$dylib" || "$script_dir/build.sh" -nt "$dylib" ]]; then
+  print -- "Building the current injection library."
+  "$script_dir/build.sh"
+fi
+
+if [[ ! -d "$game/Contents" || ! -x "$game/Contents/MacOS/Pixel Gun 3D" ]]; then
+  print -u2 -- "Pixel Gun 3D.app was not found at: $game"
+  print -u2 -- "Use --game '/path/to/Pixel Gun 3D.app' to select its location."
+  exit 1
+fi
+
+game=${game:A}
+game_binary="$game/Contents/MacOS/Pixel Gun 3D"
+game_working_dir="${game:h}"
+version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$game/Contents/Info.plist" 2>/dev/null || print 'unknown')
+build_number=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$game/Contents/Info.plist" 2>/dev/null || print 'unknown')
+
+print -- "Found Pixel Gun 3D $version (build $build_number)."
+if (( observe )); then
+  print -- "Observation mode: measure original FPS, target frame rate, and v-sync without applying overrides."
+else
+  print -- "Requested render target: $([[ "$fps" == "-1" ]] && print 'uncapped' || print -- "$fps FPS"). Requested v-sync: off."
+  print -- "Unity macOS display-link blit path: disabled (UNITY_DISPLAYLINK_BLIT=0)."
+fi
+
+if (( dry_run )); then
+  file "$dylib"
+  print -- "Preflight passed; no process was started and no runtime FPS was verified."
+  exit 0
+fi
+
+# Match the actual executable and current user. Old suspended root-owned debugger
+# processes are unrelated to a user's current launch and must not block it.
+existing_pids=()
+while read -r process_pid process_uid process_state process_command; do
+  if [[ "$process_uid" == "$UID" && "$process_state" != *Z* && "$process_command" == *"/Contents/MacOS/Pixel Gun 3D" ]]; then
+    existing_pids+=("$process_pid")
+  fi
+done < <(ps -axo pid=,uid=,stat=,comm=)
+if (( ${#existing_pids} )); then
+  print -u2 -- "Pixel Gun 3D is already running for your user (PID ${(j:, :)existing_pids})."
+  print -u2 -- "Quit that game instance, then launch it with this tool."
+  exit 1
+fi
+
+mkdir -p "$log_directory"
+log_file="$log_directory/run-$(date '+%Y%m%d-%H%M%S')-$$.log"
+print -- "[Launcher] Started $(date '+%Y-%m-%d %H:%M:%S %Z'); game $version/$build_number; requested FPS $fps; observe $observe." > "$log_file"
+
+print -- "Launching Pixel Gun 3D. Runtime log: $log_file"
+cd "$game_working_dir"
+if (( show_hud )); then
+  export MTL_HUD_ENABLED=1
+fi
+game_pid=$("$script_dir/build/launch-game" "$game_binary" "$dylib" "$fps" "$log_file" "$observe")
+print -- "$game_pid" > "${log_file}.pid"
+print -- "$log_file" > "${latest_record}.$$"
+mv -f -- "${latest_record}.$$" "$latest_record"
+
+ready_message="render pacing override is active"
+(( ! observe )) || ready_message="frame pacing observation is active"
+for attempt in {1..80}; do
+  # The first few milliseconds may still be nohup/env before exec completes.
+  # Test PID existence here; require the game executable once it reports ready.
+  if ! kill -0 "$game_pid" 2>/dev/null; then
+    print -u2 -- "Pixel Gun 3D exited before runtime verification (PID $game_pid)."
+    tail -n 30 "$log_file" >&2
+    exit 1
+  fi
+  if process_is_alive "$game_pid" && /usr/bin/grep -Fq "$ready_message" "$log_file"; then
+    if (( observe )); then
+      print -- "Observation is active in PID $game_pid."
+    else
+      print -- "The runtime overrides are active in PID $game_pid."
+    fi
+    print -- "Engine and Metal presentation measurements follow every few seconds; run ./pg3d-fps-unlock --status."
+    exit 0
+  fi
+  sleep 0.25
+done
+
+print -u2 -- "The game is running (PID $game_pid), but runtime readiness was not confirmed within 20 seconds."
+print -u2 -- "No FPS unlock has been verified. Check ./pg3d-fps-unlock --status after loading finishes."
+tail -n 20 "$log_file" >&2
+exit 1
