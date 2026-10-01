@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.23.0"
+APP_VERSION = "1.24.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3725,6 +3725,12 @@ def _ember_fetch(player_id):
         "weekly": {k: weekly.get(k) for k in ("kills", "deaths", "matches", "wins", "headshots",
                                                "killstreak", "winstreak", "score")},
         "banned": data.get("banned"),
+        "clan": profile.get("clan_name") or None,
+        "clan_tag": profile.get("clan_tag") or None,
+        "registered": profile.get("registered"),
+        "last_seen": profile.get("last_seen"),
+        "items": {k: profile.get(f"{k}_count") for k in ("weapon", "gadget", "pet", "avatar", "sets")},
+        "skin": profile.get("skin") or v3.get("equipped_skin"),
         "fetched": int(time.time()),
     }
 
@@ -3750,6 +3756,7 @@ def ember_stats(account, force=False, fetch=True):
         return link
     try:
         fresh = _ember_fetch(link["player_id"])
+        fresh.pop("skin", None)
         fresh["error"] = None
     except Exception as e:
         log(f"Ember lookup failed: {e}")
@@ -3774,8 +3781,10 @@ def link_ember(account, player_id, source="manual"):
     if not re.fullmatch(r"\d{1,12}", pid):
         raise RuntimeError("A PG3D player ID is numbers only. Find it in your in-game profile.")
     stats = _ember_fetch(pid)  # raises with a readable message if the ID has no stats
+    stats.pop("skin", None)
     stats["error"] = None
     stats["source"] = source
+    remember_pg3d_id(account, pid, stats.get("name"))
     with _LOCK:
         data = wins_data()
         acc = data["accounts"].setdefault(str(account), {"auto": 0, "manual": 0, "log": []})
@@ -3842,6 +3851,58 @@ def detect_pg3d_player_id():
     return None
 
 
+def remember_pg3d_id(account, pid, name=None):
+    """Remember which PG3D player ID was seen on which Steam account."""
+    if not account or account == "unknown" or not pid:
+        return
+    with _LOCK:
+        data = wins_data()
+        ids = data.setdefault("pg3d_ids", {})
+        prev = ids.get(str(account)) or {}
+        if prev.get("player_id") == str(pid) and (not name or prev.get("name") == name):
+            return
+        ids[str(account)] = {"player_id": str(pid), "name": name or prev.get("name"), "seen": int(time.time())}
+        write_json(WINS_JSON, data)
+
+
+_LOOKUP_CACHE = {}
+
+
+def lookup_player(pid):
+    pid = re.sub(r"\s+", "", str(pid or ""))
+    if not re.fullmatch(r"\d{1,12}", pid):
+        raise RuntimeError("A PG3D player ID is numbers only.")
+    hit = _LOOKUP_CACHE.get(pid)
+    if hit and time.time() - hit["fetched"] < 120:
+        return hit
+    data = _ember_fetch(pid)
+    _LOOKUP_CACHE[pid] = data
+    return data
+
+
+def lookup_suggestions():
+    """Every Steam account on this Mac with the PG3D ID last seen on it."""
+    try:
+        info = steam_accounts()
+    except Exception:
+        info = {"accounts": []}
+    ids = wins_data().get("pg3d_ids", {})
+    out = []
+    for a in info.get("accounts", []):
+        known = ids.get(a["steamid64"]) or {}
+        out.append({
+            "steamid64": a["steamid64"], "steam_name": a.get("display_name") or a.get("account_name"),
+            "active": bool(a.get("active")), "player_id": known.get("player_id"), "name": known.get("name"),
+        })
+    listed = {x["steamid64"] for x in out}
+    for sid, known in ids.items():  # accounts no longer in Steam's list
+        if sid not in listed:
+            out.append({"steamid64": sid, "steam_name": None, "active": False,
+                        "player_id": known.get("player_id"), "name": known.get("name")})
+    out.sort(key=lambda x: (not x["active"], x["player_id"] is None, (x["steam_name"] or "").lower()))
+    return {"ok": True, "accounts": out}
+
+
 def ember_sync_watch():
     """Keep the active Steam account linked to the PG3D ID that is signed in,
     and refresh its Ember wins every minute while the game runs."""
@@ -3855,6 +3916,8 @@ def ember_sync_watch():
             if account != "unknown" and (running or was_running) and now - last_detect > 30:
                 last_detect = now
                 pid = detect_pg3d_player_id()
+                if pid:
+                    remember_pg3d_id(account, pid)
                 acc = wins_data()["accounts"].get(str(account), {})
                 linked = (acc.get("ember") or {}).get("player_id")
                 if pid and pid != linked and not (acc.get("ember_auto_off") and not linked):
@@ -4143,6 +4206,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(steam_player_count())
         if path == "/api/gui-assets":
             return self.send_json(gui_catalog())
+        if path == "/api/lookup/suggest":
+            return self.send_json(lookup_suggestions())
+        if path.startswith("/api/lookup/"):
+            try:
+                return self.send_json({"ok": True, "player": lookup_player(unquote(path.rsplit("/", 1)[1]))})
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
         if path == "/api/rank":
             return self.send_json(rank_payload(_playtime_account(), full=True))
         if path == "/api/theme":

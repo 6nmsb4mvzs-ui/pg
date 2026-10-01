@@ -131,6 +131,16 @@ body{background:radial-gradient(circle at 14% -8%,rgba(139,17,42,.25) 0,#191314 
 /* v1.17 editor, previews, settings */
 [hidden]{display:none!important}
 .guiStyleList{align-items:start!important}
+.lkSearch{display:flex;gap:8px}.lkSearch input{flex:1;min-width:0;height:40px;padding:0 14px;font-size:14px}.lkSearch .btn{height:40px}
+.lkAccounts{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.lkAcc{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1px solid var(--border);background:#100809;border-radius:12px;padding:10px 12px;color:var(--text);cursor:pointer;min-width:0}
+.lkAcc:hover:not(:disabled){border-color:var(--border2)}.lkAcc:disabled{cursor:default;opacity:.6}
+.lkAcc b{font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lkAcc small{font-size:11px;color:var(--muted)}
+.lkAcc .on{font-size:9.5px;font-weight:900;letter-spacing:.08em;color:#062012;background:#7fe0a8;border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+.lkHead{display:flex;align-items:center;gap:14px}
+.lkAvatar{width:64px;height:64px;border-radius:12px;background:#100809;border:1px solid var(--border);image-rendering:pixelated;flex:none}
+.lkWho{flex:1;min-width:0}.lkWho b{display:block;font-size:20px;color:#fff;letter-spacing:-.02em}.lkWho small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.emStats.lkStats{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:16px}
 .ovStyle{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}
 .ovChip{height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--border2);background:#100809;color:var(--muted);font-weight:700;font-size:12px;cursor:pointer}
 .ovChip.on{background:#2a1317;border-color:var(--accent);color:#fff}
@@ -457,6 +467,7 @@ textarea.xInput{min-height:80px;resize:vertical}
     <nav class="nav">
       <button class="active" data-tab="play"><span class="ico">▶</span><span class="label">Play</span></button>
       <button data-tab="rank"><span class="ico">♛</span><span class="label">Rank</span></button>
+      <button data-tab="lookup"><span class="ico">⌕</span><span class="label">Lookup</span></button>
       <button data-tab="clips"><span class="ico">◉</span><span class="label">Clips</span></button>
       <div class="navLabel">Customize</div>
       <button data-tab="cursor"><span class="ico">＋</span><span class="label">Cursor</span></button>
@@ -686,6 +697,26 @@ textarea.xInput{min-height:80px;resize:vertical}
       </div>
     </section>
 
+    <section class="page" id="page-lookup">
+      <div class="xPage">
+        <div class="crCard">
+          <form class="lkSearch" id="lkForm"><input class="search" id="lkId" inputmode="numeric" placeholder="Enter a player ID" spellcheck="false" autocomplete="off"><button class="btn primary" type="submit">Look up</button></form>
+          <div class="xLabel" style="margin-top:18px">Your Steam accounts</div>
+          <div class="lkAccounts" id="lkAccounts"></div>
+          <div id="lkRecentWrap" hidden><div class="xLabel" style="margin-top:16px">Recent</div><div class="xRow" id="lkRecent"></div></div>
+        </div>
+        <div class="crCard" id="lkResult" hidden>
+          <div class="lkHead">
+            <canvas class="lkAvatar" id="lkAvatar" width="64" height="64"></canvas>
+            <div class="lkWho"><b id="lkName">—</b><small id="lkMeta"></small></div>
+            <button class="btn ghost" id="lkCopy">Copy ID</button>
+          </div>
+          <div class="emStats lkStats" id="lkStats"></div>
+          <div class="xNote" id="lkFoot"></div>
+        </div>
+      </div>
+    </section>
+
     <section class="page" id="page-theme">
       <div class="xPage">
         <div class="crCard">
@@ -788,11 +819,11 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',cursor:'Cursor',theme:'Theme',sky:'Sky',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Theme',sky:'Sky',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 async function api(path,opts={}){const r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)})}
-function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='theme')loadTheme();if(tab==='sky')loadSky()}
+function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='theme')loadTheme();if(tab==='sky')loadSky()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -1328,6 +1359,35 @@ $('#skReset').onclick=async()=>{try{await post('/api/sky/reset');await refreshSt
 $('#skRescan').onclick=async()=>{try{await post('/api/customize/scan');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
 
 setInterval(()=>{if(document.visibilityState==='visible'&&$('#page-rank').classList.contains('active'))loadRank()},10000);
+// Player lookup
+let lookupSuggest=null;
+function lkRecent(){try{return JSON.parse(localStorage.pg3dLookupRecent||'[]')}catch{return[]}}
+function lkRemember(p){const r=lkRecent().filter(x=>x.id!==p.player_id);r.unshift({id:p.player_id,name:p.name||p.player_id});try{localStorage.pg3dLookupRecent=JSON.stringify(r.slice(0,6))}catch{}}
+async function loadLookup(){try{lookupSuggest=await api('/api/lookup/suggest');renderLookupSuggest()}catch(e){console.error(e)}}
+function renderLookupSuggest(){const box=$('#lkAccounts');box.innerHTML='';const accs=lookupSuggest?.accounts||[];
+  if(!accs.length)box.append(el('div','xEmpty','No Steam accounts found on this Mac.'));
+  for(const a of accs){const b=el('button','lkAcc');b.type='button';const t=el('b',null,a.steam_name||`Steam ${a.steamid64.slice(-6)}`);if(a.active)t.append(el('span','on','ACTIVE'));
+    b.append(t,el('small',null,a.player_id?`${a.name?a.name+' · ':''}ID ${a.player_id}`:'ID not seen yet. Play PG3D once on this account.'));
+    b.disabled=!a.player_id;if(a.player_id)b.onclick=()=>runLookup(a.player_id);box.append(b)}
+  const rec=lkRecent(),rw=$('#lkRecent');rw.innerHTML='';$('#lkRecentWrap').hidden=!rec.length;
+  for(const r of rec){const c=el('button','ovChip',r.name);c.type='button';c.title=`ID ${r.id}`;c.onclick=()=>runLookup(r.id);rw.append(c)}}
+function drawSkinHead(b64){const cv=$('#lkAvatar'),ctx=cv.getContext('2d');ctx.clearRect(0,0,64,64);if(!b64)return;const im=new Image();
+  im.onload=()=>{ctx.imageSmoothingEnabled=false;ctx.drawImage(im,8,8,8,8,0,0,64,64);
+    // overlay (hat) layer: PG3D often fills it with one opaque colour, which would hide the face
+    const t=document.createElement('canvas');t.width=8;t.height=8;const tc=t.getContext('2d');tc.drawImage(im,40,8,8,8,0,0,8,8);const px=tc.getImageData(0,0,8,8).data;
+    let uniform=true,anyAlpha=false;for(let i=0;i<px.length;i+=4){if(px[i+3]>0)anyAlpha=true;if(px[i]!==px[0]||px[i+1]!==px[1]||px[i+2]!==px[2]||px[i+3]!==px[3]){uniform=false;break}}
+    if(anyAlpha&&!uniform)ctx.drawImage(t,0,0,8,8,0,0,64,64)};im.src='data:image/png;base64,'+b64}
+async function runLookup(id){id=String(id||'').trim();if(!id)return;$('#lkId').value=id;const go=$('#lkForm button');go.disabled=true;
+  try{const d=await api('/api/lookup/'+encodeURIComponent(id));renderLookup(d.player);lkRemember(d.player);renderLookupSuggest()}
+  catch(e){toast(e.message,true)}finally{go.disabled=false}}
+function renderLookup(p){$('#lkResult').hidden=false;drawSkinHead(p.skin);$('#lkName').textContent=p.name||'Unknown';
+  $('#lkMeta').textContent=[`ID ${p.player_id}`,p.level?`Level ${p.level}`:null,p.clan?`Clan ${p.clan}`:null,p.banned?'Banned':null].filter(Boolean).join(' · ');
+  const w=p.weekly||{},kd=w.deaths?(w.kills/w.deaths).toFixed(2):(w.kills?'∞':'0'),wr=w.matches?Math.round(100*w.wins/w.matches)+'%':'—';
+  const g=$('#lkStats');g.innerHTML='';for(const [l,v] of [['All-time wins',fmtNum(p.wins_total)],['Wins · 30 days',fmtNum(w.wins)],['Win rate · 30 days',wr],['Matches · 30 days',fmtNum(w.matches)],['K/D · 30 days',kd],['Kills · 30 days',fmtNum(w.kills)]]){const d=el('div');d.append(el('b',null,v),el('span',null,l));g.append(d)}
+  const dt=t=>t?new Date(t*1000).toLocaleDateString():null;$('#lkFoot').textContent=[p.registered?`Joined ${dt(p.registered)}`:null,p.last_seen?`last seen ${ago(p.last_seen)}`:null].filter(Boolean).join(' · ');
+  $('#lkCopy').onclick=()=>{navigator.clipboard?.writeText(String(p.player_id)).then(()=>toast('ID copied.'),()=>{})}}
+$('#lkForm').onsubmit=e=>{e.preventDefault();runLookup($('#lkId').value)};
+
 (async function init(){setTab(localStorage.pg3dTab||'play');await refreshStatus();selectedCursor=localStorage.pg3dCursor||statusData?.mods?.cursor?.cursor||'clean_dot';cursorSize=Math.max(8,Math.min(100,Number(localStorage.pg3dCursorSize||statusData?.mods?.cursor?.size||45)));cursorColor=(localStorage.pg3dCursorColor||statusData?.mods?.cursor?.color||'#FFFFFF').toUpperCase();cursorOutline=(localStorage.pg3dCursorOutline||statusData?.mods?.cursor?.outline||'#000000').toUpperCase();cursorOutlineWidth=Number(localStorage.pg3dCursorOW!=null?localStorage.pg3dCursorOW:(statusData?.mods?.cursor?.outline_width||0));$('#cursorSize').value=cursorSize;$('#fpsSelect').value=statusData?.prefs?.fps_target||'uncapped';renderCursorGrid();updateCursorPanel();await refreshPlayerCount();scheduleStatus();setInterval(refreshPlayerCount,30000)})();
 </script>
 </body>

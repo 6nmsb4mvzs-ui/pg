@@ -1,4 +1,4 @@
-PG3D Mac Client 1.23.0
+PG3D Mac Client 1.24.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -40,3 +40,8 @@ New in 1.23
 Rank finds your PG3D player ID by itself: it reads the signed-in ID from
 the game's settings when PG3D runs, links it to the Steam account you are
 playing on, and refreshes your wins every minute while you play.
+
+New in 1.24
+Player Lookup tab: look up any PG3D player ID (name, level, clan, all-time
+wins and 30-day stats from Ember's public lookup). Your Steam accounts are
+listed with the PG3D ID last seen on each, one click to look them up.
