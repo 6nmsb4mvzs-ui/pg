@@ -655,7 +655,8 @@ textarea.xInput{min-height:80px;resize:vertical}
         <div class="crCard">
           <div class="emLink" id="emLinkRow">
             <input class="search" id="emId" inputmode="numeric" placeholder="PG3D player ID" spellcheck="false">
-            <button class="btn primary" id="emLinkBtn">Link</button>
+            <button class="btn" id="emLinkBtn">Link</button>
+            <button class="btn primary" id="emDetectBtn">Find automatically</button>
           </div>
           <div class="emHead" id="emLinked" hidden>
             <div><b id="emName">—</b><small id="emMeta"></small></div>
@@ -1254,11 +1255,12 @@ function renderRank(){const r=rankData;if(!r)return;
   const rc=$('#rkRecent');rc.innerHTML='';const lines=r.recent_lines||[];if(!lines.length)rc.append(el('div','xEmpty','Nothing yet. Play a match first.'));
   for(const l of lines.slice(0,25)){const it=el('div','rkItem rkLine');it.append(el('code',null,l.line),el('time',null,ago(l.at)));it.onclick=()=>{const esc=l.line.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\d+/g,'\\d+');const ta=$('#rkPatterns');ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+esc;toast('Added. Press Save to use it.')};rc.append(it)}}
 function renderEmber(r){const e=r.ember,linked=!!(e&&e.player_id);$('#emLinkRow').hidden=linked;$('#emHint').hidden=linked&&!e.error;$('#emLinked').hidden=!linked;
-  if(!linked){$('#emHint').textContent='Link your player ID so wins count automatically.';return}
-  $('#emName').textContent=e.name||`Player ${e.player_id}`;$('#emMeta').textContent='Wins count automatically';
+  if(!linked){$('#emHint').textContent='Start PG3D once and your player ID is picked up automatically. Or enter it yourself.';return}
+  $('#emName').textContent=e.name||`Player ${e.player_id}`;$('#emMeta').textContent=(e.source==='detected'?'Synced from PG3D':'Linked by ID')+(statusData?.game_running?' · live':'');
   $('#emHint').textContent=e.error?'Couldn’t reach Ember. Using your last known wins.':''}
 $('#emLinkBtn').onclick=async()=>{const id=$('#emId').value.trim();if(!id)return toast('Enter your PG3D player ID.',true);$('#emLinkBtn').disabled=true;
   try{const d=await post('/api/rank/ember',{player_id:id});toast(`Linked ${d.ember.name||id}`);await loadRank();refreshStatus()}catch(e){toast(e.message,true)}finally{$('#emLinkBtn').disabled=false}};
+$('#emDetectBtn').onclick=async()=>{$('#emDetectBtn').disabled=true;try{const d=await post('/api/rank/ember/detect');toast(`Found ${d.ember.name||d.ember.player_id}`);await loadRank();refreshStatus()}catch(e){toast(e.message,true)}finally{$('#emDetectBtn').disabled=false}};
 $('#emId').addEventListener('keydown',e=>{if(e.key==='Enter')$('#emLinkBtn').click()});
 $('#emUnlink').onclick=async()=>{try{await post('/api/rank/ember',{player_id:''});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
 $('#rkWinPlus').onclick=async()=>{try{await post('/api/rank/win',{delta:1});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};

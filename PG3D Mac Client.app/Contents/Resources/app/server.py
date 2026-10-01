@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import mimetypes
+import plistlib
 import os
 import re
 import shutil
@@ -54,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.22.0"
+APP_VERSION = "1.23.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3728,14 +3729,24 @@ def _ember_fetch(player_id):
     }
 
 
-def ember_stats(account, force=False):
-    """Linked Ember stats for a Steam account, refreshed at most every 10 min."""
+EMBER_REFRESH_PLAYING = 60     # seconds between refreshes while PG3D runs
+EMBER_REFRESH_IDLE = 600
+
+
+def ember_stats(account, force=False, fetch=True):
+    """Linked Ember stats for a Steam account.
+
+    With fetch=False this only returns what is cached; the sync thread does
+    the network refreshes so the status poll never waits on Ember.
+    """
     data = wins_data()
     acc = data["accounts"].get(str(account), {})
     link = acc.get("ember")
     if not link or not link.get("player_id"):
         return None
-    if not force and time.time() - int(link.get("fetched", 0) or 0) < 600:
+    age = time.time() - int(link.get("fetched", 0) or 0)
+    limit = EMBER_REFRESH_PLAYING if game_running() else EMBER_REFRESH_IDLE
+    if not fetch or (not force and age < limit):
         return link
     try:
         fresh = _ember_fetch(link["player_id"])
@@ -3743,6 +3754,7 @@ def ember_stats(account, force=False):
     except Exception as e:
         log(f"Ember lookup failed: {e}")
         fresh = {**link, "error": str(e), "fetched": int(time.time())}
+    fresh["source"] = link.get("source", "manual")
     with _LOCK:
         data = wins_data()
         data["accounts"].setdefault(str(account), {"auto": 0, "manual": 0, "log": []})["ember"] = fresh
@@ -3750,23 +3762,114 @@ def ember_stats(account, force=False):
     return fresh
 
 
-def link_ember(account, player_id):
+def link_ember(account, player_id, source="manual"):
     pid = re.sub(r"\s+", "", str(player_id or ""))
     data = wins_data()
     acc = data["accounts"].setdefault(str(account), {"auto": 0, "manual": 0, "log": []})
     if not pid:
         acc.pop("ember", None)
+        acc["ember_auto_off"] = True  # the user unlinked: don't re-link behind their back
         write_json(WINS_JSON, data)
         return {"ok": True, "linked": False}
     if not re.fullmatch(r"\d{1,12}", pid):
         raise RuntimeError("A PG3D player ID is numbers only. Find it in your in-game profile.")
     stats = _ember_fetch(pid)  # raises with a readable message if the ID has no stats
     stats["error"] = None
+    stats["source"] = source
     with _LOCK:
         data = wins_data()
-        data["accounts"].setdefault(str(account), {"auto": 0, "manual": 0, "log": []})["ember"] = stats
+        acc = data["accounts"].setdefault(str(account), {"auto": 0, "manual": 0, "log": []})
+        acc["ember"] = stats
+        acc.pop("ember_auto_off", None)
         write_json(WINS_JSON, data)
+    log(f"Ember linked for {account}: {pid} ({source})")
     return {"ok": True, "linked": True, "ember": stats}
+
+
+# ------------------------------------------------- PG3D player ID detection
+# Unity keeps PlayerPrefs for a macOS app in ~/Library/Preferences/<domain>.plist.
+# PG3D stores the signed-in player ID under "AccountCreated" (the same value
+# the Windows build keeps in the registry). Only that key is ever read here.
+PG3D_ID_KEY = "AccountCreated"
+
+
+def _pg3d_pref_domains():
+    prefs = Path.home() / "Library/Preferences"
+    found = []
+    try:
+        for p in prefs.glob("*.plist"):
+            low = p.name.lower()
+            if "pixel gun" in low or "pixelgun" in low or "pixel.gun" in low:
+                found.append(p)
+    except OSError:
+        pass
+    return sorted(found, key=lambda p: p.stat().st_mtime if p.exists() else 0, reverse=True)
+
+
+def _read_prefs(path: Path):
+    # `defaults export` goes through cfprefsd, so it sees values the game has
+    # written but macOS hasn't flushed to disk yet. Fall back to the file.
+    try:
+        r = subprocess.run(["/usr/bin/defaults", "export", path.stem, "-"], capture_output=True, timeout=5)
+        if r.returncode == 0 and r.stdout:
+            return plistlib.loads(r.stdout)
+    except Exception:
+        pass
+    try:
+        with path.open("rb") as f:
+            return plistlib.load(f)
+    except Exception:
+        return {}
+
+
+def _id_from_value(value):
+    if isinstance(value, (bytes, bytearray)):
+        value = bytes(value).decode("utf-8", "ignore").rstrip("\x00")
+    m = re.search(r"\d{4,12}", str(value))
+    return m.group(0) if m else None
+
+
+def detect_pg3d_player_id():
+    """The PG3D player ID currently signed in on this Mac, or None."""
+    for path in _pg3d_pref_domains():
+        prefs = _read_prefs(path)
+        for key, value in prefs.items():
+            # Unity on Windows appends "_h<hash>" to key names; macOS may not.
+            if key == PG3D_ID_KEY or key.startswith(PG3D_ID_KEY + "_h"):
+                pid = _id_from_value(value)
+                if pid:
+                    return pid
+    return None
+
+
+def ember_sync_watch():
+    """Keep the active Steam account linked to the PG3D ID that is signed in,
+    and refresh its Ember wins every minute while the game runs."""
+    was_running = False
+    last_detect = 0.0
+    while True:
+        try:
+            running = _game_running_uncached()
+            account = _playtime_account()
+            now = time.time()
+            if account != "unknown" and (running or was_running) and now - last_detect > 30:
+                last_detect = now
+                pid = detect_pg3d_player_id()
+                acc = wins_data()["accounts"].get(str(account), {})
+                linked = (acc.get("ember") or {}).get("player_id")
+                if pid and pid != linked and not (acc.get("ember_auto_off") and not linked):
+                    try:
+                        link_ember(account, pid, source="detected")
+                    except Exception as e:
+                        log(f"Auto-link of PG3D ID {pid} failed: {e}")
+            if account != "unknown":
+                # force one refresh right after a session ends so the last
+                # match's wins land without waiting for the idle interval
+                ember_stats(account, force=(was_running and not running))
+            was_running = running
+        except Exception as e:
+            log(f"Ember sync error: {e}")
+        time.sleep(10)
 
 
 def tracked_minutes(account):
@@ -3787,7 +3890,7 @@ def rank_payload(account, full=False):
     auto_w, manual_w = int(acc.get("auto", 0)), int(acc.get("manual", 0))
     ember = None
     try:
-        ember = ember_stats(account) if full or (acc.get("ember") or {}).get("player_id") else None
+        ember = ember_stats(account, fetch=False)
     except Exception as e:
         log(f"Ember stats failed: {e}")
     if ember and ember.get("wins_total") is not None and ember.get("player_id"):
@@ -4164,6 +4267,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(record_win(_playtime_account(), "manual", None, delta))
             if path == "/api/rank/ember":
                 return self.send_json(link_ember(_playtime_account(), data.get("player_id", "")))
+            if path == "/api/rank/ember/detect":
+                pid = detect_pg3d_player_id()
+                if not pid:
+                    raise RuntimeError("No PG3D player ID found yet. Start the game once and sign in, then try again.")
+                return self.send_json(link_ember(_playtime_account(), pid, source="detected"))
             if path == "/api/rank/ember/refresh":
                 return self.send_json({"ok": True, "ember": ember_stats(_playtime_account(), force=True)})
             if path == "/api/rank/config":
@@ -4283,6 +4391,7 @@ def main():
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     threading.Thread(target=idle_watch, args=(server,), daemon=True).start()
     threading.Thread(target=playtime_watch, daemon=True).start()
+    threading.Thread(target=ember_sync_watch, daemon=True).start()
     global WIN_WATCHER
     WIN_WATCHER = ranks.WinWatcher(win_config, _on_auto_win, game_running, log)
     WIN_WATCHER.start()

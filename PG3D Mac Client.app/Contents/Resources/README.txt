@@ -1,4 +1,4 @@
-PG3D Mac Client 1.22.0
+PG3D Mac Client 1.23.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -35,3 +35,8 @@ Simpler Rank, Cursor and Overlay pages. Rank shows your rank, a progress
 bar and what you need next. Cursor and Overlay use color swatches with a
 custom color picker; Overlay has one Style card for everything.
 Re-detect cursor moved to Settings > Troubleshooting.
+
+New in 1.23
+Rank finds your PG3D player ID by itself: it reads the signed-in ID from
+the game's settings when PG3D runs, links it to the Steam account you are
+playing on, and refreshes your wins every minute while you play.
