@@ -5,7 +5,7 @@
 set -u
 setopt NULL_GLOB
 
-VERSION="1.19.0"
+VERSION="1.20.0"
 PORT=38513
 APP_ID="pg3d-mac-client-v$VERSION"
 SOURCE_BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -158,6 +158,10 @@ export SSL_CERT_FILE="$("$VPY" -c 'import certifi; print(certifi.where())' 2>/de
 if ! "$VPY" -c 'import UnityPy; from PIL import Image' >/dev/null 2>&1; then
   ( "$VPY" -m pip install --disable-pip-version-check -q "UnityPy==1.25.3" "Pillow>=10,<13" >>"$LOG" 2>&1 ||
     "$VPY" -m pip install --disable-pip-version-check -q "UnityPy>=1.25,<2" "Pillow>=10,<13" >>"$LOG" 2>&1 ) &
+fi
+# numpy speeds up panorama skybox projection; the Sky tab works without it.
+if ! "$VPY" -c 'import numpy' >/dev/null 2>&1; then
+  ( "$VPY" -m pip install --disable-pip-version-check -q "numpy>=1.24,<3" >>"$LOG" 2>&1 ) &
 fi
 
 # ---------------------------------------------------------------- start

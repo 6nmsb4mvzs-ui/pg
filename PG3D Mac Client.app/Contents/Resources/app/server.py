@@ -43,6 +43,7 @@ UnityPy = _LazyModule("UnityPy")
 Image = _LazyModule("PIL.Image")
 ImageChops = _LazyModule("PIL.ImageChops")
 ImageFilter = _LazyModule("PIL.ImageFilter")
+customize = _LazyModule("customize")
 
 try:
     import vdf
@@ -50,9 +51,10 @@ except Exception:
     import simple_vdf as vdf
 
 import clips
+import ranks
 import updater
 
-APP_VERSION = "1.19.0"
+APP_VERSION = "1.20.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -99,14 +101,22 @@ OVERLAY_SCRIPT = BASE / "overlay.py"
 OVERLAY_EDIT_REQUEST_JSON = STATE_DIR / "overlay_edit_request.json"
 _PLAYER_COUNT_CACHE = {"value": None, "at": 0.0}
 PLAYTIME_JSON = STATE_DIR / "playtime.json"
+WINS_JSON = STATE_DIR / "wins.json"
+RANK_STATE_JSON = STATE_DIR / "rank_state.json"
+CUSTOMIZE_CATALOG_JSON = STATE_DIR / "customize_catalog.json"
+SKY_DIR = SUPPORT / "skies"
+SKY_PREVIEWS = RUNTIME / "sky_previews"
 KEYCHAIN_SERVICE = "PG3D Mac Client Steam"
 # Build the bundled FPS unlocker was written against (see fps_unlocker/src/pg3d_fps_unlock.c).
 FPS_SUPPORTED_BUILDS = {"151027"}
 
-for p in (SUPPORT, RUNTIME, BACKUPS, ACCOUNT_BACKUPS, STATE_DIR, GUI_PREVIEWS, FPS_LOG_DIR, FPS_RUNTIME_DIR):
+for p in (SUPPORT, RUNTIME, BACKUPS, ACCOUNT_BACKUPS, STATE_DIR, GUI_PREVIEWS, FPS_LOG_DIR, FPS_RUNTIME_DIR,
+          SKY_DIR, SKY_PREVIEWS):
     p.mkdir(parents=True, exist_ok=True)
 
 _LOCK = threading.RLock()
+# Only one asset rebuild at a time; a theme rebuild can take minutes.
+_MUTATE_LOCK = threading.Lock()
 LAST_REQUEST = time.time()
 PENDING_GUARD = None
 
@@ -124,6 +134,11 @@ STATUS = {
     "launch_message": "Ready",
     "launch_error": None,
     "last_fps": None,
+    "job_kind": None,
+    "job_phase": "idle",
+    "job_progress": 0,
+    "job_message": "",
+    "job_error": None,
 }
 
 CURSOR_KEYWORDS = {
@@ -693,7 +708,7 @@ def start_gui_scan(deep=False):
 
 
 def default_mods():
-    return {"cursor": None, "gui": {}, "hud_set": {}, "hud_disabled": False}
+    return {"cursor": None, "gui": {}, "hud_set": {}, "hud_disabled": False, "theme": None, "skybox": None}
 
 
 def load_mods():
@@ -733,6 +748,12 @@ def sources_for_state(state):
         for op in state.get("hud_set", {}).values():
             if op.get("source_file"):
                 out.add(op["source_file"])
+    theme = state.get("theme")
+    if theme:
+        out.update(theme.get("targets", {}).keys())
+    sky = state.get("skybox")
+    if sky:
+        out.update(t["source_file"] for t in sky.get("targets", []) if t.get("source_file"))
     return out
 
 
@@ -995,11 +1016,24 @@ def all_operations_for_source(state, source_str: str):
     return gui
 
 
-def rebuild_sources(source_strings, state=None):
+def _load_sky_image(sky):
+    path = SKY_DIR / Path(str(sky.get("image", ""))).name
+    if not path.is_file():
+        raise RuntimeError("The selected sky image is missing. Pick or upload it again.")
+    return Image.open(path).convert("RGBA")
+
+
+def rebuild_sources(source_strings, state=None, progress=None):
     if game_running():
         raise RuntimeError("Close Pixel Gun 3D before applying or resetting asset changes.")
     state = state or load_mods()
-    for source_str in sorted(set(source_strings)):
+    theme = state.get("theme") or None
+    sky = state.get("skybox") or None
+    sky_image = None
+    ordered = sorted(set(source_strings))
+    for index, source_str in enumerate(ordered, 1):
+        if progress:
+            progress((index - 1) / max(1, len(ordered)), f"Rebuilding game files ({index}/{len(ordered)})…")
         source = Path(source_str)
         if not source.exists():
             log(f"Skipping missing asset during rebuild: {source}")
@@ -1008,7 +1042,14 @@ def rebuild_sources(source_strings, state=None):
         original = Path(manifest["original"])
         needs_cursor = bool(state.get("cursor") and state["cursor"].get("target", {}).get("source_file") == source_str)
         gui_ops = all_operations_for_source(state, source_str)
-        if not needs_cursor and not gui_ops:
+        sky_ops = [t for t in (sky or {}).get("targets", []) if t.get("source_file") == source_str]
+        sky_pids = {int(t["path_id"]) for t in sky_ops}
+        theme_pids = {int(x) for x in (theme or {}).get("targets", {}).get(source_str, [])} - sky_pids
+        if needs_cursor and state["cursor"]["target"].get("object_type") == "Texture2D":
+            theme_pids.discard(int(state["cursor"]["target"]["path_id"]))
+        if sky_ops and sky_image is None:
+            sky_image = _load_sky_image(sky)
+        if not needs_cursor and not gui_ops and not theme_pids and not sky_ops:
             shutil.copy2(original, source)
             manifest["last_mod_sha256"] = None
             manifest["restored"] = datetime.now().isoformat(timespec="seconds")
@@ -1018,18 +1059,24 @@ def rebuild_sources(source_strings, state=None):
         shutil.copy2(original, source)
         try:
             env = UnityPy.load(str(source))
-            atlas_cache = {}  # texture path id -> {reader,data,image,dirty}
+            atlas_cache = {}  # texture path id -> {reader,data,image,orig,dirty}
+
+            def themed(img):
+                return customize.recolor_image(img, theme["preset"], theme.get("strength", 0.85))
 
             def atlas_entry(tex_reader):
                 pid = int(tex_reader.path_id)
                 if pid not in atlas_cache:
                     data = tex_reader.parse_as_object()
-                    atlas_cache[pid] = {
-                        "reader": tex_reader,
-                        "data": data,
-                        "image": data.image.convert("RGBA"),
-                        "dirty": False,
-                    }
+                    image = data.image.convert("RGBA")
+                    entry = {"reader": tex_reader, "data": data, "image": image, "orig": image, "dirty": False}
+                    if pid in theme_pids:
+                        # Recolour the whole atlas first; cursor/GUI edits are
+                        # composited on top. "orig" keeps sprite lookup exact.
+                        entry["orig"] = image.copy()
+                        entry["image"] = themed(image)
+                        entry["dirty"] = True
+                    atlas_cache[pid] = entry
                 return atlas_cache[pid]
 
             # Cursor operation first.
@@ -1054,7 +1101,7 @@ def rebuild_sources(source_strings, state=None):
                         raise RuntimeError("Cursor sprite texture atlas could not be resolved.")
                     entry = atlas_entry(tr)
                     r = spr.m_RD.textureRect
-                    x, y, w, h = sprite_xy(entry["image"], old_sprite, [r.x, r.y, r.width, r.height])
+                    x, y, w, h = sprite_xy(entry["orig"], old_sprite, [r.x, r.y, r.width, r.height])
                     entry["image"].paste((0, 0, 0, 0), (x, y, x + w, y + h))
                     entry["image"].alpha_composite(fit_cursor(icon, (w, h), pct, target.get("visible_bbox")), (x, y))
                     entry["dirty"] = True
@@ -1078,18 +1125,51 @@ def rebuild_sources(source_strings, state=None):
                     continue
                 entry = atlas_entry(tr)
                 r = spr.m_RD.textureRect
-                x, y, w, h = sprite_xy(entry["image"], old_sprite, [r.x, r.y, r.width, r.height])
+                x, y, w, h = sprite_xy(entry["orig"], old_sprite, [r.x, r.y, r.width, r.height])
                 entry["image"].paste((0, 0, 0, 0), (x, y, x + w, y + h))
                 hidden = bool(op.get("hidden", False))
                 if not hidden:
                     scale = max(10.0, min(100.0, float(op.get("scale", 100))))
                     px = float(op.get("pivot_x", 0.5))
                     py = float(op.get("pivot_y", 0.5))
+                    if int(tr.path_id) in theme_pids:
+                        old_sprite = themed(old_sprite)
                     changed = scale_sprite_about_pivot(old_sprite, scale, px, py)
                     if changed.size != (w, h):
                         changed = changed.resize((w, h), Image.Resampling.LANCZOS)
                     entry["image"].alpha_composite(changed, (x, y))
                 entry["dirty"] = True
+
+            # Theme: every remaining GUI texture in this file.
+            if theme_pids:
+                readers = {int(o.path_id): o for o in env.objects}
+                for pid in sorted(theme_pids):
+                    reader = readers.get(pid)
+                    if reader is None or reader.type.name != "Texture2D":
+                        continue
+                    try:
+                        atlas_entry(reader)
+                    except Exception as e:
+                        log(f"Theme skipped texture {pid} in {source.name}: {e}")
+
+            # Skybox textures.
+            for t in sky_ops:
+                reader = find_reader(env, int(t["path_id"]))
+                if reader is None:
+                    log(f"Sky texture {t['path_id']} moved in {source.name}; skipped")
+                    continue
+                data = reader.parse_as_object()
+                if reader.type.name == "Cubemap":
+                    size = int(data.m_Width) or int(t.get("width", 512))
+                    faces = customize.cubemap_faces(sky_image, size, sky.get("yaw", 0), sky.get("swap_lr", False))
+                    customize.write_cubemap(data, faces, flip=not sky.get("flip", False))
+                else:
+                    img = customize.sky_image_for({**t, "width": data.m_Width, "height": data.m_Height},
+                                                  sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
+                    if sky.get("flip"):
+                        img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+                    data.image = img
+                save_parsed_object(data, reader)
 
             for entry in atlas_cache.values():
                 if entry["dirty"]:
@@ -1104,16 +1184,32 @@ def rebuild_sources(source_strings, state=None):
         manifest["last_mod_sha256"] = sha256_file(source)
         manifest["modified"] = datetime.now().isoformat(timespec="seconds")
         write_manifest(source, manifest)
+    if progress:
+        progress(1.0, "Done.")
 
 
-def mutate_state(mutator, label):
+def _exclusive(fn):
+    """Run an asset rebuild unless another one is already in progress."""
+    def wrapper(*args, **kwargs):
+        if not _MUTATE_LOCK.acquire(blocking=False):
+            raise RuntimeError("Another change is still being applied to the game files. Wait for it to finish.")
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _MUTATE_LOCK.release()
+    wrapper.__name__ = fn.__name__
+    return wrapper
+
+
+@_exclusive
+def mutate_state(mutator, label, progress=None):
     before = load_mods()
     after = copy.deepcopy(before)
     mutator(after)
     affected = sources_for_state(before) | sources_for_state(after)
     push_history(before, after, label)
     try:
-        rebuild_sources(affected, after)
+        rebuild_sources(affected, after, progress)
     except Exception:
         save_mods(before)
         try:
@@ -1128,6 +1224,7 @@ def mutate_state(mutator, label):
     return after
 
 
+@_exclusive
 def undo_change():
     hist = read_json(HISTORY_JSON, default_history())
     if not hist["undo"]:
@@ -1148,6 +1245,7 @@ def undo_change():
     return {"ok": True, "label": entry.get("label", "Change")}
 
 
+@_exclusive
 def redo_change():
     hist = read_json(HISTORY_JSON, default_history())
     if not hist["redo"]:
@@ -3056,9 +3154,22 @@ def status_payload():
         "update": ({k: v for k, v in updater.UPDATER.state().items() if k in ("available", "phase", "message")}
                    if updater.UPDATER else None),
         "playtime": playtime_summary(account_info.get("current") or account_info.get("selected") or "unknown"),
+        "rank": _safe_rank(account_info.get("current") or account_info.get("selected") or "unknown"),
+        "job": {k[4:]: s.get(k) for k in ("job_kind", "job_phase", "job_progress", "job_message", "job_error")},
         "overlay": {"config": overlay_config(), "runtime": overlay_runtime()},
     })
     return s
+
+
+def _safe_rank(account):
+    try:
+        r = rank_payload(account)
+        return {k: r.get(k) for k in ("title", "tier", "tier_name", "division", "color", "xp", "progress",
+                                      "next_name", "xp_to_next", "hours_to_next", "emblem", "last_event",
+                                      "wins", "hours", "gated", "lp")}
+    except Exception as e:
+        log(f"Rank summary failed: {e}")
+        return None
 
 
 def _fmt_duration(seconds):
@@ -3222,6 +3333,492 @@ def reveal(what):
     return {"ok": True}
 
 
+# ------------------------------------------------------------ background jobs
+def _sub_progress(progress, lo, hi):
+    return lambda frac, msg: progress(lo + (hi - lo) * max(0.0, min(1.0, frac)), msg)
+
+
+def start_job(kind, fn):
+    """Run a long asset task in the background; the UI polls job_* in status."""
+    with _LOCK:
+        if STATUS.get("job_phase") == "running":
+            raise RuntimeError("Another task is still running. Wait for it to finish.")
+        if game_running():
+            raise RuntimeError("Close Pixel Gun 3D first. Game files can't be changed while it is running.")
+        STATUS.update(job_kind=kind, job_phase="running", job_progress=0,
+                      job_message="Starting…", job_error=None)
+
+    def progress(frac, msg):
+        set_status(job_progress=int(round(max(0.0, min(1.0, frac)) * 100)), job_message=msg)
+
+    def work():
+        try:
+            msg = fn(progress) or "Done."
+            set_status(job_phase="done", job_progress=100, job_message=msg)
+            log(f"Job {kind} finished: {msg}")
+        except Exception as e:
+            log(traceback.format_exc())
+            set_status(job_phase="error", job_error=str(e), job_message="Failed.")
+    threading.Thread(target=work, daemon=True).start()
+    return {"ok": True}
+
+
+# ------------------------------------------------------- theme + sky catalog
+THEME_SAMPLES = RUNTIME / "theme_samples"
+
+
+def customize_catalog():
+    return read_json(CUSTOMIZE_CATALOG_JSON, {"generated": None, "app": None, "build": None, "gui": {}, "sky": []})
+
+
+def _catalog_fresh(cat):
+    app = find_app()
+    if not app or not cat.get("generated") or cat.get("app") != str(app):
+        return False
+    build = plist_value(app / "Contents/Info.plist", "CFBundleVersion")
+    return cat.get("build") == build
+
+
+def scan_customize(progress):
+    app = find_app()
+    if not app:
+        raise RuntimeError("Pixel Gun 3D.app was not found in your Steam libraries.")
+    root = app / "Contents/Resources/Data"
+    files = candidate_files(root, deep=True)
+    if not files:
+        raise RuntimeError("No readable Unity asset files were found in the PG3D app.")
+    shutil.rmtree(THEME_SAMPLES, ignore_errors=True)
+    THEME_SAMPLES.mkdir(parents=True, exist_ok=True)
+    for old in SKY_PREVIEWS.glob("target_*.jpg"):
+        old.unlink(missing_ok=True)
+    samples = []
+
+    def keep_sample(img, meta):
+        name = f"{len(samples) + 1:02d}.png"
+        img.save(THEME_SAMPLES / name)
+        samples.append({"file": name, "name": meta.get("name", ""), "width": meta["width"], "height": meta["height"]})
+
+    gui, sky = customize.scan_assets(files, app, GUI_HINTS, progress, log, sample_cb=keep_sample)
+    for t in sky:
+        thumb = t.pop("_thumb", None)
+        if thumb is not None:
+            try:
+                thumb.save(SKY_PREVIEWS / f"target_{t['id']}.jpg", quality=85)
+                t["preview"] = f"/api/sky/target/{t['id']}.jpg"
+            except Exception:
+                pass
+    data = {
+        "generated": datetime.now().isoformat(timespec="seconds"),
+        "app": str(app),
+        "build": plist_value(app / "Contents/Info.plist", "CFBundleVersion"),
+        "gui": gui,
+        "sky": sky,
+        "samples": samples,
+        "files_scanned": len(files),
+    }
+    write_json(CUSTOMIZE_CATALOG_JSON, data)
+    log(f"Customize scan: {sum(len(v) for v in gui.values())} GUI textures in {len(gui)} files, {len(sky)} sky textures")
+    return data
+
+
+def ensure_catalog(progress, force=False):
+    cat = customize_catalog()
+    if not force and _catalog_fresh(cat):
+        progress(1.0, "Using the saved scan.")
+        return cat
+    return scan_customize(progress)
+
+
+def theme_payload():
+    cat = customize_catalog()
+    mods = load_mods()
+    theme = mods.get("theme")
+    return {
+        "ok": True,
+        "presets": [{"id": k, "name": v["name"], "desc": v["desc"], "stops": v["stops"]}
+                    for k, v in customize.THEMES.items()],
+        "active": ({"preset": theme["preset"], "strength": theme.get("strength", 0.85),
+                    "textures": sum(len(v) for v in theme.get("targets", {}).values()),
+                    "files": len(theme.get("targets", {}))} if theme else None),
+        "scan": {"generated": cat.get("generated"), "fresh": _catalog_fresh(cat),
+                 "textures": sum(len(v) for v in cat.get("gui", {}).values()),
+                 "files": len(cat.get("gui", {})), "files_scanned": cat.get("files_scanned")},
+        "samples": [f"/api/theme/sample/{s['file']}" for s in cat.get("samples", [])],
+    }
+
+
+def apply_theme(preset, strength):
+    if preset not in customize.THEMES:
+        raise RuntimeError("Unknown theme preset.")
+    try:
+        strength = max(0.3, min(1.0, float(strength)))
+    except Exception:
+        strength = 0.85
+    name = customize.THEMES[preset]["name"]
+
+    def job(progress):
+        cat = ensure_catalog(_sub_progress(progress, 0, 0.4))
+        targets = {src: sorted({int(t["path_id"]) for t in items})
+                   for src, items in cat.get("gui", {}).items() if Path(src).exists()}
+        if not targets:
+            raise RuntimeError("No GUI textures were found to recolour.")
+
+        def change(state):
+            state["theme"] = {"preset": preset, "strength": strength, "targets": targets}
+        mutate_state(change, f"Theme: {name}", _sub_progress(progress, 0.4, 1.0))
+        count = sum(len(v) for v in targets.values())
+        return f"{name} applied to {count} GUI textures in {len(targets)} files."
+    return start_job("theme", job)
+
+
+def reset_theme():
+    def job(progress):
+        def change(state):
+            state["theme"] = None
+        mutate_state(change, "Reset theme", progress)
+        return "Original PG3D colours restored."
+    return start_job("theme", job)
+
+
+def render_theme_sample(index, preset, strength):
+    cat = customize_catalog()
+    samples = cat.get("samples", [])
+    if not samples:
+        raise RuntimeError("Scan the game first.")
+    item = samples[max(0, min(len(samples) - 1, int(index)))]
+    img = Image.open(THEME_SAMPLES / item["file"]).convert("RGBA")
+    if preset in customize.THEMES:
+        img = customize.recolor_image(img, preset, float(strength))
+    bio = io.BytesIO()
+    img.save(bio, format="PNG")
+    return bio.getvalue()
+
+
+# ------------------------------------------------------------------- skyboxes
+SKY_LIBRARY_JSON = SKY_DIR / "library.json"
+
+
+def sky_library():
+    data = read_json(SKY_LIBRARY_JSON, {"skies": []})
+    skies = [s for s in data.get("skies", []) if (SKY_DIR / s.get("file", "")).is_file()]
+    return skies
+
+
+def _sky_by_id(sky_id):
+    for s in sky_library():
+        if s["id"] == sky_id:
+            return s
+    raise RuntimeError("That sky image is no longer in your library.")
+
+
+def upload_sky(data_url, name):
+    if "," not in str(data_url):
+        raise RuntimeError("Invalid image upload.")
+    raw = base64.b64decode(str(data_url).split(",", 1)[1])
+    if len(raw) > 80 * 1024 * 1024:
+        raise RuntimeError("Sky images must be smaller than 80 MB.")
+    try:
+        im = Image.open(io.BytesIO(raw))
+        im.load()
+    except Exception:
+        raise RuntimeError("That file isn't an image PG3D Client can read (use PNG or JPEG).")
+    if im.width > 16384 or im.height > 16384 or im.width < 64 or im.height < 64:
+        raise RuntimeError("Sky images must be between 64 and 16384 pixels on each side.")
+    sky_id = hashlib.sha256(raw).hexdigest()[:16]
+    ext = ".jpg" if (im.format or "").upper() == "JPEG" else ".png"
+    path = SKY_DIR / f"{sky_id}{ext}"
+    if ext == ".png" and (im.format or "").upper() != "PNG":
+        im.convert("RGBA").save(path, "PNG")
+    else:
+        path.write_bytes(raw)
+    thumb = im.convert("RGB")
+    thumb.thumbnail((640, 640))
+    thumb.save(SKY_PREVIEWS / f"{sky_id}.jpg", quality=85)
+    data = read_json(SKY_LIBRARY_JSON, {"skies": []})
+    skies = [s for s in data.get("skies", []) if s.get("id") != sky_id]
+    skies.insert(0, {
+        "id": sky_id, "file": path.name, "name": customize.safe_sky_name(name),
+        "width": im.width, "height": im.height,
+        "panorama": 1.7 <= im.width / max(1, im.height) <= 2.3,
+        "added": datetime.now().isoformat(timespec="seconds"),
+    })
+    data["skies"] = skies
+    write_json(SKY_LIBRARY_JSON, data)
+    return {"ok": True, "id": sky_id}
+
+
+def delete_sky(sky_id):
+    active = (load_mods().get("skybox") or {}).get("image", "")
+    sky = _sky_by_id(sky_id)
+    if active == sky["file"]:
+        raise RuntimeError("That sky is in use. Restore the original sky first.")
+    (SKY_DIR / sky["file"]).unlink(missing_ok=True)
+    (SKY_PREVIEWS / f"{sky_id}.jpg").unlink(missing_ok=True)
+    data = read_json(SKY_LIBRARY_JSON, {"skies": []})
+    data["skies"] = [s for s in data.get("skies", []) if s.get("id") != sky_id]
+    write_json(SKY_LIBRARY_JSON, data)
+    return {"ok": True}
+
+
+def sky_payload():
+    cat = customize_catalog()
+    sky = load_mods().get("skybox")
+    return {
+        "ok": True,
+        "library": [{**s, "thumb": f"/api/sky/thumb/{s['id']}.jpg"} for s in sky_library()],
+        "targets": cat.get("sky", []),
+        "scan": {"generated": cat.get("generated"), "fresh": _catalog_fresh(cat)},
+        "active": ({k: sky.get(k) for k in ("id", "name", "yaw", "swap_lr", "flip")} |
+                   {"count": len(sky.get("targets", [])),
+                    "target_keys": [f"{t['source_file']}:{t['path_id']}" for t in sky.get("targets", [])]}
+                   if sky else None),
+        "numpy": customize.np is not None,
+    }
+
+
+def sky_cross_preview(sky_id, yaw=0.0, swap_lr=False, size=160):
+    """Unfolded cube (a 4x3 cross) so the user sees how a panorama will wrap."""
+    sky = _sky_by_id(sky_id)
+    src = Image.open(SKY_DIR / sky["file"]).convert("RGB")
+    if max(src.size) > 2048:
+        src.thumbnail((2048, 2048))
+    cross = Image.new("RGBA", (size * 4, size * 3), (0, 0, 0, 0))
+    layout = {"up": (1, 0), "left": (0, 1), "front": (1, 1), "right": (2, 1), "back": (3, 1), "down": (1, 2)}
+    for face, (cx, cy) in layout.items():
+        f = face
+        if swap_lr and face in ("left", "right"):
+            f = "right" if face == "left" else "left"
+        if customize.is_panorama(src):
+            img = customize.project_face(src, f, size, yaw)
+        else:
+            img = customize.cover(src, (size, size))
+        cross.paste(img, (cx * size, cy * size))
+    bio = io.BytesIO()
+    cross.save(bio, format="PNG")
+    return bio.getvalue()
+
+
+def apply_sky(sky_id, target_ids=None, yaw=0, swap_lr=False, flip=False):
+    sky = _sky_by_id(sky_id)
+    try:
+        yaw = float(yaw) % 360
+    except Exception:
+        yaw = 0.0
+
+    def job(progress):
+        cat = ensure_catalog(_sub_progress(progress, 0, 0.4))
+        all_targets = cat.get("sky", [])
+        if not all_targets:
+            raise RuntimeError("No skybox textures were found in this PG3D build.")
+        picked = all_targets if not target_ids else [t for t in all_targets if t["id"] in set(target_ids)]
+        picked = [{k: t[k] for k in ("source_file", "relative_file", "path_id", "name", "type", "face", "width", "height")}
+                  for t in picked if Path(t["source_file"]).exists()]
+        if not picked:
+            raise RuntimeError("None of the selected sky textures exist anymore. Scan again.")
+
+        def change(state):
+            state["skybox"] = {"id": sky["id"], "image": sky["file"], "name": sky["name"], "yaw": yaw,
+                               "swap_lr": bool(swap_lr), "flip": bool(flip), "targets": picked}
+        mutate_state(change, f"Sky: {sky['name']}", _sub_progress(progress, 0.4, 1.0))
+        return f"“{sky['name']}” applied to {len(picked)} sky textures."
+    return start_job("sky", job)
+
+
+def reset_sky():
+    def job(progress):
+        def change(state):
+            state["skybox"] = None
+        mutate_state(change, "Reset sky", progress)
+        return "Original skies restored."
+    return start_job("sky", job)
+
+
+def rescan_customize():
+    def job(progress):
+        cat = scan_customize(progress)
+        return (f"Found {sum(len(v) for v in cat['gui'].values())} GUI textures and "
+                f"{len(cat['sky'])} sky textures.")
+    return start_job("scan", job)
+
+
+# ----------------------------------------------------------------------- rank
+def default_win_config():
+    return {"patterns": list(ranks.DEFAULT_WIN_PATTERNS), "loss_guard": ranks.DEFAULT_LOSS_GUARD,
+            "cooldown": 90, "auto": True, "steam_playtime": True}
+
+
+def wins_data():
+    data = read_json(WINS_JSON, {})
+    if not isinstance(data.get("accounts"), dict):
+        data["accounts"] = {}
+    cfg = default_win_config()
+    cfg.update(data.get("config") or {})
+    data["config"] = cfg
+    return data
+
+
+def win_config():
+    cfg = wins_data()["config"]
+    return cfg if cfg.get("auto", True) else {**cfg, "patterns": []}
+
+
+def record_win(account, source, line=None, delta=1):
+    with _LOCK:
+        data = wins_data()
+        acc = data["accounts"].setdefault(str(account), {"auto": 0, "manual": 0, "log": []})
+        key = "auto" if source == "auto" else "manual"
+        acc[key] = max(0, int(acc.get(key, 0)) + int(delta))
+        acc["log"] = (acc.get("log", []) + [{"at": int(time.time()), "source": source, "delta": int(delta),
+                                             "line": (line or "")[:300]}])[-300:]
+        write_json(WINS_JSON, data)
+    log(f"Win recorded ({source}, {delta:+d}) for {account}")
+    return {"ok": True}
+
+
+def _on_auto_win(line):
+    record_win(_playtime_account(), "auto", line)
+
+
+def steam_playtime_minutes(steamid64):
+    def read():
+        aid = steam_account_id(steamid64)
+        if aid is None:
+            return None
+        path = steam_root() / "userdata" / str(aid) / "config/localconfig.vdf"
+        if not path.exists():
+            return None
+        try:
+            node = load_vdf(path, {})
+            for key in ("UserLocalConfigStore", "Software", "Valve", "Steam", "apps", STEAM_APP_ID):
+                node = ci_get(node, key, {}) or {}
+            value = ci_get(node, "Playtime")
+            return int(value) if value is not None else None
+        except Exception as e:
+            log(f"Steam playtime read failed: {e}")
+            return None
+    return cached(("steam_playtime", str(steamid64)), 60, read)
+
+
+def tracked_minutes(account):
+    data = read_json(PLAYTIME_JSON, {"sessions": []})
+    total = sum(x.get("seconds", 0) for x in data.get("sessions", [])
+                if isinstance(x, dict) and x.get("account") == account)
+    with _LOCK:
+        live_start = STATUS.get("session_start")
+    if live_start:
+        total += time.time() - live_start
+    return total / 60.0
+
+
+def rank_payload(account, full=False):
+    data = wins_data()
+    cfg = data["config"]
+    acc = data["accounts"].get(str(account), {})
+    auto_w, manual_w = int(acc.get("auto", 0)), int(acc.get("manual", 0))
+    wins = auto_w + manual_w
+    tracked = tracked_minutes(account)
+    steam_min = steam_playtime_minutes(account) if cfg.get("steam_playtime", True) else None
+    minutes = max(tracked, float(steam_min or 0))
+    xp = ranks.xp_for(minutes, wins)
+    info = ranks.rank_info(xp, wins)
+
+    with _LOCK:
+        rs = read_json(RANK_STATE_JSON, {})
+        st = rs.get(str(account))
+        changed = False
+        if st is None:
+            st = {"best_step": info["step"], "history": [{"step": info["step"], "title": info["title"],
+                                                          "at": int(time.time()), "kind": "placed"}]}
+            changed = True
+        elif info["step"] > int(st.get("best_step", 0)):
+            st["best_step"] = info["step"]
+            st["history"] = (st.get("history", []) + [{"step": info["step"], "title": info["title"],
+                                                       "at": int(time.time()), "kind": "promoted"}])[-100:]
+            changed = True
+        if changed:
+            rs[str(account)] = st
+            write_json(RANK_STATE_JSON, rs)
+    last = (st.get("history") or [None])[-1]
+
+    out = {
+        **info,
+        "account": account,
+        "wins": wins,
+        "wins_auto": auto_w,
+        "wins_manual": manual_w,
+        "minutes": int(minutes),
+        "hours": round(minutes / 60.0, 1),
+        "tracked_minutes": int(tracked),
+        "steam_minutes": steam_min,
+        "playtime_source": "steam" if steam_min and steam_min >= tracked else "client",
+        "best_step": st.get("best_step", info["step"]),
+        "last_event": last,
+        "emblem": f"/ranks/{info['tier']}.png",
+    }
+    if full:
+        out.update({
+            "ladder": ranks.ladder(),
+            "xp_per_minute": ranks.XP_PER_MINUTE,
+            "xp_per_win": ranks.XP_PER_WIN,
+            "typical_xp_per_hour": ranks.TYPICAL_XP_PER_HOUR,
+            "history": list(reversed(st.get("history", [])))[:30],
+            "win_log": list(reversed(acc.get("log", [])))[:30],
+            "config": cfg,
+            "player_log": str(ranks.find_player_log() or ""),
+            "player_log_candidates": [str(p) for p in ranks.player_log_candidates()[:3]],
+            "recent_lines": list(reversed(WIN_WATCHER.recent_lines())) if WIN_WATCHER else [],
+        })
+    return out
+
+
+def set_win_config(raw):
+    data = wins_data()
+    cfg = data["config"]
+    if "patterns" in raw:
+        pats = [str(p).strip() for p in (raw.get("patterns") or []) if str(p).strip()][:12]
+        for pat in pats:
+            try:
+                re.compile(pat)
+            except re.error as e:
+                raise RuntimeError(f"Pattern “{pat[:40]}” is not a valid regular expression: {e}")
+        cfg["patterns"] = pats
+    if "loss_guard" in raw:
+        guard = str(raw.get("loss_guard") or "").strip()
+        if guard:
+            try:
+                re.compile(guard)
+            except re.error as e:
+                raise RuntimeError(f"Loss filter is not a valid regular expression: {e}")
+        cfg["loss_guard"] = guard
+    if "cooldown" in raw:
+        cfg["cooldown"] = max(20, min(900, int(raw.get("cooldown") or 90)))
+    for key in ("auto", "steam_playtime"):
+        if key in raw:
+            cfg[key] = bool(raw[key])
+    if raw.get("reset_defaults"):
+        cfg = default_win_config()
+    data["config"] = cfg
+    write_json(WINS_JSON, data)
+    invalidate()
+    return {"ok": True, "config": cfg}
+
+
+def test_win_patterns(patterns, guard):
+    lines = [x["line"] for x in (WIN_WATCHER.recent_lines() if WIN_WATCHER else [])]
+    compiled = []
+    for pat in patterns or []:
+        try:
+            compiled.append(re.compile(str(pat), re.I))
+        except re.error as e:
+            raise RuntimeError(f"Invalid pattern: {e}")
+    g = re.compile(guard, re.I) if guard else None
+    hits = [ln for ln in lines if any(c.search(ln) for c in compiled) and not (g and g.search(ln))]
+    return {"ok": True, "checked": len(lines), "hits": hits[-20:]}
+
+
+WIN_WATCHER = None
+
+
 def initialize_cursor(force=False):
     try:
         scan_cursor_target(force=force)
@@ -3359,6 +3956,43 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(steam_player_count())
         if path == "/api/gui-assets":
             return self.send_json(gui_catalog())
+        if path == "/api/rank":
+            return self.send_json(rank_payload(_playtime_account(), full=True))
+        if path == "/api/theme":
+            return self.send_json(theme_payload())
+        if path.startswith("/api/theme/sample/"):
+            name = Path(path).name
+            if not re.fullmatch(r"\d{2}\.png", name):
+                return self.send_error(403)
+            return self.send_file(THEME_SAMPLES / name)
+        if path == "/api/theme/preview.png":
+            try:
+                raw = render_theme_sample((query.get("i") or ["0"])[0], (query.get("preset") or [""])[0],
+                                          (query.get("strength") or ["0.85"])[0])
+                return self.send_bytes(raw, "image/png")
+            except Exception as e:
+                log(f"Theme preview failed: {e}")
+                return self.send_error(404)
+        if path == "/api/sky":
+            return self.send_json(sky_payload())
+        if path.startswith("/api/sky/thumb/"):
+            name = Path(path).name
+            if not re.fullmatch(r"[0-9a-f]{16}\.jpg", name):
+                return self.send_error(403)
+            return self.send_file(SKY_PREVIEWS / name, cache=True)
+        if path.startswith("/api/sky/target/"):
+            name = Path(path).name
+            if not re.fullmatch(r"\d{1,5}\.jpg", name):
+                return self.send_error(403)
+            return self.send_file(SKY_PREVIEWS / f"target_{name}")
+        if path == "/api/sky/cross.png":
+            try:
+                raw = sky_cross_preview((query.get("id") or [""])[0], float((query.get("yaw") or ["0"])[0]),
+                                        (query.get("swap") or ["0"])[0] == "1")
+                return self.send_bytes(raw, "image/png")
+            except Exception as e:
+                log(f"Sky preview failed: {e}")
+                return self.send_error(404)
         if path == "/api/original-cursor.png":
             return self.send_file(RUNTIME / "original_cursor.png")
         if path == "/api/custom-cursor.png":
@@ -3424,6 +4058,30 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(clear_hud_set())
             if path == "/api/gui/import-hud-selection":
                 return self.send_json(import_hud_selector_selection())
+            if path == "/api/theme/apply":
+                return self.send_json(apply_theme(data.get("preset"), data.get("strength", 0.85)))
+            if path == "/api/theme/reset":
+                return self.send_json(reset_theme())
+            if path == "/api/customize/scan":
+                return self.send_json(rescan_customize())
+            if path == "/api/sky/upload":
+                return self.send_json(upload_sky(data.get("data", ""), data.get("name", "")))
+            if path == "/api/sky/delete":
+                return self.send_json(delete_sky(str(data.get("id", ""))))
+            if path == "/api/sky/apply":
+                ids = data.get("targets")
+                ids = [int(x) for x in ids] if isinstance(ids, list) else None
+                return self.send_json(apply_sky(str(data.get("id", "")), ids, data.get("yaw", 0),
+                                                bool(data.get("swap_lr")), bool(data.get("flip"))))
+            if path == "/api/sky/reset":
+                return self.send_json(reset_sky())
+            if path == "/api/rank/win":
+                delta = 1 if int(data.get("delta", 1)) >= 0 else -1
+                return self.send_json(record_win(_playtime_account(), "manual", None, delta))
+            if path == "/api/rank/config":
+                return self.send_json(set_win_config(data))
+            if path == "/api/rank/test":
+                return self.send_json(test_win_patterns(data.get("patterns", []), data.get("loss_guard", "")))
             if path == "/api/history/undo":
                 return self.send_json(undo_change())
             if path == "/api/history/redo":
@@ -3537,6 +4195,9 @@ def main():
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     threading.Thread(target=idle_watch, args=(server,), daemon=True).start()
     threading.Thread(target=playtime_watch, daemon=True).start()
+    global WIN_WATCHER
+    WIN_WATCHER = ranks.WinWatcher(win_config, _on_auto_win, game_running, log)
+    WIN_WATCHER.start()
     clips.init(log, game_running)
     updater.init(log, APP_VERSION, os.environ.get("PG3D_APP_BUNDLE"), game_running,
                  post_install=bool(os.environ.get("PG3D_POST_INSTALL")))

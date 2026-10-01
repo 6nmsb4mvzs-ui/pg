@@ -277,6 +277,108 @@ body{background:radial-gradient(circle at 14% -8%,rgba(139,17,42,.25) 0,#15151a 
 .curOutlineDot{width:26px;height:26px;border-radius:50%;border:2px solid #2a1216;cursor:pointer;padding:0}
 .curOutlineDot.active{border-color:#fff;box-shadow:0 0 0 2px rgba(255,45,26,.4)}
 .previewField.checker{background:repeating-conic-gradient(#1a1416 0% 25%,#120c0e 0% 50%) 50%/22px 22px,radial-gradient(circle at center,#2a1113,#0c0607)}
+
+/* v1.20 Rank · Theme · Sky */
+.xPage{display:grid;gap:14px;max-width:1040px}
+.xGrid2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;align-items:start}
+.xNote{color:var(--muted);font-size:12px;line-height:1.45;margin:6px 0 0}
+.xRow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.xSpacer{flex:1}
+.xBtnBig{height:46px;padding:0 22px;border:0;border-radius:13px;background:linear-gradient(135deg,var(--ember),var(--accent) 45%,var(--accent-deep));color:#fff;font-weight:900;font-size:14px;cursor:pointer;box-shadow:0 10px 28px rgba(163,18,14,.28)}
+.xBtnBig:disabled{filter:grayscale(.7) brightness(.7);cursor:not-allowed}
+.xBtnBig:not(:disabled):hover{filter:brightness(1.1)}
+.xLabel{font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:800;text-transform:uppercase}
+.xJob{display:none;border:1px solid #4a2226;border-radius:12px;padding:12px 14px;background:#140809}
+.xJob.show{display:block}
+.xJob .bar{height:6px;border-radius:4px;background:#2a1216;overflow:hidden;margin-top:9px}
+.xJob .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent-deep),var(--accent-bright));transition:width .4s}
+.xJob.error{border-color:#7a2a35}.xJob.error .msg{color:#ff8e9c}
+.xJob .msg{font-size:12px;font-weight:700}
+.xEmpty{border:1px dashed #4a2226;border-radius:14px;padding:22px;text-align:center;color:var(--muted);font-size:12px}
+.xSwitch{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;border:1px solid #3a1c20;background:#140a0c;border-radius:12px;padding:10px 12px;color:var(--text);cursor:pointer;text-align:left}
+.xSwitch small{display:block;color:var(--muted);font-size:11px;font-weight:500;margin-top:2px}
+.xSwitch .pillToggle{background:#2a1216}.xSwitch .pillToggle:after{content:'';position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#d8c8c9;transition:.16s}
+.xSwitch.on .pillToggle{background:var(--accent)}.xSwitch.on .pillToggle:after{left:20px;background:#fff}
+.xRange{display:grid;grid-template-columns:1fr 52px;gap:10px;align-items:center}.xRange input{accent-color:var(--accent);width:100%}.xRange b{text-align:right;font-size:13px}
+
+/* Rank */
+.rkHero{position:relative;overflow:hidden;display:grid;grid-template-columns:220px 1fr;gap:22px;align-items:center;padding:24px}
+.rkHero:before{content:'';position:absolute;inset:-40%;background:radial-gradient(circle at 18% 45%,var(--rk,#ff2d1a) 0,transparent 32%);opacity:.22;pointer-events:none}
+.rkEmblem{position:relative;width:220px;height:220px;display:grid;place-items:center}
+.rkEmblem img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 12px 30px rgba(0,0,0,.55)) drop-shadow(0 0 22px color-mix(in srgb,var(--rk) 45%,transparent));animation:rkFloat 5s ease-in-out infinite}
+@keyframes rkFloat{50%{transform:translateY(-6px)}}
+.rkTitle{font-size:34px;font-weight:900;letter-spacing:-.03em;line-height:1;color:#fff}
+.rkTitle span{color:var(--rk)}
+.rkSub{color:var(--muted);font-size:12px;margin-top:6px}
+.rkBar{position:relative;height:12px;border-radius:8px;background:#1d0d10;border:1px solid #3a1c20;overflow:hidden;margin:18px 0 8px}
+.rkBar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,color-mix(in srgb,var(--rk) 55%,#000),var(--rk));box-shadow:0 0 14px var(--rk);transition:width .6s}
+.rkBarText{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}.rkBarText b{color:#fff}
+.rkStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:18px}
+.rkStat{background:#130809;border:1px solid #331a1e;border-radius:12px;padding:10px 12px}.rkStat b{display:block;font-size:19px;color:#fff;letter-spacing:-.02em}.rkStat span{font-size:11px;color:var(--muted)}
+.rkGate{margin-top:12px;border:1px solid #6b4a1e;background:#1c1308;color:#ffd08a;border-radius:10px;padding:9px 12px;font-size:12px;display:none}.rkGate.show{display:block}
+.rkLadder{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px}
+.rkStep{text-align:center;border-radius:12px;padding:8px 2px 10px;border:1px solid transparent;position:relative}
+.rkStep img{width:100%;max-width:84px;aspect-ratio:1;object-fit:contain;filter:grayscale(1) brightness(.45);transition:.2s}
+.rkStep.done img{filter:none;opacity:.85}
+.rkStep.current{border-color:color-mix(in srgb,var(--rk) 60%,transparent);background:color-mix(in srgb,var(--rk) 10%,#120809)}
+.rkStep.current img{filter:none;transform:scale(1.08)}
+.rkStep b{display:block;font-size:11px;margin-top:4px;color:#fff}
+.rkStep span{display:block;font-size:10px;color:var(--muted)}
+.rkWinBtns{display:flex;gap:8px}
+.rkList{display:grid;gap:6px;max-height:240px;overflow:auto;margin-top:10px}
+.rkItem{display:flex;gap:10px;align-items:center;font-size:12px;border:1px solid #2c171a;border-radius:10px;padding:8px 10px;background:#110708}
+.rkItem img{width:26px;height:26px;object-fit:contain}
+.rkItem time{color:var(--muted);margin-left:auto;white-space:nowrap;font-size:11px}
+.rkItem code{font-size:11px;color:#d9c2c4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.rkAdv{margin-top:6px}.rkAdv summary{cursor:pointer;font-weight:800;font-size:13px;padding:6px 0}
+.rkAdv textarea,.rkAdv input[type=text]{width:100%;background:#0f0607;color:#f6e9ea;border:1px solid #43201f;border-radius:10px;padding:9px 10px;font:12px/1.45 ui-monospace,Menlo,monospace}
+.rkAdv textarea{min-height:84px;resize:vertical}
+.rkLine{cursor:pointer}.rkLine:hover{border-color:#6a2a30}
+.rkChip{display:flex;align-items:center;gap:10px;margin-top:14px;border:1px solid #3a1c20;border-radius:12px;padding:7px 12px 7px 7px;background:#120809;cursor:pointer;width:340px;max-width:100%}
+.rkChip img{width:40px;height:40px;object-fit:contain}
+.rkChip b{font-size:13px;color:#fff}.rkChip small{display:block;color:var(--muted);font-size:11px}
+.rkChip .mini{height:4px;border-radius:3px;background:#3a1c20;margin-top:5px;overflow:hidden}.rkChip .mini i{display:block;height:100%;background:var(--rk)}
+.rkPromo{position:fixed;inset:0;background:rgba(5,2,3,.82);display:none;place-items:center;z-index:60;backdrop-filter:blur(6px)}
+.rkPromo.show{display:grid}
+.rkPromo .box{text-align:center;animation:rkPop .5s cubic-bezier(.2,1.4,.4,1)}
+.rkPromo img{width:300px;height:300px;object-fit:contain;filter:drop-shadow(0 0 40px var(--rk))}
+.rkPromo h2{font-size:15px;letter-spacing:.3em;color:var(--muted);margin:0}.rkPromo h1{font-size:46px;margin:6px 0 18px;color:var(--rk)}
+@keyframes rkPop{from{transform:scale(.6);opacity:0}}
+
+/* Theme */
+.thPresets{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.thCard{border:1px solid #3a1c20;background:#120809;border-radius:14px;padding:10px;text-align:left;color:var(--text);cursor:pointer;display:flex;flex-direction:column;gap:8px;min-height:132px}
+.thCard:hover{border-color:#5e2a30}
+.thCard.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 10px 30px rgba(255,45,26,.12)}
+.thSwatch{height:54px;border-radius:9px;border:1px solid rgba(255,255,255,.07)}
+.thCard b{font-size:14px}.thCard small{color:var(--muted);font-size:11px;line-height:1.35}
+.thCard .tag{font-size:10px;font-weight:900;letter-spacing:.08em;color:var(--good);text-transform:uppercase}
+.thPreview{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.thPreview figure{margin:0;border:1px solid #331a1e;border-radius:12px;background:repeating-conic-gradient(#191012 0 25%,#120a0b 0 50%) 0 0/18px 18px;aspect-ratio:1;display:grid;place-items:center;overflow:hidden;position:relative}
+.thPreview img{max-width:94%;max-height:94%;object-fit:contain;image-rendering:auto}
+.thPreview figcaption{position:absolute;left:8px;top:8px;font-size:10px;font-weight:900;letter-spacing:.1em;background:#0009;border-radius:6px;padding:3px 7px}
+.thMock{border-radius:12px;overflow:hidden;border:1px solid #331a1e}
+
+/* Sky */
+.skDrop{border:1.5px dashed #5a2a30;border-radius:14px;padding:18px;text-align:center;cursor:pointer;background:#110708;transition:.15s}
+.skDrop.over,.skDrop:hover{border-color:var(--accent);background:#1a0a0c}
+.skDrop b{display:block;font-size:14px}.skDrop span{font-size:11px;color:var(--muted)}
+.skLib{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}
+.skItem{position:relative;border:1px solid #3a1c20;border-radius:12px;overflow:hidden;cursor:pointer;background:#0c0506;text-align:left;padding:0;color:var(--text)}
+.skItem img{display:block;width:100%;aspect-ratio:2/1;object-fit:cover}
+.skItem div{padding:7px 9px;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.skItem small{display:block;color:var(--muted);font-weight:500;font-size:10px}
+.skItem.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.skItem .del{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:7px;border:0;background:#000a;color:#fff;cursor:pointer;font-weight:900}
+.skItem .live{position:absolute;top:6px;left:6px;font-size:9px;font-weight:900;letter-spacing:.08em;background:var(--good);color:#04140b;border-radius:5px;padding:2px 6px}
+.skCross{width:100%;aspect-ratio:4/3;border-radius:12px;border:1px solid #331a1e;background:#0a0405 center/contain no-repeat;margin-bottom:12px}
+.skTargets{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;max-height:330px;overflow:auto}
+.skTarget{display:flex;gap:10px;align-items:center;border:1px solid #2c171a;border-radius:10px;padding:6px 9px;background:#110708;font-size:12px;cursor:pointer}
+.skTarget img{width:44px;height:44px;object-fit:cover;border-radius:6px;background:#000}
+.skTarget input{accent-color:var(--accent)}
+.skTarget>div{flex:1;min-width:0}.skTarget b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.skTarget small{display:block;color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.skFace{flex:none;margin-left:auto;font-size:10px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;border:1px solid #4a2226;border-radius:6px;padding:2px 6px;color:#e9b9be}
+@media(max-width:980px){.xGrid2,.rkHero{grid-template-columns:1fr}.rkEmblem{margin:auto}.thPresets{grid-template-columns:repeat(2,minmax(0,1fr))}.rkLadder{grid-template-columns:repeat(5,minmax(0,1fr))}.rkStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -285,7 +387,10 @@ body{background:radial-gradient(circle at 14% -8%,rgba(139,17,42,.25) 0,#15151a 
     <div class="brand"><div class="logo"><img src="/crimson_logo_256.png" alt=""></div><b>PG3D Client</b></div>
     <nav class="nav">
       <button class="active" data-tab="play"><span class="ico">▶</span><span class="label">Play</span></button>
+      <button data-tab="rank"><span class="ico">♛</span><span class="label">Rank</span></button>
       <button data-tab="cursor"><span class="ico">＋</span><span class="label">Cursor</span></button>
+      <button data-tab="theme"><span class="ico">◈</span><span class="label">Theme</span></button>
+      <button data-tab="sky"><span class="ico">☁</span><span class="label">Sky</span></button>
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
       <button data-tab="gui"><span class="ico">◫</span><span class="label">GUI</span></button>
       <button data-tab="clips"><span class="ico">◉</span><span class="label">Clips</span></button>
@@ -309,6 +414,7 @@ body{background:radial-gradient(circle at 14% -8%,rgba(139,17,42,.25) 0,#15151a 
             <button class="launchBtn launchFps" id="startFps"><b>Start with FPS Unlocker</b></button>
           </div>
           <div class="buildBadge" id="buildBadge"></div><div class="message" id="launchMessage" style="margin-top:12px"></div><div class="playtime" id="playtime"></div>
+          <div class="rkChip" id="rankChip" onclick="setTab('rank')" title="Open Rank"><img src="/ranks/iron.png" alt=""><div style="flex:1;min-width:0"><b>—</b><small></small><div class="mini"><i style="width:0"></i></div></div></div>
           <div class="playerCorner"><b id="steamPlayerCount">—</b><span>Steam players</span></div>
         </div>
       </div>
@@ -496,6 +602,120 @@ body{background:radial-gradient(circle at 14% -8%,rgba(139,17,42,.25) 0,#15151a 
         </div>
       </div>
     </section>
+
+    <section class="page" id="page-rank">
+      <div class="xPage">
+        <div class="crCard rkHero" id="rkHero">
+          <div class="rkEmblem"><img id="rkEmblem" src="/ranks/iron.png" alt=""></div>
+          <div>
+            <div class="xLabel">Your rank</div>
+            <div class="rkTitle" id="rkTitle">—</div>
+            <div class="rkSub" id="rkSub">Play Pixel Gun 3D to earn XP.</div>
+            <div class="rkBar"><i id="rkBarFill" style="width:0"></i></div>
+            <div class="rkBarText"><span id="rkBarLeft"></span><span id="rkBarRight"></span></div>
+            <div class="rkGate" id="rkGate"></div>
+            <div class="rkStats">
+              <div class="rkStat"><b id="rkHours">0</b><span id="rkHoursSrc">hours played</span></div>
+              <div class="rkStat"><b id="rkWins">0</b><span>wins</span></div>
+              <div class="rkStat"><b id="rkXp">0</b><span>total XP</span></div>
+              <div class="rkStat"><b id="rkBest">—</b><span>best rank</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="crCard">
+          <div class="crCardHead"><h3>Ladder</h3><span class="sub" id="rkRates"></span></div>
+          <div class="rkLadder" id="rkLadder"></div>
+          <p class="xNote">Iron to Diamond have four divisions each (IV → I). Gold and up also need a minimum number of wins, so hours alone can't carry you to the top. Challenger takes about 750 hours of real play.</p>
+        </div>
+
+        <div class="xGrid2">
+          <div class="crCard">
+            <div class="crCardHead"><h3>Wins</h3>
+              <div class="rkWinBtns"><button class="btn" id="rkWinMinus" title="Remove a win logged by mistake">−1</button><button class="btn primary" id="rkWinPlus">+1 Win</button></div>
+            </div>
+            <button class="xSwitch" id="rkAutoToggle" role="switch"><div><b>Detect wins automatically</b><small id="rkLogState">Reads the game's Player.log while PG3D runs.</small></div><span class="pillToggle"></span></button>
+            <div class="rkList" id="rkWinLog"></div>
+            <details class="rkAdv">
+              <summary>Win detection settings</summary>
+              <p class="xNote">A line in the game log that matches any pattern below counts as one win (case-insensitive regular expressions, one per line). Lines matching the loss filter never count. Play a match, then click a recent line to turn it into a pattern.</p>
+              <div class="xLabel" style="margin-top:10px">Win patterns</div>
+              <textarea id="rkPatterns" spellcheck="false"></textarea>
+              <div class="xLabel" style="margin-top:10px">Loss filter</div>
+              <input type="text" id="rkGuard" spellcheck="false">
+              <div class="xRow" style="margin-top:10px">
+                <span class="xLabel">Cooldown</span><input type="number" class="select" id="rkCooldown" min="20" max="900" style="width:90px"> <span class="sub">seconds between wins</span>
+              </div>
+              <div class="xRow" style="margin-top:12px"><button class="btn primary" id="rkSaveCfg">Save</button><button class="btn" id="rkTestCfg">Test on recent lines</button><button class="btn ghost" id="rkResetCfg">Defaults</button></div>
+              <div class="rkList" id="rkTestOut"></div>
+              <div class="xLabel" style="margin-top:12px">Recent match-related log lines</div>
+              <div class="rkList" id="rkRecent"></div>
+            </details>
+          </div>
+          <div class="crCard">
+            <div class="crCardHead"><h3>Playtime &amp; history</h3></div>
+            <button class="xSwitch" id="rkSteamToggle" role="switch"><div><b>Use Steam playtime</b><small>Counts hours Steam recorded before you installed this client.</small></div><span class="pillToggle"></span></button>
+            <div class="rkList" id="rkHistory"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-theme">
+      <div class="xPage">
+        <div class="crCard">
+          <div class="crCardHead"><div><h3>Recolor PG3D</h3><p class="xNote" style="margin-top:4px">Repaints every menu, HUD and icon texture in the game with one palette. Shading, outlines and text contrast are kept.</p></div><span class="sub" id="thActive"></span></div>
+          <div class="thPresets" id="thPresets"></div>
+          <div class="xRow" style="margin-top:16px">
+            <div style="flex:1;min-width:220px"><div class="xLabel">Intensity</div><div class="xRange"><input type="range" id="thStrength" min="30" max="100" value="85"><b id="thStrengthVal">85%</b></div></div>
+          </div>
+        </div>
+        <div class="xGrid2">
+          <div class="crCard">
+            <div class="crCardHead"><h3>Preview</h3><div class="xRow"><button class="btn ghost" id="thPrev">‹</button><span class="sub" id="thSampleIdx"></span><button class="btn ghost" id="thNext">›</button></div></div>
+            <div class="thPreview" id="thPreview"></div>
+          </div>
+          <div class="crCard">
+            <div class="crCardHead"><h3>Apply</h3></div>
+            <div class="xJob" id="thJob"><div class="msg"></div><div class="bar"><i></i></div></div>
+            <div class="xRow" style="margin-top:12px"><button class="xBtnBig" id="thApply">Apply theme</button><button class="btn" id="thReset">Restore original</button></div>
+            <p class="xNote" id="thScanInfo"></p>
+            <p class="xNote">Close Pixel Gun 3D first. The first apply scans the whole game and can take a few minutes. A PG3D update replaces the game files, so apply again after updating. Undo/redo works like any other change.</p>
+            <button class="btn ghost" id="thRescan" style="margin-top:6px">Rescan game files</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-sky">
+      <div class="xPage">
+        <div class="crCard">
+          <div class="crCardHead"><div><h3>Your skies</h3><p class="xNote" style="margin-top:4px">Drop in any picture. A 2:1 panorama (equirectangular) wraps all the way around the map; any other image is used on every side.</p></div><span class="sub" id="skActive"></span></div>
+          <div class="skDrop" id="skDrop"><b>Add a sky image</b><span>PNG or JPEG · up to 16384 px · drag and drop or click</span></div>
+          <input type="file" id="skFile" accept="image/png,image/jpeg" hidden>
+          <div class="skLib" id="skLib"></div>
+        </div>
+        <div class="xGrid2">
+          <div class="crCard">
+            <div class="crCardHead"><h3>How it wraps</h3><span class="sub">Unfolded cube: up, left · front · right · back, down</span></div>
+            <div class="skCross" id="skCross"></div>
+            <div class="xLabel">Rotate</div>
+            <div class="xRange"><input type="range" id="skYaw" min="0" max="359" value="0"><b id="skYawVal">0°</b></div>
+            <div style="display:grid;gap:8px;margin-top:12px">
+              <button class="xSwitch" id="skSwap" role="switch"><div><b>Swap left and right</b><small>Use if the sides look mirrored in game.</small></div><span class="pillToggle"></span></button>
+              <button class="xSwitch" id="skFlip" role="switch"><div><b>Flip vertically</b><small>Use if the sky shows upside down in game.</small></div><span class="pillToggle"></span></button>
+            </div>
+          </div>
+          <div class="crCard">
+            <div class="crCardHead"><h3>Sky textures in PG3D</h3><div class="xRow"><button class="btn ghost" id="skAll">All</button><button class="btn ghost" id="skNone">None</button></div></div>
+            <div class="skTargets" id="skTargets"></div>
+            <div class="xJob" id="skJob" style="margin-top:12px"><div class="msg"></div><div class="bar"><i></i></div></div>
+            <div class="xRow" style="margin-top:12px"><button class="xBtnBig" id="skApply">Apply sky</button><button class="btn" id="skReset">Restore original</button><button class="btn ghost" id="skRescan">Rescan</button></div>
+            <p class="xNote">Close Pixel Gun 3D first. Maps that draw their sky with a separate dome model or shader colours keep their own look.</p>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 <div class="modalShade" id="credModal"><div class="modalBox">
@@ -510,6 +730,7 @@ body{background:radial-gradient(circle at 14% -8%,rgba(139,17,42,.25) 0,#15151a 
   <div class="sub" style="margin-top:9px">Used once. The code is not saved.</div>
   <div class="modalActions"><button class="btn" id="guardCancel">Cancel</button><button class="btn primary" id="guardSubmit">Verify & Launch</button></div>
 </div></div>
+<div class="rkPromo" id="rkPromo"><div class="box"><h2>PROMOTED</h2><img src="/ranks/iron.png" alt=""><h1></h1><button class="btn">Continue</button></div></div>
 <div class="toast" id="toast"></div>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -543,11 +764,11 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',cursor:'Cursor',accounts:'Accounts',gui:'GUI',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',cursor:'Cursor',theme:'Theme',sky:'Sky',accounts:'Accounts',gui:'GUI',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 async function api(path,opts={}){const r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)})}
-function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer)}
+function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='theme')loadTheme();if(tab==='sky')loadSky()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -555,12 +776,12 @@ function setState(id,text,kind=''){const e=$(id);if(!e)return;e.textContent=text
 function renderStatus(){if(!statusData)return;
   $('#launchMessage').textContent=statusData.launch_error||'';
   $('#startNormal').disabled=statusData.game_running;$('#startFps').disabled=statusData.game_running||!statusData.fps_bundle_present;
-  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();
+  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderJob();
   if(statusData.overlay && (!overlayConfig || !overlayDirty)){overlayConfig=structuredClone(statusData.overlay.config);renderOverlayEditor()}
 }
 function renderBuildBadge(){const b=$('#buildBadge');if(!b||!statusData)return;const m=statusData.fps_build_match,build=statusData.game_build;if(m===false){b.className='buildBadge show warn';b.textContent=`PG3D build ${build} is newer than the FPS unlocker supports (${(statusData.fps_supported_builds||[]).join(', ')}). Start Normal will still work.`}else if(m===true){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build} · FPS unlocker compatible`}else{b.className='buildBadge'}}
 function renderPlaytime(){const el=$('#playtime'),p=statusData?.playtime;if(!el||!p)return;const cells=[];if(p.live)cells.push(['live','This session',p.live]);cells.push(['','Today',p.today],['','Last 7 days',p.week],['','All time',p.total]);const sig=JSON.stringify(cells);if(sig===el.__sig)return;el.__sig=sig;el.innerHTML='';for(const[c,l,v]of cells){const d=document.createElement('div');d.className=c;const b=document.createElement('b');b.textContent=v;d.append(b,document.createTextNode(l));el.appendChild(d)}}
-function scheduleStatus(){clearTimeout(statusTimer);if(document.visibilityState==='hidden')return;const busy=statusData&&(['launching','switching','steam_guard'].includes(statusData.launch_phase)||statusData.pending_guard||statusData.cursor_phase==='scanning');statusTimer=setTimeout(async()=>{await refreshStatus();scheduleStatus()},busy?1000:3500)}
+function scheduleStatus(){clearTimeout(statusTimer);if(document.visibilityState==='hidden')return;const busy=statusData&&(['launching','switching','steam_guard'].includes(statusData.launch_phase)||statusData.pending_guard||statusData.cursor_phase==='scanning'||statusData.job?.phase==='running');statusTimer=setTimeout(async()=>{await refreshStatus();scheduleStatus()},busy?1000:3500)}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshStatus().then(scheduleStatus)}else clearTimeout(statusTimer)});
 async function refreshStatus(){try{statusData=await api('/api/status');cursorCatalog=statusData.cursor_catalog||[];renderStatus();if(!$('#cursorGrid').children.length)renderCursorGrid();if(statusData.pending_guard&&!$('#guardModal').classList.contains('show'))openGuard()}catch(e){console.error(e)}}
 
@@ -943,6 +1164,119 @@ function renderUpdateBanner(){const u=statusData?.update,b=$('#updBanner');if(!b
   b.hidden=false;const busy=u.phase==='installing'||u.phase==='restarting';$('#updBannerText').textContent=busy?u.message:(u.message||`Version ${u.available.version} is ready to install.`);$('#updBannerBtn').hidden=busy}
 $('#updBannerBtn').onclick=installUpdate;
 
+// ---------------------------------------------------------------- v1.20 Rank · Theme · Sky
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function fmtNum(n){return Number(n||0).toLocaleString()}
+function ago(ts){const s=Math.max(0,Date.now()/1000-ts);if(s<90)return 'just now';if(s<3600)return Math.round(s/60)+' min ago';if(s<86400)return Math.round(s/3600)+' h ago';return new Date(ts*1000).toLocaleDateString()}
+function setSwitch(id,on){const b=$(id);b.classList.toggle('on',!!on);b.setAttribute('aria-checked',on?'true':'false')}
+const TIER_IMG=t=>`/ranks/${t}.png`;
+
+// Shared job progress (theme / sky / scan run in the background on the server)
+let lastJobPhase=null;
+function renderJob(){const j=statusData?.job;if(!j)return;
+  for(const [id,kinds] of [['#thJob',['theme','scan']],['#skJob',['sky','scan']]]){const box=$(id);if(!box)continue;
+    const mine=kinds.includes(j.kind)&&(j.phase==='running'||j.phase==='error');box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
+    box.querySelector('.msg').textContent=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');box.querySelector('.bar i').style.width=(j.phase==='error'?0:j.progress||0)+'%'}
+  const busy=j.phase==='running';['#thApply','#thReset','#thRescan','#skApply','#skReset','#skRescan'].forEach(s=>{const b=$(s);if(b)b.disabled=busy||statusData.game_running});
+  if(lastJobPhase==='running'&&j.phase!=='running'){if(j.phase==='done')toast(j.message||'Done.');else if(j.phase==='error')toast(j.error||'Failed.',true);loadTheme();loadSky()}
+  lastJobPhase=j.phase}
+
+// Rank chip on the Play page + promotion splash
+function renderRankChip(){const r=statusData?.rank;const host=$('#rankChip');if(!host||!r)return;
+  host.style.setProperty('--rk',r.color);host.querySelector('img').src=r.emblem;host.querySelector('b').textContent=r.title+(r.lp?` · ${fmtNum(r.lp)} LP`:'');
+  host.querySelector('small').textContent=r.next_name?`${fmtNum(r.xp_to_next)} XP to ${r.next_name}`:'Top of the ladder';host.querySelector('.mini i').style.width=Math.round((r.progress||0)*100)+'%';
+  const ev=r.last_event;if(ev&&ev.kind==='promoted'){let seen=0;try{seen=Number(localStorage.pg3dRankSeen||0)}catch{}if(ev.at>seen){try{localStorage.pg3dRankSeen=String(ev.at)}catch{}showPromotion(r)}}}
+function showPromotion(r){const p=$('#rkPromo');p.style.setProperty('--rk',r.color);p.querySelector('img').src=r.emblem;p.querySelector('h1').textContent=r.title;p.classList.add('show');uiSound('primary')}
+
+let rankData=null;
+async function loadRank(){try{rankData=await api('/api/rank');renderRank()}catch(e){console.error(e)}}
+function renderRank(){const r=rankData;if(!r)return;
+  $('#rkHero').style.setProperty('--rk',r.color);$('#rkEmblem').src=r.emblem;
+  const t=$('#rkTitle');t.textContent=r.tier_name+' ';t.append(el('span',null,r.division||(r.lp!=null?`${fmtNum(r.lp)} LP`:'')));
+  $('#rkSub').textContent=r.next_name?`${fmtNum(r.xp_to_next)} XP to ${r.next_name} · about ${r.hours_to_next} h of play`:'You are at the top of the ladder. Every 1,000 XP adds an LP.';
+  $('#rkBarFill').style.width=Math.round(r.progress*100)+'%';
+  $('#rkBarLeft').innerHTML='';$('#rkBarLeft').append(el('b',null,fmtNum(r.xp-r.step_start)),document.createTextNode(r.next_xp?` / ${fmtNum(r.next_xp-r.step_start)} XP`:' XP'));
+  $('#rkBarRight').textContent=`Step ${r.step+1} of ${r.steps_total}`;
+  const g=$('#rkGate');if(r.gated){g.className='rkGate show';g.textContent=`XP is enough for ${r.gated.tier}, but it needs ${fmtNum(r.gated.wins_needed)} wins. ${fmtNum(r.gated.wins_missing)} to go.`}else g.className='rkGate';
+  $('#rkHours').textContent=fmtNum(r.hours);$('#rkHoursSrc').textContent=r.playtime_source==='steam'?'hours (Steam)':'hours (this client)';
+  $('#rkWins').textContent=fmtNum(r.wins);$('#rkXp').textContent=fmtNum(r.xp);
+  const best=(r.history||[]).reduce((a,h)=>h.step>(a?.step??-1)?h:a,null);$('#rkBest').textContent=best?best.title:r.title;
+  $('#rkRates').textContent=`${r.xp_per_minute} XP per minute · ${r.xp_per_win} XP per win`;
+  const lad=$('#rkLadder');lad.innerHTML='';const curIdx=(r.ladder||[]).findIndex(x=>x.tier===r.tier);
+  (r.ladder||[]).forEach((x,i)=>{const d=el('div','rkStep'+(i<curIdx?' done':'')+(i===curIdx?' current':''));d.style.setProperty('--rk',x.color);const im=el('img');im.src=TIER_IMG(x.tier);im.alt='';d.append(im,el('b',null,x.name),el('span',null,x.hours?`${x.hours} h`:'start'));if(x.wins)d.append(el('span',null,`${fmtNum(x.wins)} wins`));lad.append(d)});
+  setSwitch('#rkAutoToggle',r.config.auto);setSwitch('#rkSteamToggle',r.config.steam_playtime);
+  $('#rkLogState').textContent=r.player_log?`Watching ${r.player_log.replace(/^.*\/Library\//,'~/Library/')}`:`No Player.log found yet. It appears after PG3D runs once (looked in ~/Library/Logs).`;
+  const wl=$('#rkWinLog');wl.innerHTML='';const wins=r.win_log||[];if(!wins.length)wl.append(el('div','xEmpty',`No wins logged on this account yet. ${r.wins_auto} auto · ${r.wins_manual} manual.`));
+  for(const w of wins){const it=el('div','rkItem');it.append(el('b',null,(w.delta>0?'+':'')+w.delta),el(w.line?'code':'span',null,w.line||(w.source==='manual'?'Added by hand':'Detected')),el('time',null,ago(w.at)));wl.append(it)}
+  const hl=$('#rkHistory');hl.innerHTML='';for(const h of r.history||[]){const it=el('div','rkItem');const tier=(h.title||'').split(' ')[0].toLowerCase();const im=el('img');im.src=TIER_IMG(tier);it.append(im,el('span',null,(h.kind==='placed'?'Placed in ':'Promoted to ')+h.title),el('time',null,ago(h.at)));hl.append(it)}
+  if(!document.activeElement||!document.activeElement.closest?.('.rkAdv')){$('#rkPatterns').value=(r.config.patterns||[]).join('\n');$('#rkGuard').value=r.config.loss_guard||'';$('#rkCooldown').value=r.config.cooldown||90}
+  const rc=$('#rkRecent');rc.innerHTML='';const lines=r.recent_lines||[];if(!lines.length)rc.append(el('div','xEmpty','Nothing yet. Lines mentioning wins, matches or results show up here while you play.'));
+  for(const l of lines.slice(0,25)){const it=el('div','rkItem rkLine');it.title='Click to use as a win pattern';it.append(el('code',null,l.line),el('time',null,ago(l.at)));it.onclick=()=>{const esc=l.line.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\d+/g,'\\d+');const ta=$('#rkPatterns');ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+esc;toast('Added as a pattern. Press Save to use it.')};rc.append(it)}}
+$('#rkWinPlus').onclick=async()=>{try{await post('/api/rank/win',{delta:1});toast('Win added.');await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
+$('#rkWinMinus').onclick=async()=>{try{await post('/api/rank/win',{delta:-1});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
+$('#rkAutoToggle').onclick=async()=>{try{await post('/api/rank/config',{auto:!rankData?.config?.auto});await loadRank()}catch(e){toast(e.message,true)}};
+$('#rkSteamToggle').onclick=async()=>{try{await post('/api/rank/config',{steam_playtime:!rankData?.config?.steam_playtime});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
+function rkCfg(){return{patterns:$('#rkPatterns').value.split('\n').map(s=>s.trim()).filter(Boolean),loss_guard:$('#rkGuard').value.trim(),cooldown:Number($('#rkCooldown').value||90)}}
+$('#rkSaveCfg').onclick=async()=>{try{await post('/api/rank/config',rkCfg());toast('Win detection saved.');$('#rkSaveCfg').blur();await loadRank()}catch(e){toast(e.message,true)}};
+$('#rkResetCfg').onclick=async()=>{try{await post('/api/rank/config',{reset_defaults:true});$('#rkResetCfg').blur();await loadRank();toast('Defaults restored.')}catch(e){toast(e.message,true)}};
+$('#rkTestCfg').onclick=async()=>{const out=$('#rkTestOut');try{const c=rkCfg();const d=await post('/api/rank/test',c);out.innerHTML='';out.append(el('div','sub',`${d.hits.length} of ${d.checked} recent lines would count as a win.`));for(const h of d.hits){const it=el('div','rkItem');it.append(el('code',null,h));out.append(it)}}catch(e){toast(e.message,true)}};
+$('#rkPromo').onclick=()=>$('#rkPromo').classList.remove('show');
+
+// Theme
+let themeData=null,themePreset=null,themeSample=0;
+function themeGradient(stops){return `linear-gradient(90deg,${stops.map(([p,c])=>`${c} ${Math.round(p*100)}%`).join(',')})`}
+async function loadTheme(){try{themeData=await api('/api/theme');if(!themePreset)themePreset=themeData.active?.preset||localStorage.pg3dThemePreset||'crimson';if(themeData.active&&!$('#thStrength').dataset.touched){$('#thStrength').value=Math.round(themeData.active.strength*100)}renderTheme()}catch(e){console.error(e)}}
+function renderTheme(){const d=themeData;if(!d)return;const host=$('#thPresets');host.innerHTML='';
+  const opts=[...d.presets,{id:'original',name:'Original',desc:'Pixel Gun 3D’s own colours.',stops:null}];
+  for(const p of opts){const b=el('button','thCard'+(themePreset===p.id?' sel':''));const sw=el('div','thSwatch');sw.style.background=p.stops?themeGradient(p.stops):'linear-gradient(90deg,#1b3a6b,#3d8bd6 30%,#f2c94c 55%,#e0503a 78%,#7ad36b)';b.append(sw,el('b',null,p.name),el('small',null,p.desc));
+    const active=d.active?d.active.preset===p.id:p.id==='original';if(active)b.append(el('span','tag','Active'));b.onclick=()=>{themePreset=p.id;try{localStorage.pg3dThemePreset=p.id}catch{}renderTheme()};host.append(b)}
+  $('#thActive').textContent=d.active?`${d.presets.find(p=>p.id===d.active.preset)?.name||d.active.preset} on ${fmtNum(d.active.textures)} textures`:'Original colours';
+  $('#thStrengthVal').textContent=$('#thStrength').value+'%';
+  $('#thApply').textContent=themePreset==='original'?'Restore original':'Apply theme';
+  $('#thScanInfo').textContent=d.scan.generated?`Last scan: ${fmtNum(d.scan.textures)} GUI textures in ${fmtNum(d.scan.files)} of ${fmtNum(d.scan.files_scanned||0)} game files${d.scan.fresh?'':' (game changed since, will rescan)'}.`:'The game hasn’t been scanned yet. Apply runs the scan first.';
+  renderThemePreview()}
+function renderThemePreview(){const d=themeData,host=$('#thPreview');host.innerHTML='';const n=d?.samples?.length||0;
+  if(!n){const e=el('div','xEmpty','Previews appear after the first scan. Press “Rescan game files” or Apply.');e.style.gridColumn='1/-1';host.append(e);$('#thSampleIdx').textContent='';return}
+  themeSample=(themeSample+n)%n;$('#thSampleIdx').textContent=`${themeSample+1} / ${n}`;const strength=$('#thStrength').value/100;
+  for(const [cap,preset] of [['ORIGINAL',''],[themePreset==='original'?'ORIGINAL':(d.presets.find(p=>p.id===themePreset)?.name||'').toUpperCase(),themePreset==='original'?'':themePreset]]){const f=el('figure');const im=el('img');im.src=`/api/theme/preview.png?i=${themeSample}&preset=${preset}&strength=${strength}`;f.append(im,el('figcaption',null,cap));host.append(f)}}
+$('#thPrev').onclick=()=>{themeSample--;renderThemePreview()};$('#thNext').onclick=()=>{themeSample++;renderThemePreview()};
+$('#thStrength').oninput=e=>{e.target.dataset.touched='1';$('#thStrengthVal').textContent=e.target.value+'%';clearTimeout(e.target._t);e.target._t=setTimeout(renderThemePreview,180)};
+$('#thApply').onclick=async()=>{try{if(themePreset==='original')await post('/api/theme/reset');else await post('/api/theme/apply',{preset:themePreset,strength:$('#thStrength').value/100});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
+$('#thReset').onclick=async()=>{try{await post('/api/theme/reset');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
+$('#thRescan').onclick=async()=>{try{await post('/api/customize/scan');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
+
+// Sky
+let skyData=null,skySel=null,skyTargetsOff=new Set();
+async function loadSky(){try{skyData=await api('/api/sky');const act=skyData.active;if(!skySel)skySel=act?.id||skyData.library[0]?.id||null;if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=Math.round(act.yaw||0);setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip);
+    const keys=new Set(act.target_keys||[]);skyTargetsOff=new Set(skyData.targets.filter(t=>!keys.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id))}renderSky()}catch(e){console.error(e)}}
+function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.innerHTML='';
+  if(!d.library.find(s=>s.id===skySel))skySel=d.library[0]?.id||null;
+  for(const s of d.library){const b=el('button','skItem'+(s.id===skySel?' sel':''));const im=el('img');im.src=s.thumb;im.alt='';const cap=el('div',null,s.name);cap.append(el('small',null,`${s.width}×${s.height}${s.panorama?' · panorama':''}`));b.append(im,cap);
+    if(d.active?.id===s.id)b.append(el('span','live','IN GAME'));else{const x=el('button','del','×');x.title='Remove from library';x.onclick=async ev=>{ev.stopPropagation();try{await post('/api/sky/delete',{id:s.id});await loadSky()}catch(e){toast(e.message,true)}};b.append(x)}
+    b.onclick=()=>{skySel=s.id;renderSky()};lib.append(b)}
+  $('#skActive').textContent=d.active?`“${d.active.name}” on ${d.active.count} textures`:'Original skies';
+  $('#skYawVal').textContent=$('#skYaw').value+'°';renderSkyCross();
+  const tg=$('#skTargets');tg.innerHTML='';
+  if(!d.targets.length){tg.append(el('div','xEmpty',d.scan.generated?'No sky textures were found in this PG3D build.':'Not scanned yet. Apply scans the game first, or press Rescan.'))}
+  for(const t of d.targets){const row=el('label','skTarget');const cb=el('input');cb.type='checkbox';cb.checked=!skyTargetsOff.has(t.id);cb.onchange=()=>{cb.checked?skyTargetsOff.delete(t.id):skyTargetsOff.add(t.id)};const im=el('img');if(t.preview)im.src=t.preview;const txt=el('div');txt.append(el('b',null,t.name||`#${t.path_id}`),el('small',null,`${t.relative_file} · ${t.width}×${t.height}${t.type==='Cubemap'?' · cubemap (experimental)':''}`));row.append(cb,im,txt,el('span','skFace',t.face));tg.append(row)}
+  $('#skApply').textContent=d.library.length?'Apply sky':'Add a sky first'}
+function renderSkyCross(){const c=$('#skCross');if(!skySel){c.style.backgroundImage='';return}const q=`id=${skySel}&yaw=${$('#skYaw').value}&swap=${$('#skSwap').classList.contains('on')?1:0}`;if(c._q===q)return;c._q=q;c.style.backgroundImage=`url("/api/sky/cross.png?${q}")`}
+$('#skYaw').oninput=e=>{e.target.dataset.touched='1';$('#skYawVal').textContent=e.target.value+'°';clearTimeout(e.target._t);e.target._t=setTimeout(renderSkyCross,200)};
+$('#skSwap').onclick=()=>{$('#skYaw').dataset.touched='1';setSwitch('#skSwap',!$('#skSwap').classList.contains('on'));renderSkyCross()};
+$('#skFlip').onclick=()=>{$('#skYaw').dataset.touched='1';setSwitch('#skFlip',!$('#skFlip').classList.contains('on'))};
+$('#skAll').onclick=()=>{skyTargetsOff.clear();renderSky()};$('#skNone').onclick=()=>{skyTargetsOff=new Set((skyData?.targets||[]).map(t=>t.id));renderSky()};
+async function uploadSky(file){if(!file)return;if(file.size>80*1024*1024)return toast('Sky images must be smaller than 80 MB.',true);toast('Adding sky…');const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});
+  try{const d=await post('/api/sky/upload',{data,name:file.name.replace(/\.[^.]+$/,'')});skySel=d.id;await loadSky();toast('Sky added.')}catch(e){toast(e.message,true)}}
+$('#skDrop').onclick=()=>$('#skFile').click();$('#skFile').onchange=e=>{uploadSky(e.target.files[0]);e.target.value=''};
+['dragenter','dragover'].forEach(t=>$('#skDrop').addEventListener(t,e=>{e.preventDefault();$('#skDrop').classList.add('over')}));
+['dragleave','drop'].forEach(t=>$('#skDrop').addEventListener(t,e=>{e.preventDefault();$('#skDrop').classList.remove('over')}));
+$('#skDrop').addEventListener('drop',e=>uploadSky(e.dataTransfer.files[0]));
+$('#skApply').onclick=async()=>{if(!skySel)return $('#skFile').click();const ids=(skyData?.targets||[]).filter(t=>!skyTargetsOff.has(t.id)).map(t=>t.id);if(skyData?.targets?.length&&!ids.length)return toast('Pick at least one sky texture.',true);
+  try{await post('/api/sky/apply',{id:skySel,targets:skyData?.targets?.length?ids:null,yaw:Number($('#skYaw').value),swap_lr:$('#skSwap').classList.contains('on'),flip:$('#skFlip').classList.contains('on')});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
+$('#skReset').onclick=async()=>{try{await post('/api/sky/reset');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
+$('#skRescan').onclick=async()=>{try{await post('/api/customize/scan');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
+
+setInterval(()=>{if(document.visibilityState==='visible'&&$('#page-rank').classList.contains('active'))loadRank()},10000);
 (async function init(){setTab(localStorage.pg3dTab||'play');await refreshStatus();selectedCursor=localStorage.pg3dCursor||statusData?.mods?.cursor?.cursor||'clean_dot';cursorSize=Math.max(8,Math.min(100,Number(localStorage.pg3dCursorSize||statusData?.mods?.cursor?.size||45)));cursorColor=(localStorage.pg3dCursorColor||statusData?.mods?.cursor?.color||'#FFFFFF').toUpperCase();cursorOutline=(localStorage.pg3dCursorOutline||statusData?.mods?.cursor?.outline||'#000000').toUpperCase();cursorOutlineWidth=Number(localStorage.pg3dCursorOW!=null?localStorage.pg3dCursorOW:(statusData?.mods?.cursor?.outline_width||0));$('#cursorSize').value=cursorSize;$('#fpsSelect').value=statusData?.prefs?.fps_target||'uncapped';renderCursorGrid();updateCursorPanel();await refreshPlayerCount();scheduleStatus();setInterval(refreshPlayerCount,30000)})();
 </script>
 </body>

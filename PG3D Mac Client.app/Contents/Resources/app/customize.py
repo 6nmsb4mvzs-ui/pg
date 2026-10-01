@@ -1,0 +1,454 @@
+"""In-game GUI theme recolouring and custom skybox support.
+
+Both features edit Pixel Gun 3D's Unity asset files through the same
+backup/rebuild pipeline server.py already uses for cursors and GUI sprites.
+This module holds the image maths and the asset scanners; server.py decides
+when files are rebuilt.
+"""
+from __future__ import annotations
+
+import math
+import re
+from pathlib import Path
+
+from PIL import Image, ImageChops
+
+try:  # numpy makes panorama projection ~100x faster; it is optional.
+    import numpy as np
+except Exception:  # pragma: no cover - depends on the runtime
+    np = None
+
+
+# --------------------------------------------------------------------- themes
+# Each preset is a gradient map: the luminance of every GUI pixel is looked up
+# along these stops. Dark pixels take the first colour, bright ones the last,
+# so outlines, shading and text contrast survive the recolour.
+THEMES = {
+    "crimson": {
+        "name": "Crimson",
+        "desc": "Blood red and black with ember highlights.",
+        "stops": [(0.0, "#0A0203"), (0.30, "#3D060D"), (0.58, "#A3101E"), (0.82, "#FF4A3A"), (1.0, "#FFF0EC")],
+    },
+    "dark_souls": {
+        "name": "Dark Souls",
+        "desc": "Ashen blue-green over near-black, like a bonfire gone cold.",
+        "stops": [(0.0, "#040706"), (0.30, "#0E1C1C"), (0.58, "#2B4A46"), (0.82, "#86A597"), (1.0, "#E6EDE3")],
+    },
+    "royal": {
+        "name": "Royal",
+        "desc": "Deep violet and velvet with gold trim.",
+        "stops": [(0.0, "#0A0517"), (0.30, "#24105A"), (0.56, "#5528A8"), (0.80, "#D4AE55"), (1.0, "#FFF6DA")],
+    },
+    "icy": {
+        "name": "Icy",
+        "desc": "Glacier blue fading to frost white.",
+        "stops": [(0.0, "#020C16"), (0.30, "#0B3352"), (0.58, "#2F93CF"), (0.82, "#A6E4FF"), (1.0, "#FFFFFF")],
+    },
+}
+
+
+def _hex(value):
+    h = value.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+
+def theme_luts(preset: str):
+    """Three 256-entry lookup tables (R, G, B) for a preset's gradient map."""
+    stops = [(p, _hex(c)) for p, c in THEMES[preset]["stops"]]
+    luts = ([], [], [])
+    for i in range(256):
+        t = i / 255.0
+        for (p0, c0), (p1, c1) in zip(stops, stops[1:]):
+            if t <= p1:
+                f = 0.0 if p1 == p0 else (t - p0) / (p1 - p0)
+                for ch in range(3):
+                    luts[ch].append(int(round(c0[ch] + (c1[ch] - c0[ch]) * f)))
+                break
+        else:
+            for ch in range(3):
+                luts[ch].append(stops[-1][1][ch])
+    return luts
+
+
+_LUT_CACHE = {}
+
+
+def recolor_image(img: Image.Image, preset: str, strength: float = 0.85) -> Image.Image:
+    """Gradient-map an RGBA image to a theme, keeping its alpha untouched.
+
+    Purely per-pixel, so recolouring an atlas and then cropping a sprite gives
+    the same pixels as cropping first and recolouring after.
+    """
+    if preset not in THEMES:
+        return img
+    strength = max(0.0, min(1.0, float(strength)))
+    rgba = img.convert("RGBA")
+    if strength <= 0:
+        return rgba
+    luts = _LUT_CACHE.get(preset)
+    if luts is None:
+        luts = _LUT_CACHE[preset] = theme_luts(preset)
+    r, g, b, a = rgba.split()
+    lum = Image.merge("RGB", (r, g, b)).convert("L")
+    mapped = Image.merge("RGB", (lum.point(luts[0]), lum.point(luts[1]), lum.point(luts[2])))
+    rgb = Image.merge("RGB", (r, g, b))
+    out = Image.blend(rgb, mapped, strength) if strength < 1 else mapped
+    out = out.convert("RGBA")
+    out.putalpha(a)
+    return out
+
+
+def theme_swatch(preset: str, width=240, height=24) -> Image.Image:
+    luts = theme_luts(preset)
+    strip = Image.new("RGB", (256, 1))
+    strip.putdata([(luts[0][i], luts[1][i], luts[2][i]) for i in range(256)])
+    return strip.resize((width, height), Image.Resampling.BILINEAR)
+
+
+# -------------------------------------------------------------- unity helpers
+GUI_SKIP_WORDS = ("sky", "lightmap", "normal", "_nrm", "terrain", "shadowmask", "reflection", "noise", "lut")
+SKY_FACE_TOKENS = {
+    "front": {"front", "ft", "fr", "forward", "pz", "posz"},
+    "back": {"back", "bk", "bc", "behind", "nz", "negz"},
+    "left": {"left", "lf", "le", "nx", "negx"},
+    "right": {"right", "rt", "ri", "px", "posx"},
+    "up": {"up", "top", "py", "posy"},
+    "down": {"down", "dn", "bottom", "bt", "ny", "negy"},
+}
+SKYBOX_MATERIAL_SLOTS = {
+    "_FrontTex": "front", "_BackTex": "back", "_LeftTex": "left",
+    "_RightTex": "right", "_UpTex": "up", "_DownTex": "down",
+    "_Tex": "cube", "_MainTex": "panorama",
+}
+ALPHA_ONLY_FORMATS = {1, 9, 63}  # Alpha8, R16, R8 (font atlases / masks)
+
+
+def _name(obj):
+    try:
+        return obj.peek_name() or ""
+    except Exception:
+        try:
+            return getattr(obj.parse_as_object(), "m_Name", "") or ""
+        except Exception:
+            return ""
+
+
+def _pptr_ids(pptr):
+    fid = getattr(pptr, "m_FileID", getattr(pptr, "file_id", 0))
+    pid = getattr(pptr, "m_PathID", getattr(pptr, "path_id", 0))
+    return int(fid or 0), int(pid or 0)
+
+
+def _tex_env_items(material):
+    try:
+        envs = material.m_SavedProperties.m_TexEnvs
+    except Exception:
+        return []
+    out = []
+    for entry in envs or []:
+        try:
+            if isinstance(entry, (tuple, list)):
+                key, env = entry[0], entry[1]
+            else:
+                key, env = entry.first, entry.second
+            key = getattr(key, "name", key)
+            out.append((str(key), env))
+        except Exception:
+            continue
+    return out
+
+
+def _gui_textures_in(env, hints, log, label):
+    """Texture2Ds in one loaded file that back a UI Sprite or carry a GUI name."""
+    sprite_textures = set()
+    textures = {}
+    for obj in env.objects:
+        tname = obj.type.name
+        try:
+            if tname == "Sprite":
+                spr = obj.parse_as_object()
+                fid, pid = _pptr_ids(spr.m_RD.texture)
+                if fid == 0 and pid:
+                    sprite_textures.add(pid)
+            elif tname == "Texture2D":
+                textures[int(obj.path_id)] = obj
+        except Exception as e:
+            log(f"THEME OBJ FAIL {label} {getattr(obj, 'path_id', '?')}: {e}")
+    found = []
+    for pid, obj in textures.items():
+        name = _name(obj)
+        low = name.lower()
+        if any(w in low for w in GUI_SKIP_WORDS):
+            continue
+        if pid not in sprite_textures and not any(h in low for h in hints):
+            continue
+        try:
+            tex = obj.parse_as_object()
+            w, h = int(tex.m_Width), int(tex.m_Height)
+            if int(tex.m_TextureFormat) in ALPHA_ONLY_FORMATS:
+                continue
+            if not (4 <= w <= 8192 and 4 <= h <= 8192):
+                continue
+        except Exception:
+            continue
+        found.append({"path_id": pid, "name": name, "width": w, "height": h})
+    return found
+
+
+def _face_from_name(name: str):
+    spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
+    tokens = set(re.split(r"[^a-z0-9]+", spaced.lower()))
+    for face, words in SKY_FACE_TOKENS.items():
+        if tokens & words:
+            return face
+    return None
+
+
+def _sky_textures_in(env, p: Path, app: Path, log):
+    """Skybox textures in one loaded file: via Skybox materials, then by name."""
+    out = []
+    faces = {}  # path id -> face from a skybox material
+    tex_objs = {}
+    for obj in env.objects:
+        tname = obj.type.name
+        if tname in ("Texture2D", "Cubemap"):
+            tex_objs[int(obj.path_id)] = obj
+        elif tname == "Material":
+            try:
+                mat = obj.parse_as_object()
+                shader_name = ""
+                try:
+                    sh = mat.m_Shader.deref()
+                    shader_name = (_name(sh) if sh is not None else "") or ""
+                except Exception:
+                    pass
+                mat_name = getattr(mat, "m_Name", "") or ""
+                if "sky" not in shader_name.lower() and "sky" not in mat_name.lower():
+                    continue
+                for key, env_ in _tex_env_items(mat):
+                    slot = SKYBOX_MATERIAL_SLOTS.get(key)
+                    if not slot:
+                        continue
+                    fid, pid = _pptr_ids(env_.m_Texture)
+                    if fid == 0 and pid:
+                        faces[pid] = slot
+            except Exception as e:
+                log(f"SKY MAT FAIL {p} {getattr(obj, 'path_id', '?')}: {e}")
+    for pid, obj in tex_objs.items():
+        name = _name(obj)
+        face = faces.get(pid)
+        if face is None and "sky" not in name.lower():
+            continue
+        try:
+            tex = obj.parse_as_object()
+            w, h = int(tex.m_Width), int(tex.m_Height)
+        except Exception:
+            continue
+        if w < 16 or h < 16:
+            continue
+        thumb = None
+        try:
+            thumb = tex.image.convert("RGB")
+            thumb.thumbnail((192, 192))
+        except Exception:
+            pass
+        typ = obj.type.name
+        if typ == "Cubemap":
+            face = "cube"
+        elif face in (None, "cube"):
+            face = _face_from_name(name) or ("panorama" if w >= 1.7 * h else "flat")
+        try:
+            rel = str(p.relative_to(app))
+        except ValueError:
+            rel = p.name
+        out.append({
+            "source_file": str(p), "relative_file": rel, "path_id": int(pid),
+            "name": name, "type": typ, "face": face, "width": w, "height": h,
+            "from_material": pid in faces, "_thumb": thumb,
+        })
+    return out
+
+
+def scan_assets(files, app: Path, hints, progress=None, log=print, sample_cb=None, max_samples=10):
+    """One pass over the game files for both features.
+
+    Returns (gui_targets, sky_textures): gui_targets maps source file ->
+    [{"path_id", "name", "width", "height"}]; sky_textures is a list.
+    """
+    import UnityPy
+
+    gui, sky = {}, []
+    total = max(1, len(files))
+    for idx, p in enumerate(files, 1):
+        if progress:
+            progress(idx / total, f"Scanning game files ({idx}/{total})…")
+        try:
+            env = UnityPy.load(str(p))
+        except Exception as e:
+            log(f"CUSTOMIZE LOAD FAIL {p}: {type(e).__name__}: {e}")
+            continue
+        found = _gui_textures_in(env, hints, log, p)
+        if found:
+            gui[str(p)] = found
+            if sample_cb and max_samples > 0:
+                # Keep a thumbnail of this file's biggest atlas for theme previews.
+                big = max(found, key=lambda t: t["width"] * t["height"])
+                try:
+                    reader = next(o for o in env.objects if int(o.path_id) == big["path_id"])
+                    img = reader.parse_as_object().image.convert("RGBA")
+                    img.thumbnail((420, 420))
+                    sample_cb(img, big)
+                    max_samples -= 1
+                except Exception as e:
+                    log(f"Theme sample failed for {p}: {e}")
+        sky += _sky_textures_in(env, Path(p), app, log)
+        del env
+    sky.sort(key=lambda t: (not t["from_material"], t["relative_file"], t["name"].lower()))
+    for i, t in enumerate(sky, 1):
+        t["id"] = i
+    return gui, sky
+
+
+# ------------------------------------------------------------------ skyboxes
+# View direction for pixel (a, b) of each face, a right / b down in [-1, 1],
+# Unity's left-handed space: +X right, +Y up, +Z forward.
+_FACE_DIRS = {
+    "front": lambda a, b: (a, -b, 1.0),
+    "back": lambda a, b: (-a, -b, -1.0),
+    "right": lambda a, b: (1.0, -b, -a),
+    "left": lambda a, b: (-1.0, -b, a),
+    "up": lambda a, b: (a, 1.0, b),
+    "down": lambda a, b: (a, -1.0, -b),
+}
+CUBEMAP_ORDER = ("right", "left", "up", "down", "front", "back")  # +X -X +Y -Y +Z -Z
+
+
+def is_panorama(img: Image.Image):
+    return 1.7 <= img.width / max(1, img.height) <= 2.3
+
+
+def cover(img: Image.Image, size):
+    """Scale and centre-crop to fill `size` (like CSS object-fit: cover)."""
+    w, h = size
+    src = img.convert("RGBA")
+    scale = max(w / src.width, h / src.height)
+    nw, nh = max(1, round(src.width * scale)), max(1, round(src.height * scale))
+    src = src.resize((nw, nh), Image.Resampling.LANCZOS)
+    x, y = (nw - w) // 2, (nh - h) // 2
+    return src.crop((x, y, x + w, y + h))
+
+
+def project_face(pano: Image.Image, face: str, size: int, yaw_deg: float = 0.0) -> Image.Image:
+    """Cut one cube face out of an equirectangular panorama."""
+    pano = pano.convert("RGB")
+    yaw = math.radians(yaw_deg)
+    if np is not None:
+        src = np.asarray(pano, dtype=np.float32)
+        ph, pw = src.shape[:2]
+        coords = (np.arange(size, dtype=np.float32) + 0.5) / size * 2 - 1
+        a, b = np.meshgrid(coords, coords)
+        x, y, z = _FACE_DIRS[face](a, b)
+        x = np.broadcast_to(x, a.shape)
+        y = np.broadcast_to(y, a.shape)
+        z = np.broadcast_to(z, a.shape)
+        lon = np.arctan2(x, z) + yaw
+        lat = np.arctan2(y, np.sqrt(x * x + z * z))
+        u = ((lon / (2 * np.pi) + 0.5) % 1.0) * pw - 0.5
+        v = (0.5 - lat / np.pi) * ph - 0.5
+        u0 = np.floor(u).astype(np.int64)
+        v0 = np.clip(np.floor(v).astype(np.int64), 0, ph - 1)
+        v1 = np.clip(v0 + 1, 0, ph - 1)
+        fu = (u - u0)[..., None]
+        fv = np.clip(v - np.floor(v), 0, 1)[..., None]
+        u1 = (u0 + 1) % pw
+        u0 = u0 % pw
+        top = src[v0, u0] * (1 - fu) + src[v0, u1] * fu
+        bot = src[v1, u0] * (1 - fu) + src[v1, u1] * fu
+        out = top * (1 - fv) + bot * fv
+        return Image.fromarray(np.clip(out + 0.5, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
+    # Pure-Python fallback: nearest sample on a reduced grid, then upscale.
+    step = max(1, size // 256)
+    small = max(1, size // step)
+    pw, ph = pano.size
+    px = pano.load()
+    out = Image.new("RGB", (small, small))
+    opx = out.load()
+    fn = _FACE_DIRS[face]
+    for j in range(small):
+        b = (j + 0.5) / small * 2 - 1
+        for i in range(small):
+            a = (i + 0.5) / small * 2 - 1
+            x, y, z = fn(a, b)
+            lon = math.atan2(x, z) + yaw
+            lat = math.atan2(y, math.sqrt(x * x + z * z))
+            u = int(((lon / (2 * math.pi) + 0.5) % 1.0) * pw) % pw
+            v = min(ph - 1, max(0, int((0.5 - lat / math.pi) * ph)))
+            opx[i, j] = px[u, v]
+    if small != size:
+        out = out.resize((size, size), Image.Resampling.BICUBIC)
+    return out.convert("RGBA")
+
+
+def sky_image_for(target: dict, source: Image.Image, yaw=0.0, swap_lr=False, flat_mode="cover"):
+    """Build the replacement image for one sky texture (not cubemaps)."""
+    face = target.get("face") or "flat"
+    w, h = int(target["width"]), int(target["height"])
+    if swap_lr and face in ("left", "right"):
+        face = "right" if face == "left" else "left"
+    pano = is_panorama(source)
+    if face in _FACE_DIRS:
+        if pano:
+            img = project_face(source, face, max(w, h), yaw)
+            return img.resize((w, h), Image.Resampling.LANCZOS) if (w, h) != img.size else img
+        return cover(source, (w, h)) if flat_mode == "cover" else source.convert("RGBA").resize((w, h), Image.Resampling.LANCZOS)
+    # panoramic / unknown single texture: use the whole picture
+    if pano and face == "panorama" and yaw:
+        shift = int(round(yaw / 360.0 * source.width)) % source.width
+        source = ImageChops.offset(source.convert("RGBA"), -shift, 0)
+    if face == "panorama" or flat_mode != "cover":
+        return source.convert("RGBA").resize((w, h), Image.Resampling.LANCZOS)
+    return cover(source, (w, h))
+
+
+def cubemap_faces(source: Image.Image, size: int, yaw=0.0, swap_lr=False):
+    faces = []
+    for face in CUBEMAP_ORDER:
+        f = face
+        if swap_lr and face in ("left", "right"):
+            f = "right" if face == "left" else "left"
+        if is_panorama(source):
+            faces.append(project_face(source, f, size, yaw))
+        else:
+            faces.append(cover(source, (size, size)))
+    return faces
+
+
+def write_cubemap(cube, faces, flip=True):
+    """Replace all six faces of a Unity Cubemap object (mipmaps dropped)."""
+    from UnityPy.export import Texture2DConverter
+
+    platform = cube.object_reader.platform if cube.object_reader is not None else 0
+    blob = getattr(cube, "m_PlatformBlob", None)
+    chunks, fmt = [], None
+    for img in faces:
+        data, fmt = Texture2DConverter.image_to_texture2d(img, cube.m_TextureFormat, platform, blob, flip=flip)
+        chunks.append(data)
+    cube.m_Width = faces[0].width
+    cube.m_Height = faces[0].height
+    cube.image_data = b"".join(chunks)
+    cube.m_CompleteImageSize = len(chunks[0])
+    cube.m_ImageCount = len(chunks)
+    cube.m_TextureFormat = fmt
+    if getattr(cube, "m_MipMap", None) is not None:
+        cube.m_MipMap = False
+    if getattr(cube, "m_MipCount", None) is not None:
+        cube.m_MipCount = 1
+    if getattr(cube, "m_StreamData", None) is not None:
+        cube.m_StreamData.path = ""
+        cube.m_StreamData.offset = 0
+        cube.m_StreamData.size = 0
+
+
+def safe_sky_name(raw: str):
+    s = re.sub(r"[^A-Za-z0-9 _.-]+", "", str(raw or "")).strip()[:48]
+    return s or "Custom sky"
