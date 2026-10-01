@@ -3699,6 +3699,76 @@ def steam_playtime_minutes(steamid64):
     return cached(("steam_playtime", str(steamid64)), 60, read)
 
 
+EMBER_LOOKUP_URL = "https://emberpg3d.com/api/utility/pub/{}"
+
+
+def _ember_fetch(player_id):
+    """Public, read-only Ember player lookup (no login). Returns a summary."""
+    req = Request(EMBER_LOOKUP_URL.format(player_id),
+                  headers={"User-Agent": f"PG3D-Mac-Client/{APP_VERSION}", "Accept": "application/json"})
+    with urlopen(req, timeout=10) as r:
+        data = json.loads(r.read().decode("utf-8"))
+    profile = data.get("profile") or {}
+    v3 = data.get("v3") or {}
+    gw = profile.get("global_wins") or {}
+    total = sum(int(v) for k, v in gw.items() if k not in ("t", "weekly") and str(v).lstrip("-").isdigit())
+    weekly = profile.get("weekly_stats") or {}
+    if not profile and not gw:
+        raise RuntimeError("Ember has no stats for that player ID. Check the ID in your PG3D profile.")
+    return {
+        "player_id": str(player_id),
+        "name": profile.get("name") or v3.get("name") or data.get("name") or "",
+        "level": profile.get("level") or v3.get("level") or data.get("level"),
+        "wins_total": total,
+        "wins_by_mode": {k: v for k, v in gw.items() if k not in ("t", "weekly")},
+        "weekly": {k: weekly.get(k) for k in ("kills", "deaths", "matches", "wins", "headshots",
+                                               "killstreak", "winstreak", "score")},
+        "banned": data.get("banned"),
+        "fetched": int(time.time()),
+    }
+
+
+def ember_stats(account, force=False):
+    """Linked Ember stats for a Steam account, refreshed at most every 10 min."""
+    data = wins_data()
+    acc = data["accounts"].get(str(account), {})
+    link = acc.get("ember")
+    if not link or not link.get("player_id"):
+        return None
+    if not force and time.time() - int(link.get("fetched", 0) or 0) < 600:
+        return link
+    try:
+        fresh = _ember_fetch(link["player_id"])
+        fresh["error"] = None
+    except Exception as e:
+        log(f"Ember lookup failed: {e}")
+        fresh = {**link, "error": str(e), "fetched": int(time.time())}
+    with _LOCK:
+        data = wins_data()
+        data["accounts"].setdefault(str(account), {"auto": 0, "manual": 0, "log": []})["ember"] = fresh
+        write_json(WINS_JSON, data)
+    return fresh
+
+
+def link_ember(account, player_id):
+    pid = re.sub(r"\s+", "", str(player_id or ""))
+    data = wins_data()
+    acc = data["accounts"].setdefault(str(account), {"auto": 0, "manual": 0, "log": []})
+    if not pid:
+        acc.pop("ember", None)
+        write_json(WINS_JSON, data)
+        return {"ok": True, "linked": False}
+    if not re.fullmatch(r"\d{1,12}", pid):
+        raise RuntimeError("A PG3D player ID is numbers only. Find it in your in-game profile.")
+    stats = _ember_fetch(pid)  # raises with a readable message if the ID has no stats
+    stats["error"] = None
+    with _LOCK:
+        data = wins_data()
+        data["accounts"].setdefault(str(account), {"auto": 0, "manual": 0, "log": []})["ember"] = stats
+        write_json(WINS_JSON, data)
+    return {"ok": True, "linked": True, "ember": stats}
+
+
 def tracked_minutes(account):
     data = read_json(PLAYTIME_JSON, {"sessions": []})
     total = sum(x.get("seconds", 0) for x in data.get("sessions", [])
@@ -3715,7 +3785,19 @@ def rank_payload(account, full=False):
     cfg = data["config"]
     acc = data["accounts"].get(str(account), {})
     auto_w, manual_w = int(acc.get("auto", 0)), int(acc.get("manual", 0))
-    wins = auto_w + manual_w
+    ember = None
+    try:
+        ember = ember_stats(account) if full or (acc.get("ember") or {}).get("player_id") else None
+    except Exception as e:
+        log(f"Ember stats failed: {e}")
+    if ember and ember.get("wins_total") is not None and ember.get("player_id"):
+        # Server-side all-time wins replace log detection (no double counting);
+        # manual +/- still apply as corrections.
+        wins_source = "ember"
+        wins = max(0, int(ember["wins_total"]) + manual_w)
+    else:
+        wins_source = "local"
+        wins = auto_w + manual_w
     tracked = tracked_minutes(account)
     steam_min = steam_playtime_minutes(account) if cfg.get("steam_playtime", True) else None
     minutes = max(tracked, float(steam_min or 0))
@@ -3746,6 +3828,8 @@ def rank_payload(account, full=False):
         "wins": wins,
         "wins_auto": auto_w,
         "wins_manual": manual_w,
+        "wins_source": wins_source,
+        "ember": ember,
         "minutes": int(minutes),
         "hours": round(minutes / 60.0, 1),
         "tracked_minutes": int(tracked),
@@ -4078,6 +4162,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/rank/win":
                 delta = 1 if int(data.get("delta", 1)) >= 0 else -1
                 return self.send_json(record_win(_playtime_account(), "manual", None, delta))
+            if path == "/api/rank/ember":
+                return self.send_json(link_ember(_playtime_account(), data.get("player_id", "")))
+            if path == "/api/rank/ember/refresh":
+                return self.send_json({"ok": True, "ember": ember_stats(_playtime_account(), force=True)})
             if path == "/api/rank/config":
                 return self.send_json(set_win_config(data))
             if path == "/api/rank/test":

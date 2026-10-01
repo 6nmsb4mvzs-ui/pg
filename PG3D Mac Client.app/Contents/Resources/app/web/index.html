@@ -334,6 +334,11 @@ body{background:radial-gradient(circle at 14% -8%,rgba(139,17,42,.25) 0,#15151a 
 .rkAdv textarea,.rkAdv input[type=text]{width:100%;background:#0f0607;color:#f6e9ea;border:1px solid #43201f;border-radius:10px;padding:9px 10px;font:12px/1.45 ui-monospace,Menlo,monospace}
 .rkAdv textarea{min-height:84px;resize:vertical}
 .rkLine{cursor:pointer}.rkLine:hover{border-color:#6a2a30}
+.emBox{border:1px solid #3a1c20;border-radius:12px;padding:12px;background:#120809;margin-bottom:10px}
+.emLink{display:flex;gap:8px;margin-top:8px}.emLink input{flex:1;min-width:0}
+.emHead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px}.emHead b{font-size:15px;color:#fff}.emHead small{display:block;color:var(--muted);font-size:11px}
+.emStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px}
+.emStats div{background:#0e0607;border:1px solid #2c171a;border-radius:9px;padding:7px 9px}.emStats b{display:block;font-size:15px;color:#fff}.emStats span{font-size:10px;color:var(--muted)}
 .rkChip{display:flex;align-items:center;gap:10px;margin-top:14px;border:1px solid #3a1c20;border-radius:12px;padding:7px 12px 7px 7px;background:#120809;cursor:pointer;width:340px;max-width:100%}
 .rkChip img{width:40px;height:40px;object-fit:contain}
 .rkChip b{font-size:13px;color:#fff}.rkChip small{display:block;color:var(--muted);font-size:11px}
@@ -633,6 +638,16 @@ body{background:radial-gradient(circle at 14% -8%,rgba(139,17,42,.25) 0,#15151a 
           <div class="crCard">
             <div class="crCardHead"><h3>Wins</h3>
               <div class="rkWinBtns"><button class="btn" id="rkWinMinus" title="Remove a win logged by mistake">−1</button><button class="btn primary" id="rkWinPlus">+1 Win</button></div>
+            </div>
+            <div class="emBox" id="emBox">
+              <div class="xLabel">Ember player lookup</div>
+              <div class="emLink" id="emLinkRow"><input class="search" id="emId" inputmode="numeric" placeholder="Your PG3D player ID" spellcheck="false"><button class="btn primary" id="emLinkBtn">Link</button></div>
+              <div id="emLinked" hidden>
+                <div class="emHead"><div><b id="emName">—</b><small id="emMeta"></small></div><div class="xRow"><button class="btn ghost" id="emRefresh">Refresh</button><button class="btn ghost" id="emUnlink">Unlink</button></div></div>
+                <div class="emStats" id="emStats"></div>
+                <div class="sub" id="emErr"></div>
+              </div>
+              <p class="xNote">Reads your all-time wins from Ember's public lookup (no login). Linked wins replace log detection; +1/−1 still work as corrections.</p>
             </div>
             <button class="xSwitch" id="rkAutoToggle" role="switch"><div><b>Detect wins automatically</b><small id="rkLogState">Reads the game's Player.log while PG3D runs.</small></div><span class="pillToggle"></span></button>
             <div class="rkList" id="rkWinLog"></div>
@@ -1184,7 +1199,7 @@ function renderJob(){const j=statusData?.job;if(!j)return;
 // Rank chip on the Play page + promotion splash
 function renderRankChip(){const r=statusData?.rank;const host=$('#rankChip');if(!host||!r)return;
   host.style.setProperty('--rk',r.color);host.querySelector('img').src=r.emblem;host.querySelector('b').textContent=r.title+(r.lp?` · ${fmtNum(r.lp)} LP`:'');
-  host.querySelector('small').textContent=r.next_name?`${fmtNum(r.xp_to_next)} XP to ${r.next_name}`:'Top of the ladder';host.querySelector('.mini i').style.width=Math.round((r.progress||0)*100)+'%';
+  host.querySelector('small').textContent=r.gated?`${fmtNum(r.gated.wins_missing)} more wins for ${r.gated.tier}`:r.next_name?`${fmtNum(r.xp_to_next)} XP to ${r.next_name}`:'Top of the ladder';host.querySelector('.mini i').style.width=Math.round((r.progress||0)*100)+'%';
   const ev=r.last_event;if(ev&&ev.kind==='promoted'){let seen=0;try{seen=Number(localStorage.pg3dRankSeen||0)}catch{}if(ev.at>seen){try{localStorage.pg3dRankSeen=String(ev.at)}catch{}showPromotion(r)}}}
 function showPromotion(r){const p=$('#rkPromo');p.style.setProperty('--rk',r.color);p.querySelector('img').src=r.emblem;p.querySelector('h1').textContent=r.title;p.classList.add('show');uiSound('primary')}
 
@@ -1193,17 +1208,18 @@ async function loadRank(){try{rankData=await api('/api/rank');renderRank()}catch
 function renderRank(){const r=rankData;if(!r)return;
   $('#rkHero').style.setProperty('--rk',r.color);$('#rkEmblem').src=r.emblem;
   const t=$('#rkTitle');t.textContent=r.tier_name+' ';t.append(el('span',null,r.division||(r.lp!=null?`${fmtNum(r.lp)} LP`:'')));
-  $('#rkSub').textContent=r.next_name?`${fmtNum(r.xp_to_next)} XP to ${r.next_name} · about ${r.hours_to_next} h of play`:'You are at the top of the ladder. Every 1,000 XP adds an LP.';
+  $('#rkSub').textContent=r.gated?`Rank held at ${r.title} until you reach ${fmtNum(r.gated.wins_needed)} wins.`:r.next_name?`${fmtNum(r.xp_to_next)} XP to ${r.next_name} · about ${r.hours_to_next} h of play`:'You are at the top of the ladder. Every 1,000 XP adds an LP.';
   $('#rkBarFill').style.width=Math.round(r.progress*100)+'%';
-  $('#rkBarLeft').innerHTML='';$('#rkBarLeft').append(el('b',null,fmtNum(r.xp-r.step_start)),document.createTextNode(r.next_xp?` / ${fmtNum(r.next_xp-r.step_start)} XP`:' XP'));
+  $('#rkBarLeft').innerHTML='';$('#rkBarLeft').append(el('b',null,fmtNum(r.next_xp?Math.min(r.xp,r.next_xp)-r.step_start:r.xp-r.step_start)),document.createTextNode(r.next_xp?` / ${fmtNum(r.next_xp-r.step_start)} XP`:' XP'));
   $('#rkBarRight').textContent=`Step ${r.step+1} of ${r.steps_total}`;
   const g=$('#rkGate');if(r.gated){g.className='rkGate show';g.textContent=`XP is enough for ${r.gated.tier}, but it needs ${fmtNum(r.gated.wins_needed)} wins. ${fmtNum(r.gated.wins_missing)} to go.`}else g.className='rkGate';
   $('#rkHours').textContent=fmtNum(r.hours);$('#rkHoursSrc').textContent=r.playtime_source==='steam'?'hours (Steam)':'hours (this client)';
-  $('#rkWins').textContent=fmtNum(r.wins);$('#rkXp').textContent=fmtNum(r.xp);
+  $('#rkWins').textContent=fmtNum(r.wins);$('#rkWins').nextElementSibling.textContent=r.wins_source==='ember'?'wins (Ember)':'wins';$('#rkXp').textContent=fmtNum(r.xp);
   const best=(r.history||[]).reduce((a,h)=>h.step>(a?.step??-1)?h:a,null);$('#rkBest').textContent=best?best.title:r.title;
   $('#rkRates').textContent=`${r.xp_per_minute} XP per minute · ${r.xp_per_win} XP per win`;
   const lad=$('#rkLadder');lad.innerHTML='';const curIdx=(r.ladder||[]).findIndex(x=>x.tier===r.tier);
   (r.ladder||[]).forEach((x,i)=>{const d=el('div','rkStep'+(i<curIdx?' done':'')+(i===curIdx?' current':''));d.style.setProperty('--rk',x.color);const im=el('img');im.src=TIER_IMG(x.tier);im.alt='';d.append(im,el('b',null,x.name),el('span',null,x.hours?`${x.hours} h`:'start'));if(x.wins)d.append(el('span',null,`${fmtNum(x.wins)} wins`));lad.append(d)});
+  renderEmber(r);
   setSwitch('#rkAutoToggle',r.config.auto);setSwitch('#rkSteamToggle',r.config.steam_playtime);
   $('#rkLogState').textContent=r.player_log?`Watching ${r.player_log.replace(/^.*\/Library\//,'~/Library/')}`:`No Player.log found yet. It appears after PG3D runs once (looked in ~/Library/Logs).`;
   const wl=$('#rkWinLog');wl.innerHTML='';const wins=r.win_log||[];if(!wins.length)wl.append(el('div','xEmpty',`No wins logged on this account yet. ${r.wins_auto} auto · ${r.wins_manual} manual.`));
@@ -1212,6 +1228,19 @@ function renderRank(){const r=rankData;if(!r)return;
   if(!document.activeElement||!document.activeElement.closest?.('.rkAdv')){$('#rkPatterns').value=(r.config.patterns||[]).join('\n');$('#rkGuard').value=r.config.loss_guard||'';$('#rkCooldown').value=r.config.cooldown||90}
   const rc=$('#rkRecent');rc.innerHTML='';const lines=r.recent_lines||[];if(!lines.length)rc.append(el('div','xEmpty','Nothing yet. Lines mentioning wins, matches or results show up here while you play.'));
   for(const l of lines.slice(0,25)){const it=el('div','rkItem rkLine');it.title='Click to use as a win pattern';it.append(el('code',null,l.line),el('time',null,ago(l.at)));it.onclick=()=>{const esc=l.line.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\d+/g,'\\d+');const ta=$('#rkPatterns');ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+esc;toast('Added as a pattern. Press Save to use it.')};rc.append(it)}}
+function renderEmber(r){const e=r.ember,linked=!!(e&&e.player_id);$('#emLinkRow').hidden=linked;$('#emLinked').hidden=!linked;
+  $('#rkAutoToggle').style.opacity=linked?.45:1;$('#rkAutoToggle').title=linked?'Not used while Ember is linked':'';
+  if(!linked)return;$('#emName').textContent=e.name||`Player ${e.player_id}`;
+  $('#emMeta').textContent=`ID ${e.player_id}${e.level?` · level ${e.level}`:''} · updated ${ago(e.fetched)}`;
+  const w=e.weekly||{},kd=w.deaths?(w.kills/w.deaths).toFixed(2):(w.kills?'∞':'0'),wr=w.matches?(100*w.wins/w.matches).toFixed(1)+'%':'—';
+  const cells=[['All-time wins',fmtNum(e.wins_total)],['30-day wins',fmtNum(w.wins)],['30-day matches',fmtNum(w.matches)],['Win rate',wr],['Kills',fmtNum(w.kills)],['K/D',kd],['Headshots',fmtNum(w.headshots)],['Best streak',fmtNum(w.killstreak)]];
+  const g=$('#emStats');g.innerHTML='';for(const [l,v] of cells){const d=el('div');d.append(el('b',null,v),el('span',null,l));g.append(d)}
+  $('#emErr').textContent=e.error?`Last refresh failed: ${e.error}`:''}
+$('#emLinkBtn').onclick=async()=>{const id=$('#emId').value.trim();if(!id)return toast('Enter your PG3D player ID.',true);$('#emLinkBtn').disabled=true;
+  try{const d=await post('/api/rank/ember',{player_id:id});toast(`Linked ${d.ember.name||id} · ${fmtNum(d.ember.wins_total)} wins`);await loadRank();refreshStatus()}catch(e){toast(e.message,true)}finally{$('#emLinkBtn').disabled=false}};
+$('#emId').addEventListener('keydown',e=>{if(e.key==='Enter')$('#emLinkBtn').click()});
+$('#emRefresh').onclick=async()=>{try{await post('/api/rank/ember/refresh');await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
+$('#emUnlink').onclick=async()=>{try{await post('/api/rank/ember',{player_id:''});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
 $('#rkWinPlus').onclick=async()=>{try{await post('/api/rank/win',{delta:1});toast('Win added.');await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
 $('#rkWinMinus').onclick=async()=>{try{await post('/api/rank/win',{delta:-1});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
 $('#rkAutoToggle').onclick=async()=>{try{await post('/api/rank/config',{auto:!rankData?.config?.auto});await loadRank()}catch(e){toast(e.message,true)}};

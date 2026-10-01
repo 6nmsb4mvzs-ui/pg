@@ -17,8 +17,8 @@ New in 1.20
 Rank   Earn XP from playtime (60 XP per minute) and wins (250 XP each) and climb
        Iron to Challenger. Challenger takes roughly 750 hours, and Gold and up
        also need a minimum number of wins. Wins are read from the game's
-       Player.log; if your PG3D build words results differently, set the win
-       patterns under Rank > Win detection settings, or log wins by hand.
+       Player.log, or link your PG3D player ID under Rank > Ember player
+       lookup to use your real all-time wins from Ember's public lookup.
 Theme  Recolor every PG3D menu, HUD and icon texture: Crimson, Dark Souls,
        Royal or Icy. Close the game first. Apply again after a PG3D update.
 Sky    Add your own sky. A 2:1 panorama wraps all the way around; any other
