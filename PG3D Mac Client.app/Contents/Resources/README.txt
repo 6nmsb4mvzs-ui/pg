@@ -1,4 +1,4 @@
-PG3D Mac Client 1.20.0
+PG3D Mac Client 1.21.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -24,3 +24,8 @@ Theme  Recolor every PG3D menu, HUD and icon texture: Crimson, Dark Souls,
 Sky    Add your own sky. A 2:1 panorama wraps all the way around; any other
        image is used on every side. Pick which sky textures to replace.
 Theme and sky changes use the same backups and undo as cursor changes.
+
+New in 1.21
+Cleaner layout: grouped sidebar (GUI is now called Overlay), one button and
+card style across every tab, and shorter Rank, Theme and Sky pages with the
+advanced options folded away.
