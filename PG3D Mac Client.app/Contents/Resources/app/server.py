@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.24.0"
+APP_VERSION = "1.25.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3703,8 +3703,9 @@ def steam_playtime_minutes(steamid64):
 EMBER_LOOKUP_URL = "https://emberpg3d.com/api/utility/pub/{}"
 
 
-def _ember_fetch(player_id):
-    """Public, read-only Ember player lookup (no login). Returns a summary."""
+def _ember_fetch(player_id, full=False):
+    """Public, read-only Ember player lookup (no login). Returns a summary,
+    plus the untouched response under "full" when asked."""
     req = Request(EMBER_LOOKUP_URL.format(player_id),
                   headers={"User-Agent": f"PG3D-Mac-Client/{APP_VERSION}", "Accept": "application/json"})
     with urlopen(req, timeout=10) as r:
@@ -3732,6 +3733,7 @@ def _ember_fetch(player_id):
         "items": {k: profile.get(f"{k}_count") for k in ("weapon", "gadget", "pet", "avatar", "sets")},
         "skin": profile.get("skin") or v3.get("equipped_skin"),
         "fetched": int(time.time()),
+        **({"full": data} if full else {}),
     }
 
 
@@ -3875,7 +3877,7 @@ def lookup_player(pid):
     hit = _LOOKUP_CACHE.get(pid)
     if hit and time.time() - hit["fetched"] < 120:
         return hit
-    data = _ember_fetch(pid)
+    data = _ember_fetch(pid, full=True)
     _LOOKUP_CACHE[pid] = data
     return data
 

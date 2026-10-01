@@ -1,4 +1,4 @@
-PG3D Mac Client 1.24.0
+PG3D Mac Client 1.25.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -45,3 +45,9 @@ New in 1.24
 Player Lookup tab: look up any PG3D player ID (name, level, clan, all-time
 wins and 30-day stats from Ember's public lookup). Your Steam accounts are
 listed with the PG3D ID last seen on each, one click to look them up.
+
+New in 1.25
+Player Lookup shows everything the lookup returns: account and currencies,
+all 30-day stats, wins per game mode, loadout, weapons with level and
+rarity, weapon skins, wear, skin and cape textures (saveable), and the raw
+data.
