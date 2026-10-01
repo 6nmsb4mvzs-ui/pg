@@ -131,6 +131,24 @@ body{background:radial-gradient(circle at 14% -8%,rgba(139,17,42,.25) 0,#191314 
 /* v1.17 editor, previews, settings */
 [hidden]{display:none!important}
 .guiStyleList{align-items:start!important}
+.ovStyle{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}
+.ovChip{height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--border2);background:#100809;color:var(--muted);font-weight:700;font-size:12px;cursor:pointer}
+.ovChip.on{background:#2a1317;border-color:var(--accent);color:#fff}
+.guiElement .geDesc{display:none}
+#guiElements{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.crOrder.horizontal{display:flex;flex-wrap:wrap;gap:8px}
+.crOrder .crOrderItem{padding:6px 12px 6px 6px!important;border-radius:10px!important;gap:8px!important;min-height:0!important}
+.crOrder .crOrderPreview{display:none}
+.crHotkey{min-width:64px;height:34px;border-radius:10px;border:1px solid var(--border2);background:#100809;color:#fff;font-weight:800;cursor:pointer}
+@media(max-width:820px){.ovStyle{grid-template-columns:1fr}#guiElements{grid-template-columns:1fr 1fr}}
+.previewPanel{display:flex;flex-direction:column;gap:16px}.previewPanel .sectionHead{margin:0}.previewPanel .previewField{height:220px}
+.curField .xLabel{margin-bottom:8px}.curSwatches{display:flex!important;gap:6px;flex-wrap:wrap}.curSwatches .curSwatch{width:26px;height:26px;flex:none}
+.guiOrderCard{background:none!important;border:0!important;padding:0!important;margin:0!important;box-shadow:none!important}
+.crOrder .crOrderItem{width:auto!important;height:32px!important;flex:none!important;display:flex!important;align-items:center;background:#100809!important;border:1px solid var(--border2)!important}
+.crOrder .crOrderName{font-size:12px;font-weight:700}
+.curSwatch.custom{position:relative;overflow:hidden;background:conic-gradient(#ff3b3b,#ffd93b,#3bff6e,#3bd6ff,#6e3bff,#ff3bd6,#ff3b3b);cursor:pointer}
+.curSwatch.custom input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:0;padding:0}
+.curSwatch.custom.active{box-shadow:0 0 0 2px #fff}
 .playBrand{display:none!important}
 .clipThumb .scrub{position:absolute;inset:0;background-size:1000% 100%;background-repeat:no-repeat;opacity:0}
 .clipThumb.scrubbing .scrub{opacity:1}
@@ -357,8 +375,8 @@ textarea.xInput{min-height:80px;resize:vertical}
 .rkEmblem img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 10px 26px rgba(0,0,0,.5))}
 .rkMain{position:relative;min-width:0}
 .rkTitle{font-size:32px;font-weight:900;letter-spacing:-.03em;line-height:1.05;color:#fff}.rkTitle span{color:var(--rk)}
-.rkSub{color:var(--muted);font-size:12.5px;margin-top:6px}
-.rkBar{height:8px;border-radius:6px;background:#241115;overflow:hidden;margin:16px 0 7px}
+.rkSub{color:#e9dcde;font-size:14px;font-weight:700}.rkMeta{color:var(--muted);font-size:12px;margin-top:4px}
+.rkBar{height:8px;border-radius:6px;background:#241115;overflow:hidden;margin:16px 0 10px}
 .rkBar i{display:block;height:100%;background:var(--rk);transition:width .6s}
 .rkBarText{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}.rkBarText b{color:#fff}
 .rkStats{display:flex;gap:28px;margin-top:18px}
@@ -376,7 +394,7 @@ textarea.xInput{min-height:80px;resize:vertical}
 .rkItem code{font-size:11px;color:#d9c2c4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
 .rkLine{cursor:pointer}.rkLine:hover{border-color:var(--border2)}
 .emLink{display:flex;gap:8px}.emLink input{flex:1;min-width:0;height:34px;padding:0 12px}
-.emHead{display:flex;justify-content:space-between;align-items:center;gap:10px}.emHead b{font-size:15px;color:#fff}.emHead small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.emHead{display:flex;padding:2px 0;justify-content:space-between;align-items:center;gap:10px}.emHead b{font-size:15px;color:#fff}.emHead small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
 .emStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}
 .emStats div{background:#100809;border:1px solid var(--border);border-radius:10px;padding:9px 11px}.emStats b{display:block;font-size:17px;color:#fff}.emStats span{font-size:10.5px;color:var(--muted)}
 .rkChip{display:flex;align-items:center;gap:10px;margin-top:16px;border:1px solid var(--border);border-radius:12px;padding:7px 12px 7px 7px;background:#100809;cursor:pointer;width:320px;max-width:100%}
@@ -477,29 +495,17 @@ textarea.xInput{min-height:80px;resize:vertical}
     <section class="page" id="page-cursor">
       <div class="cursorLayout">
         <div class="card pad">
-          <div class="sectionHead"><h2>Cursors</h2><div class="toolbar"><input class="search" id="cursorSearch" placeholder="Search"><button class="btn" id="importCursor">Import PNG</button><input type="file" id="cursorFile" accept="image/png" hidden></div></div>
+          <div class="sectionHead"><h2>Cursors</h2><div class="toolbar"><input class="search" id="cursorSearch" hidden><button class="btn" id="importCursor">Import PNG</button><input type="file" id="cursorFile" accept="image/png" hidden></div></div>
           <div class="cursorGrid" id="cursorGrid"></div>
         </div>
         <div class="card previewPanel">
-          <div class="sectionHead"><h2 id="cursorPreviewTitle">Preview</h2><button class="btn ghost" id="redetectCursor">Re-detect</button></div>
+          <div class="sectionHead"><h2 id="cursorPreviewTitle">Preview</h2></div>
           <div class="previewField" id="cursorPreview"><img class="previewCursor" id="cursorPreviewImg"></div>
-          <div class="divider"></div>
-          <div class="field"><label>SIZE</label><div class="rangeRow"><input type="range" id="cursorSize" min="8" max="100" value="45"><div class="rangeVal" id="cursorSizeValue">45%</div></div></div>
-          <div class="divider"></div>
-          <div class="field"><label>COLOR</label>
-            <div class="curSwatches" id="curSwatches"></div>
-            <div class="curHexRow"><span class="curHash">#</span><input class="curHex" id="cursorHex" maxlength="6" value="FFFFFF" spellcheck="false"><span class="curHexPreview" id="cursorHexPreview"></span></div>
-            <input class="curSpectrum" id="cursorSpectrum" type="range" min="0" max="359" value="0">
-          </div>
-          <div class="divider"></div>
-          <div class="field"><label>OUTLINE</label>
-            <div class="curOutlineRow">
-              <div class="curSeg" id="cursorOutlineSeg"><button data-ow="0" class="active">Off</button><button data-ow="2">Thin</button><button data-ow="3">Bold</button></div>
-              <div class="curOutlineColors" id="cursorOutlineColors"></div>
-            </div>
-          </div>
-          <div class="divider"></div>
-          <div class="toolbar"><button class="btn primary" id="applyCursor">Apply</button><button class="btn" id="resetCursor">Reset</button></div>
+          <div class="curField"><div class="xLabel">Size</div><div class="rangeRow"><input type="range" id="cursorSize" min="8" max="100" value="45"><div class="rangeVal" id="cursorSizeValue">45%</div></div></div>
+          <div class="curField"><div class="xLabel">Color</div><div class="curSwatches" id="curSwatches"></div></div>
+          <div hidden><span id="cursorHexPreview"></span><input id="cursorHex" value="FFFFFF"><input id="cursorSpectrum" type="range" min="0" max="359" value="0"></div>
+          <div class="curField"><div class="xLabel">Outline</div><div class="curSeg" id="cursorOutlineSeg"><button data-ow="0" class="active">Off</button><button data-ow="2">Thin</button><button data-ow="3">Bold</button></div><div id="cursorOutlineColors" hidden></div></div>
+          <div class="xRow"><button class="btn primary xBig" id="applyCursor">Apply</button><button class="btn" id="resetCursor">Reset</button></div>
         </div>
       </div>
     </section>
@@ -512,45 +518,20 @@ textarea.xInput{min-height:80px;resize:vertical}
     </section>
 
     <section class="page" id="page-gui">
-      <div class="guiWrap">
-        <div class="crCard guiIntro">
-          <div class="guiIntroText">
-            <h2>In-game overlay</h2>
-            <p>Show live info on top of Pixel Gun 3D. Turn on what you want, style it, then place it in the game.</p>
-          </div>
-          <div class="guiHotkeyBox">
-            <label>Show / hide in game</label>
-            <button class="crHotkey" id="recordHotkey" data-ui-control>F8</button>
-          </div>
-        </div>
-
-        <div class="guiStep">
-          <div class="guiStepHead"><span class="guiStepNum">1</span><div><h3>Choose what to show</h3><p class="sub">Tap a card to turn it on or off.</p></div></div>
+      <div class="xPage">
+        <div class="crCard">
+          <div class="crCardHead"><h3>Show in game</h3><div class="xRow"><span class="sub">Show / hide key</span><button class="crHotkey" id="recordHotkey" data-ui-control>F8</button></div></div>
           <div class="guiElements" id="guiElements"></div>
         </div>
-
-        <div class="guiStep" id="guiStyleStep">
-          <div class="guiStepHead"><span class="guiStepNum">2</span><div><h3>Style each one</h3><p class="sub">Set color and size. Changes show live in the previews.</p></div></div>
-          <div class="guiCombineRow" id="guiCombineRow">
-            <button class="guiCombine" id="guiCombine" role="switch">
-              <div><b>Keep them together</b><small>Move all elements as one block instead of placing each separately</small></div>
-              <span class="pillToggle"></span>
-            </button>
+        <div class="crCard" id="guiStyleStep">
+          <div class="crCardHead"><h3>Style</h3></div>
+          <div id="guiStyleList"></div>
+          <div id="guiCombineRow" style="margin-top:14px">
+            <button class="xSwitch" id="guiCombine" role="switch"><div><b>Keep them together</b><small>Move everything as one block.</small></div><span class="pillToggle"></span></button>
           </div>
-          <div class="guiStyleList" id="guiStyleList"></div>
-          <div class="guiOrderCard" id="guiOrderCard" hidden>
-            <div class="crSubLabel">Order in the block · drag to reorder</div>
-            <div class="crOrder" id="groupOrder"></div>
-          </div>
+          <div class="guiOrderCard" id="guiOrderCard" hidden><div class="xLabel" style="margin-top:14px">Order · drag to change</div><div class="crOrder horizontal" id="groupOrder"></div></div>
         </div>
-
-        <div class="guiStep">
-          <div class="guiStepHead"><span class="guiStepNum">3</span><div><h3>Place it in the game</h3><p class="sub">Opens Pixel Gun 3D with a mover so you can drag it where you want.</p></div></div>
-          <div class="guiPlaceRow">
-            <button class="crPrimary" id="guiPlace" data-ui-control>Position in game</button>
-            <button class="btn ghost" id="resetOverlay" data-ui-control>Reset overlay</button>
-          </div>
-        </div>
+        <div class="xRow"><button class="btn primary xBig" id="guiPlace" data-ui-control>Position in game</button><button class="btn ghost" id="resetOverlay" data-ui-control>Reset</button></div>
       </div>
     </section>
 
@@ -652,7 +633,7 @@ textarea.xInput{min-height:80px;resize:vertical}
         <div class="crCard setCard">
           <div class="crCardHead"><h3>Troubleshooting</h3></div>
           <p class="setNote">If something isn't working, copy the report and paste it into your message.</p>
-          <div class="setActions"><button class="btn primary" id="diagCopy">Copy diagnostic report</button><button class="btn" id="diagLogs">Show log files</button></div>
+          <div class="setActions"><button class="btn primary" id="diagCopy">Copy diagnostic report</button><button class="btn" id="diagLogs">Show log files</button><button class="btn" id="redetectCursor">Re-detect cursor</button></div>
         </div>
       </div>
     </section>
@@ -663,51 +644,32 @@ textarea.xInput{min-height:80px;resize:vertical}
           <div class="rkEmblem"><img id="rkEmblem" src="/ranks/iron.png" alt=""></div>
           <div class="rkMain">
             <div class="rkTitle" id="rkTitle">—</div>
-            <div class="rkSub" id="rkSub">Play Pixel Gun 3D to earn XP.</div>
             <div class="rkBar"><i id="rkBarFill" style="width:0"></i></div>
-            <div class="rkBarText"><span id="rkBarLeft"></span><span id="rkBarRight"></span></div>
-            <div class="rkStats">
-              <div><b id="rkHours">0</b><span id="rkHoursSrc">hours</span></div>
-              <div><b id="rkWins">0</b><span>wins</span></div>
-              <div><b id="rkXp">0</b><span>XP</span></div>
-            </div>
+            <div class="rkSub" id="rkSub">Play to rank up.</div>
+            <div class="rkMeta" id="rkMeta"></div>
           </div>
         </div>
-
         <div class="crCard">
-          <div class="crCardHead"><h3>Ladder</h3><span class="sub" id="rkRates"></span></div>
           <div class="rkLadder" id="rkLadder"></div>
         </div>
-
         <div class="crCard">
-          <div class="crCardHead"><h3>Wins</h3>
-            <div class="xRow"><button class="btn" id="rkWinMinus" title="Remove a win logged by mistake">−1</button><button class="btn primary" id="rkWinPlus">+1 Win</button></div>
-          </div>
           <div class="emLink" id="emLinkRow">
-            <input class="search" id="emId" inputmode="numeric" placeholder="Your PG3D player ID" spellcheck="false">
-            <button class="btn primary" id="emLinkBtn">Link Ember</button>
+            <input class="search" id="emId" inputmode="numeric" placeholder="PG3D player ID" spellcheck="false">
+            <button class="btn primary" id="emLinkBtn">Link</button>
           </div>
-          <p class="xNote" id="emHint">Link your player ID to use your real all-time wins from Ember's public lookup. Until then, wins are read from the game log.</p>
-          <div id="emLinked" hidden>
-            <div class="emHead">
-              <div><b id="emName">—</b><small id="emMeta"></small></div>
-              <div class="xRow"><button class="btn ghost" id="emRefresh">Refresh</button><button class="btn ghost" id="emUnlink">Unlink</button></div>
-            </div>
-            <div class="emStats" id="emStats"></div>
-            <div class="xNote xBad" id="emErr"></div>
+          <div class="emHead" id="emLinked" hidden>
+            <div><b id="emName">—</b><small id="emMeta"></small></div>
+            <button class="btn ghost" id="emUnlink">Unlink</button>
           </div>
-
+          <div class="xNote" id="emHint">Link your player ID so wins count automatically.</div>
           <details class="xDetails">
-            <summary>Details and settings</summary>
+            <summary>Settings</summary>
             <div class="xStack">
-              <button class="xSwitch" id="rkSteamToggle" role="switch"><div><b>Use Steam playtime</b><small>Counts hours Steam recorded before this client was installed.</small></div><span class="pillToggle"></span></button>
-              <button class="xSwitch" id="rkAutoToggle" role="switch"><div><b>Detect wins from the game log</b><small id="rkLogState">Used when Ember isn't linked.</small></div><span class="pillToggle"></span></button>
-              <div class="xCols">
-                <div><div class="xLabel">Recent wins</div><div class="rkList" id="rkWinLog"></div></div>
-                <div><div class="xLabel">Rank history</div><div class="rkList" id="rkHistory"></div></div>
-              </div>
+              <div class="xRow"><span class="sub" style="flex:1">Fix your win count by hand</span><button class="btn" id="rkWinMinus">−1</button><button class="btn" id="rkWinPlus">+1</button></div>
+              <button class="xSwitch" id="rkSteamToggle" role="switch"><div><b>Use Steam playtime</b><small>Include hours from before this client.</small></div><span class="pillToggle"></span></button>
+              <button class="xSwitch" id="rkAutoToggle" role="switch"><div><b>Read wins from the game log</b><small id="rkLogState">Used when no player ID is linked.</small></div><span class="pillToggle"></span></button>
               <div>
-                <div class="xLabel">Win patterns · one regular expression per line</div>
+                <div class="xLabel">Log win patterns (one per line)</div>
                 <textarea class="xInput" id="rkPatterns" spellcheck="false"></textarea>
                 <div class="xCols" style="margin-top:8px">
                   <div><div class="xLabel">Loss filter</div><input type="text" class="xInput" id="rkGuard" spellcheck="false"></div>
@@ -716,7 +678,7 @@ textarea.xInput{min-height:80px;resize:vertical}
                 <div class="xRow" style="margin-top:10px"><button class="btn primary" id="rkSaveCfg">Save</button><button class="btn" id="rkTestCfg">Test</button><button class="btn ghost" id="rkResetCfg">Defaults</button></div>
                 <div class="rkList" id="rkTestOut"></div>
               </div>
-              <div><div class="xLabel">Recent match lines in the game log · click to use as a pattern</div><div class="rkList" id="rkRecent"></div></div>
+              <div><div class="xLabel">Recent match lines · click to use</div><div class="rkList" id="rkRecent"></div></div>
             </div>
           </details>
         </div>
@@ -933,6 +895,7 @@ function renderCursorStyleControls(){
   if(!_curControlsBuilt){
     sw.innerHTML='';
     for(const col of CURSOR_SWATCHES){const b=document.createElement('button');b.className='curSwatch'+(col==='#FFFFFF'?' white':'');b.style.background=col;b.dataset.col=col;b.title=col;b.onclick=()=>{cursorColor=col;$('#cursorHex').value=col.slice(1);$('#cursorSpectrum').value=Math.round(hexToHsv(col).h);cursorStyleChanged()};sw.appendChild(b)}
+    const cl=document.createElement('label');cl.className='curSwatch custom';cl.title='Pick any color';const ci=document.createElement('input');ci.type='color';ci.id='cursorCustomColor';ci.oninput=()=>{cursorColor=ci.value.toUpperCase();cursorStyleChanged()};cl.appendChild(ci);sw.appendChild(cl);
     const oc=$('#cursorOutlineColors');oc.innerHTML='';
     for(const col of ['#000000','#FFFFFF']){const b=document.createElement('button');b.className='curOutlineDot';b.style.background=col;b.dataset.col=col;b.title=col==='#000000'?'Black outline':'White outline';b.onclick=()=>{cursorOutline=col;cursorStyleChanged()};oc.appendChild(b)}
     $('#cursorHex').addEventListener('input',e=>{const v=normalizeHex(e.target.value);e.target.value=v;if(v.length===6){cursorColor='#'+v;$('#cursorSpectrum').value=Math.round(hexToHsv(cursorColor).h);cursorStyleChanged()}});
@@ -944,7 +907,8 @@ function renderCursorStyleControls(){
   $('#cursorHex').value=(cursorColor||'#FFFFFF').slice(1);
   $('#cursorHexPreview').style.background=cursorColor;
   $('#cursorSpectrum').value=Math.round(hexToHsv(cursorColor).h);
-  sw.querySelectorAll('.curSwatch').forEach(b=>b.classList.toggle('active',b.dataset.col.toUpperCase()===cursorColor.toUpperCase()));
+  sw.querySelectorAll('.curSwatch:not(.custom)').forEach(b=>b.classList.toggle('active',b.dataset.col.toUpperCase()===cursorColor.toUpperCase()));
+  {const cu=sw.querySelector('.curSwatch.custom');if(cu){const isCustom=!CURSOR_SWATCHES.includes(cursorColor.toUpperCase());cu.classList.toggle('active',isCustom);cu.style.background=isCustom?cursorColor:'';cu.querySelector('input').value=cursorColor.toLowerCase()}}
   $('#cursorOutlineSeg').querySelectorAll('button').forEach(b=>b.classList.toggle('active',Number(b.dataset.ow)===cursorOutlineWidth));
   const oc=$('#cursorOutlineColors');oc.classList.toggle('disabled',!cursorOutlineWidth);
   oc.querySelectorAll('.curOutlineDot').forEach(b=>b.classList.toggle('active',b.dataset.col.toUpperCase()===cursorOutline.toUpperCase()));
@@ -991,16 +955,38 @@ function styleCard(it){
   if(it.id==='clock')bindClockOptions(card.querySelector('.clockSlot'),it);
   return card;
 }
+const OVERLAY_SWATCHES=['#FFFFFF','#FF3B24','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
+function chip(label,active,onclick){const b=el('button','ovChip'+(active?' on':''),label);b.type='button';b.onclick=()=>{onclick();markOverlayDirty();renderStyleList(true)};return b}
+function simpleStyleCard(on){
+  const box=el('div','ovStyle'),grouped=!!overlayConfig.group.enabled,first=on[0]||{};
+  const color=((grouped?overlayConfig.group.color:first.color)||'#FFFFFF').toUpperCase();
+  const size=(grouped?overlayConfig.group.size:first.size)||18;
+  const setAll=(k,v)=>{overlayConfig.group[k]=v;overlayConfig.items.forEach(x=>x[k]=v)};
+  // color
+  const cf=el('div','curField');cf.append(el('div','xLabel','Color'));const sw=el('div','curSwatches');
+  for(const col of OVERLAY_SWATCHES){const b=el('button','curSwatch'+(col===color?' active':''));b.type='button';b.style.background=col;b.onclick=()=>{setAll('color',col);markOverlayDirty();renderStyleList(true);renderElements()};sw.append(b)}
+  const cl=el('label','curSwatch custom'+(OVERLAY_SWATCHES.includes(color)?'':' active'));if(!OVERLAY_SWATCHES.includes(color))cl.style.background=color;const ci=el('input');ci.type='color';ci.value=color.toLowerCase();
+  ci.onchange=()=>{setAll('color',ci.value.toUpperCase());markOverlayDirty();renderStyleList(true);renderElements()};cl.append(ci);sw.append(cl);cf.append(sw);box.append(cf);
+  // size
+  const sf=el('div','curField');sf.append(el('div','xLabel','Size'));const rr=el('div','xRange');const rng=el('input');rng.type='range';rng.min=1;rng.max=10;rng.value=sizeRatingFromPx(size);const rv=el('b',null,rng.value);
+  rng.oninput=()=>{rv.textContent=rng.value;setAll('size',pxFromSizeRating(rng.value));markOverlayDirty();renderElements()};rr.append(rng,rv);sf.append(rr);box.append(sf);
+  // per-widget options, only for what's on
+  const clock=on.find(x=>x.id==='clock'),music=on.find(x=>x.id==='music');
+  if(clock){const c=clock.clock||(clock.clock={format24:true,format12:false,calendar:false,seconds:false});const f=el('div','curField');f.append(el('div','xLabel','Clock'));const r=el('div','xRow');
+    r.append(chip('24-hour',!c.format12,()=>{c.format24=true;c.format12=false}),chip('12-hour',!!c.format12,()=>{c.format12=true;c.format24=false}),chip('Date',!!c.calendar,()=>{c.calendar=!c.calendar}),chip('Seconds',!!c.seconds,()=>{c.seconds=!c.seconds}));f.append(r);box.append(f)}
+  if(music){const m=music.music||(music.music={});const f=el('div','curField');f.append(el('div','xLabel','Music'));const r=el('div','xRow');
+    r.append(chip('Song',!!m.title,()=>{m.title=!m.title}),chip('Artist',!!m.artist,()=>{m.artist=!m.artist}),chip('Time',!!m.timestamp,()=>{m.timestamp=!m.timestamp}),chip('Cover',!!m.cover,()=>{m.cover=!m.cover}));f.append(r);box.append(f)}
+  return box}
 function renderStyleList(full=true){
   const on=overlayConfig.items.filter(x=>x.enabled).sort((a,b)=>a.order-b.order);
-  const step=$('#guiStyleStep');step.style.display=on.length?'':'none';
+  $('#guiStyleStep').style.display=on.length?'':'none';
   const grouped=!!overlayConfig.group.enabled;
   $('#guiCombineRow').style.display=on.length>1?'':'none';
   $('#guiCombine').classList.toggle('on',grouped);$('#guiCombine').setAttribute('aria-checked',grouped);
   $('#guiOrderCard').hidden=!(grouped&&on.length>1);
-  if(full){const list=$('#guiStyleList');list.innerHTML='';for(const it of on)list.appendChild(styleCard(it));if(grouped&&on.length>1)renderGroupOrder()}
+  if(full){const list=$('#guiStyleList');list.innerHTML='';list.append(simpleStyleCard(on));if(grouped&&on.length>1)renderGroupOrder()}
 }
-function renderGroupOrder(){const box=$('#groupOrder');if(!box)return;box.innerHTML='';box.classList.toggle('horizontal',overlayConfig.group.orientation==='horizontal');for(const it of overlayConfig.items.filter(x=>x.enabled).sort((a,b)=>a.order-b.order)){const row=document.createElement('div');row.className='crOrderItem';row.dataset.id=it.id;row.innerHTML=`<div class="crGrip" data-ui-control>⋮⋮</div><div class="crOrderPreview">${previewHtml(it,true)}</div><div class="crOrderName">${widgetNames[it.id]}</div>`;const grip=row.querySelector('.crGrip');grip.draggable=true;grip.addEventListener('dragstart',e=>{orderDragId=it.id;row.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',it.id)});grip.addEventListener('dragend',()=>{row.classList.remove('dragging');orderDragId=null;syncOrder();renderGroupOrder()});row.addEventListener('dragover',e=>{if(!orderDragId)return;e.preventDefault();const moving=box.querySelector(`[data-id="${orderDragId}"]`);if(!moving||moving===row)return;const r=row.getBoundingClientRect(),h=box.classList.contains('horizontal'),before=h?e.clientX<r.left+r.width/2:e.clientY<r.top+r.height/2;box.insertBefore(moving,before?row:row.nextSibling)});box.appendChild(row)}}
+function renderGroupOrder(){const box=$('#groupOrder');if(!box)return;box.innerHTML='';box.classList.add('horizontal');for(const it of overlayConfig.items.filter(x=>x.enabled).sort((a,b)=>a.order-b.order)){const row=document.createElement('div');row.className='crOrderItem';row.dataset.id=it.id;row.innerHTML=`<div class="crGrip" data-ui-control>⋮⋮</div><div class="crOrderPreview">${previewHtml(it,true)}</div><div class="crOrderName">${widgetNames[it.id]}</div>`;const grip=row.querySelector('.crGrip');grip.draggable=true;grip.addEventListener('dragstart',e=>{orderDragId=it.id;row.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',it.id)});grip.addEventListener('dragend',()=>{row.classList.remove('dragging');orderDragId=null;syncOrder();renderGroupOrder()});row.addEventListener('dragover',e=>{if(!orderDragId)return;e.preventDefault();const moving=box.querySelector(`[data-id="${orderDragId}"]`);if(!moving||moving===row)return;const r=row.getBoundingClientRect(),h=box.classList.contains('horizontal'),before=h?e.clientX<r.left+r.width/2:e.clientY<r.top+r.height/2;box.insertBefore(moving,before?row:row.nextSibling)});box.appendChild(row)}}
 function renderOverlayEditor(full=true){
   if(!overlayConfig)return;
   overlayConfig.group=overlayConfig.group||{enabled:false,orientation:'vertical',size_mode:'individual',size:18,color:'#FFFFFF',x:.5,y:.5,placed:false};
@@ -1254,38 +1240,28 @@ async function loadRank(){try{rankData=await api('/api/rank');renderRank()}catch
 function renderRank(){const r=rankData;if(!r)return;
   $('#rkHero').style.setProperty('--rk',r.color);$('#rkEmblem').src=r.emblem;
   const t=$('#rkTitle');t.textContent=r.tier_name+' ';t.append(el('span',null,r.division||(r.lp!=null?`${fmtNum(r.lp)} LP`:'')));
-  $('#rkSub').textContent=r.gated?`Held at ${r.title} until you have ${fmtNum(r.gated.wins_needed)} wins (${fmtNum(r.gated.wins_missing)} to go).`
-    :r.next_name?`${fmtNum(r.xp_to_next)} XP to ${r.next_name} · about ${r.hours_to_next} h of play`:'Top of the ladder. Every 1,000 XP adds an LP.';
   $('#rkBarFill').style.width=Math.round(r.progress*100)+'%';
-  const bl=$('#rkBarLeft');bl.textContent='';bl.append(el('b',null,fmtNum(r.next_xp?Math.min(r.xp,r.next_xp)-r.step_start:r.xp-r.step_start)),document.createTextNode(r.next_xp?` / ${fmtNum(r.next_xp-r.step_start)} XP`:' XP'));
-  $('#rkBarRight').textContent=r.next_name?`Next: ${r.next_name}`:'';
-  $('#rkHours').textContent=fmtNum(r.hours);$('#rkHoursSrc').textContent=r.playtime_source==='steam'?'hours · Steam':'hours';
-  $('#rkWins').textContent=fmtNum(r.wins);$('#rkWins').nextElementSibling.textContent=r.wins_source==='ember'?'wins · Ember':'wins';$('#rkXp').textContent=fmtNum(r.xp);
-  $('#rkRates').textContent=`${r.xp_per_minute} XP / min · ${r.xp_per_win} XP / win`;
+  $('#rkSub').textContent=r.gated?`${fmtNum(r.gated.wins_missing)} more wins to reach ${r.gated.tier}`
+    :r.next_name?`About ${r.hours_to_next} h of play to ${r.next_name}`:'Top rank reached';
+  $('#rkMeta').textContent=`${fmtNum(r.hours)} h played · ${fmtNum(r.wins)} wins`;
   const lad=$('#rkLadder');lad.innerHTML='';const curIdx=(r.ladder||[]).findIndex(x=>x.tier===r.tier);
   (r.ladder||[]).forEach((x,i)=>{const d=el('div','rkStep'+(i<curIdx?' done':'')+(i===curIdx?' current':''));d.style.setProperty('--rk',x.color);const im=el('img');im.src=TIER_IMG(x.tier);im.alt='';
-    d.title=x.hours?`${x.hours} hours${x.wins?` and ${fmtNum(x.wins)} wins`:''}`:'Starting rank';d.append(im,el('b',null,x.name),el('span',null,x.hours?`${x.hours} h`+(x.wins?` · ${fmtNum(x.wins)} W`:''):'start'));lad.append(d)});
+    d.title=x.hours?`About ${x.hours} hours${x.wins?` and ${fmtNum(x.wins)} wins`:''}`:'Starting rank';d.append(im,el('b',null,x.name));lad.append(d)});
   renderEmber(r);
   setSwitch('#rkAutoToggle',r.config.auto);setSwitch('#rkSteamToggle',r.config.steam_playtime);
-  $('#rkLogState').textContent=r.ember?.player_id?'Off while Ember is linked.':(r.player_log?`Watching ${r.player_log.replace(/^.*\/Library\//,'~/Library/')}`:'No Player.log yet. It appears after PG3D runs once.');
-  const wl=$('#rkWinLog');wl.innerHTML='';const wins=r.win_log||[];if(!wins.length)wl.append(el('div','xEmpty','None yet.'));
-  for(const w of wins){const it=el('div','rkItem');it.append(el('b',null,(w.delta>0?'+':'')+w.delta),el(w.line?'code':'span',null,w.line||(w.source==='manual'?'Added by hand':'Detected')),el('time',null,ago(w.at)));wl.append(it)}
-  const hl=$('#rkHistory');hl.innerHTML='';for(const h of r.history||[]){const it=el('div','rkItem');const im=el('img');im.src=TIER_IMG((h.title||'').split(' ')[0].toLowerCase());it.append(im,el('span',null,h.title),el('time',null,ago(h.at)));hl.append(it)}
+  $('#rkLogState').textContent=r.ember?.player_id?'Off while a player ID is linked.':(r.player_log?'Game log found.':'Game log appears after PG3D runs once.');
   if(!document.activeElement||!document.activeElement.closest?.('.xDetails')){$('#rkPatterns').value=(r.config.patterns||[]).join('\n');$('#rkGuard').value=r.config.loss_guard||'';$('#rkCooldown').value=r.config.cooldown||90}
-  const rc=$('#rkRecent');rc.innerHTML='';const lines=r.recent_lines||[];if(!lines.length)rc.append(el('div','xEmpty','Lines mentioning wins or match results show up here while you play.'));
+  const rc=$('#rkRecent');rc.innerHTML='';const lines=r.recent_lines||[];if(!lines.length)rc.append(el('div','xEmpty','Nothing yet. Play a match first.'));
   for(const l of lines.slice(0,25)){const it=el('div','rkItem rkLine');it.append(el('code',null,l.line),el('time',null,ago(l.at)));it.onclick=()=>{const esc=l.line.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\d+/g,'\\d+');const ta=$('#rkPatterns');ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+esc;toast('Added. Press Save to use it.')};rc.append(it)}}
-function renderEmber(r){const e=r.ember,linked=!!(e&&e.player_id);$('#emLinkRow').hidden=linked;$('#emHint').hidden=linked;$('#emLinked').hidden=!linked;
-  if(!linked)return;$('#emName').textContent=e.name||`Player ${e.player_id}`;
-  $('#emMeta').textContent=`Ember · ID ${e.player_id}${e.level?` · level ${e.level}`:''} · updated ${ago(e.fetched)}`;
-  const w=e.weekly||{},kd=w.deaths?(w.kills/w.deaths).toFixed(2):(w.kills?'∞':'0'),wr=w.matches?(100*w.wins/w.matches).toFixed(0)+'%':'—';
-  const g=$('#emStats');g.innerHTML='';for(const [l,v] of [['All-time wins',fmtNum(e.wins_total)],['Wins · 30 days',fmtNum(w.wins)],['Win rate · 30 days',wr],['K/D · 30 days',kd]]){const d=el('div');d.append(el('b',null,v),el('span',null,l));g.append(d)}
-  $('#emErr').textContent=e.error?`Last refresh failed: ${e.error}`:''}
+function renderEmber(r){const e=r.ember,linked=!!(e&&e.player_id);$('#emLinkRow').hidden=linked;$('#emHint').hidden=linked&&!e.error;$('#emLinked').hidden=!linked;
+  if(!linked){$('#emHint').textContent='Link your player ID so wins count automatically.';return}
+  $('#emName').textContent=e.name||`Player ${e.player_id}`;$('#emMeta').textContent='Wins count automatically';
+  $('#emHint').textContent=e.error?'Couldn’t reach Ember. Using your last known wins.':''}
 $('#emLinkBtn').onclick=async()=>{const id=$('#emId').value.trim();if(!id)return toast('Enter your PG3D player ID.',true);$('#emLinkBtn').disabled=true;
-  try{const d=await post('/api/rank/ember',{player_id:id});toast(`Linked ${d.ember.name||id} · ${fmtNum(d.ember.wins_total)} wins`);await loadRank();refreshStatus()}catch(e){toast(e.message,true)}finally{$('#emLinkBtn').disabled=false}};
+  try{const d=await post('/api/rank/ember',{player_id:id});toast(`Linked ${d.ember.name||id}`);await loadRank();refreshStatus()}catch(e){toast(e.message,true)}finally{$('#emLinkBtn').disabled=false}};
 $('#emId').addEventListener('keydown',e=>{if(e.key==='Enter')$('#emLinkBtn').click()});
-$('#emRefresh').onclick=async()=>{try{await post('/api/rank/ember/refresh');await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
 $('#emUnlink').onclick=async()=>{try{await post('/api/rank/ember',{player_id:''});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
-$('#rkWinPlus').onclick=async()=>{try{await post('/api/rank/win',{delta:1});toast('Win added.');await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
+$('#rkWinPlus').onclick=async()=>{try{await post('/api/rank/win',{delta:1});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
 $('#rkWinMinus').onclick=async()=>{try{await post('/api/rank/win',{delta:-1});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
 $('#rkAutoToggle').onclick=async()=>{try{await post('/api/rank/config',{auto:!rankData?.config?.auto});await loadRank()}catch(e){toast(e.message,true)}};
 $('#rkSteamToggle').onclick=async()=>{try{await post('/api/rank/config',{steam_playtime:!rankData?.config?.steam_playtime});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};

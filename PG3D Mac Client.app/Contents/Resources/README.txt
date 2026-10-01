@@ -1,4 +1,4 @@
-PG3D Mac Client 1.21.0
+PG3D Mac Client 1.22.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -29,3 +29,9 @@ New in 1.21
 Cleaner layout: grouped sidebar (GUI is now called Overlay), one button and
 card style across every tab, and shorter Rank, Theme and Sky pages with the
 advanced options folded away.
+
+New in 1.22
+Simpler Rank, Cursor and Overlay pages. Rank shows your rank, a progress
+bar and what you need next. Cursor and Overlay use color swatches with a
+custom color picker; Overlay has one Style card for everything.
+Re-detect cursor moved to Settings > Troubleshooting.

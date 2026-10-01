@@ -54,7 +54,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.21.0"
+APP_VERSION = "1.22.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
