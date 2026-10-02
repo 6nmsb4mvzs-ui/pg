@@ -1,4 +1,4 @@
-PG3D Mac Client 1.27.0
+PG3D Mac Client 1.28.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -62,3 +62,11 @@ Player Lookup laid out like Ember: Profile (collection, currencies, 30-day
 stats, loadout), Wins by mode, Weapons with pictures and a category
 filter, and Cosmetics (skin, cape, armor, weapon skins with pictures).
 Item pictures come from Ember and are cached on this Mac.
+
+New in 1.28
+New look across every tab in the style of Ember: near-black background,
+orange accent, Space Grotesk and Inter fonts (bundled), tinted buttons.
+Play shows the account, FPS target and launch buttons in one card with
+playtime, players online and rank below. Accounts has labelled Save login
+and Rename buttons, clear badges, and each account's PG3D name with a
+one-click lookup.
