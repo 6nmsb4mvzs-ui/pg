@@ -1,4 +1,4 @@
-PG3D Mac Client 1.25.0
+PG3D Mac Client 1.26.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -51,3 +51,8 @@ Player Lookup shows everything the lookup returns: account and currencies,
 all 30-day stats, wins per game mode, loadout, weapons with level and
 rarity, weapon skins, wear, skin and cape textures (saveable), and the raw
 data.
+
+New in 1.26
+Compact Player Lookup: one search row with Steam and recent players as
+chips, a short header with level, XP and currencies, and tabs (Overview,
+Modes, Items, Skins, Raw) for the rest of the data.

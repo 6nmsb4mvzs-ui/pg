@@ -131,30 +131,39 @@ body{background:radial-gradient(circle at 14% -8%,rgba(139,17,42,.25) 0,#191314 
 /* v1.17 editor, previews, settings */
 [hidden]{display:none!important}
 .guiStyleList{align-items:start!important}
-.lkSearch{display:flex;gap:8px}.lkSearch input{flex:1;min-width:0;height:40px;padding:0 14px;font-size:14px}.lkSearch .btn{height:40px}
-.lkAccounts{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
-.lkAcc{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1px solid var(--border);background:#100809;border-radius:12px;padding:10px 12px;color:var(--text);cursor:pointer;min-width:0}
-.lkAcc:hover:not(:disabled){border-color:var(--border2)}.lkAcc:disabled{cursor:default;opacity:.6}
-.lkAcc b{font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lkAcc small{font-size:11px;color:var(--muted)}
-.lkAcc .on{font-size:9.5px;font-weight:900;letter-spacing:.08em;color:#062012;background:#7fe0a8;border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:1px}
-.lkHead{display:flex;align-items:center;gap:14px}
-.lkAvatar{width:64px;height:64px;border-radius:12px;background:#100809;border:1px solid var(--border);image-rendering:pixelated;flex:none}
-.lkWho{flex:1;min-width:0}.lkWho b{display:block;font-size:20px;color:#fff;letter-spacing:-.02em}.lkWho small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
-.emStats.lkStats{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));margin-top:0}
-.lkSec{margin-top:18px}.lkSec>.xLabel{margin-bottom:8px}
-.lkFold{border-top:1px solid var(--border);padding-top:12px}.lkFold>summary{cursor:pointer;font-size:10.5px;letter-spacing:.1em;color:var(--muted);font-weight:800;text-transform:uppercase;list-style:none;margin-bottom:10px}
-.lkFold>summary:before{content:'›';display:inline-block;margin-right:8px;transition:.15s}.lkFold[open]>summary:before{transform:rotate(90deg)}.lkFold>summary:hover{color:#fff}
-.lkModes{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
-.lkMode{display:flex;justify-content:space-between;gap:10px;border:1px solid var(--border);background:#100809;border-radius:9px;padding:7px 10px;font-size:12px;min-width:0}
-.lkMode span{color:var(--muted)}.lkMode b{color:#fff;text-align:right;overflow:hidden;text-overflow:ellipsis}.lkMode.zero{opacity:.45}
-.lkTable{display:grid;gap:4px;max-height:420px;overflow:auto}
-.lkRow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) 60px 90px 80px;gap:10px;align-items:center;border:1px solid var(--border);background:#100809;border-radius:9px;padding:7px 10px;font-size:12px}
-.lkRow b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lkRow span,.lkRow small{color:var(--muted)}.lkRow small{text-align:right;font-size:10.5px}.lkRar{font-weight:800}
-.lkChips{display:flex;flex-wrap:wrap;gap:5px;max-height:300px;overflow:auto}.lkChip{font-size:11.5px;border:1px solid var(--border);background:#100809;border-radius:7px;padding:4px 8px;color:#e9dcde}
+.lkSearch{display:flex;gap:8px}.lkSearch input{flex:1;min-width:0;height:36px;padding:0 12px;font-size:13.5px}.lkSearch .btn{height:36px}
+.lkTop{padding:14px 16px!important}
+.lkPicks{display:flex;align-items:center;gap:8px;margin-top:10px;min-width:0}
+.lkPickLabel{font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--muted);text-transform:uppercase;width:52px;flex:none}
+.lkPickList{display:flex;gap:6px;overflow-x:auto;min-width:0;scrollbar-width:thin}
+.lkPick{display:flex;align-items:baseline;gap:6px;flex:none;height:28px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:#100809;color:var(--text);cursor:pointer;font-size:12px;white-space:nowrap}
+.lkPick b{font-weight:700}.lkPick small{color:var(--muted);font-size:11px}
+.lkPick.on{border-color:#1f5b3c}.lkPick.on b:before{content:'●';color:#7fe0a8;font-size:9px;margin-right:5px;vertical-align:1px}
+.lkPick:hover:not(:disabled){border-color:var(--border2)}.lkPick:disabled{opacity:.45;cursor:default}
+.lkCard{padding:16px!important}
+.lkHead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.lkAvatar{width:44px;height:44px;border-radius:10px;background:#100809;border:1px solid var(--border);image-rendering:pixelated;flex:none}
+.lkWho{min-width:0;margin-right:auto}.lkWho b{display:block;font-size:17px;color:#fff;letter-spacing:-.01em;line-height:1.2}.lkWho small{display:block;font-size:11.5px;color:var(--muted)}
+.lkKeys{display:flex;gap:6px;flex-wrap:wrap}.lkKey{font-size:11.5px;color:var(--muted);border:1px solid var(--border);border-radius:7px;padding:3px 8px;background:#100809}.lkKey b{color:#fff}
+.lkHead .btn{height:28px}
+.lkTabs{display:flex;gap:2px;margin:14px 0 12px;border-bottom:1px solid var(--border)}
+.lkTabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);font-weight:700;font-size:12.5px;padding:7px 12px;cursor:pointer;margin-bottom:-1px}
+.lkTabs button:hover{color:#fff}.lkTabs button.on{color:#fff;border-bottom-color:var(--accent)}
+.lkGroup+.lkGroup{margin-top:12px}.lkGroupT{font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.lkKV{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:4px}
+.lkKV div{background:#100809;border:1px solid var(--border);border-radius:8px;padding:6px 9px;min-width:0}.lkKV b{display:block;font-size:13.5px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lkKV span{font-size:10.5px;color:var(--muted)}
+.lkBars{display:grid;gap:5px}
+.lkBar{display:grid;grid-template-columns:120px 1fr 44px;gap:10px;align-items:center;font-size:12px}.lkBar span{color:#e9dcde}.lkBar b{text-align:right;color:#fff}
+.lkBarT{height:6px;border-radius:4px;background:#241115;overflow:hidden}.lkBarT i{display:block;height:100%;background:var(--grad)}
+.lkZero{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+.lkTable{display:grid;max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:10px}
+.lkRow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) 46px 78px;gap:10px;align-items:center;padding:5px 10px;font-size:12px;background:#100809}
+.lkRow:nth-child(even){background:#130a0c}.lkRow b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lkRow span{color:var(--muted)}.lkRar{font-weight:800}
+.lkChips{display:flex;flex-wrap:wrap;gap:4px;max-height:260px;overflow:auto}.lkChip{font-size:11px;border:1px solid var(--border);background:#100809;border-radius:6px;padding:2px 7px;color:#e9dcde}
 .lkTexRow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
-.lkTex{margin:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px}.lkTex img{image-rendering:pixelated;background:repeating-conic-gradient(#170d0f 0 25%,#110a0b 0 50%) 0 0/12px 12px;border:1px solid var(--border);border-radius:8px}
-.lkTex figcaption{font-size:11px;color:var(--muted)}.lkTex .btn{height:28px}
-.lkRaw{max-height:360px;overflow:auto;background:#0b0607;border:1px solid var(--border);border-radius:10px;padding:12px;font:11px/1.5 ui-monospace,Menlo,monospace;color:#d9c2c4;margin:8px 0 0;white-space:pre-wrap;word-break:break-all}
+.lkTex{margin:0;display:flex;flex-direction:column;gap:4px}.lkTex img{image-rendering:pixelated;background:repeating-conic-gradient(#170d0f 0 25%,#110a0b 0 50%) 0 0/10px 10px;border:1px solid var(--border);border-radius:6px}
+.lkTex figcaption{font-size:11px;color:var(--muted)}.lkTex a{color:#ff8a6a;text-decoration:none}.lkTex a:hover{text-decoration:underline}
+.lkRaw{max-height:340px;overflow:auto;background:#0b0607;border:1px solid var(--border);border-radius:10px;padding:10px;font:11px/1.5 ui-monospace,Menlo,monospace;color:#d9c2c4;margin:8px 0 0;white-space:pre-wrap;word-break:break-all}
 .ovStyle{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}
 .ovChip{height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--border2);background:#100809;color:var(--muted);font-weight:700;font-size:12px;cursor:pointer}
 .ovChip.on{background:#2a1317;border-color:var(--accent);color:#fff}
@@ -713,18 +722,19 @@ textarea.xInput{min-height:80px;resize:vertical}
 
     <section class="page" id="page-lookup">
       <div class="xPage">
-        <div class="crCard">
-          <form class="lkSearch" id="lkForm"><input class="search" id="lkId" inputmode="numeric" placeholder="Enter a player ID" spellcheck="false" autocomplete="off"><button class="btn primary" type="submit">Look up</button></form>
-          <div class="xLabel" style="margin-top:18px">Your Steam accounts</div>
-          <div class="lkAccounts" id="lkAccounts"></div>
-          <div id="lkRecentWrap" hidden><div class="xLabel" style="margin-top:16px">Recent</div><div class="xRow" id="lkRecent"></div></div>
+        <div class="crCard lkTop">
+          <form class="lkSearch" id="lkForm"><input class="search" id="lkId" inputmode="numeric" placeholder="Player ID" spellcheck="false" autocomplete="off"><button class="btn primary" type="submit">Look up</button></form>
+          <div class="lkPicks" id="lkAccounts"></div>
+          <div class="lkPicks" id="lkRecentWrap" hidden><span class="lkPickLabel">Recent</span><span id="lkRecent" class="lkPickList"></span></div>
         </div>
-        <div class="crCard" id="lkResult" hidden>
+        <div class="crCard lkCard" id="lkResult" hidden>
           <div class="lkHead">
             <canvas class="lkAvatar" id="lkAvatar" width="64" height="64"></canvas>
             <div class="lkWho"><b id="lkName">—</b><small id="lkMeta"></small></div>
-            <button class="btn ghost" id="lkCopy">Copy ID</button>
+            <div class="lkKeys" id="lkKeys"></div>
+            <button class="btn ghost" id="lkCopy" title="Copy player ID">Copy ID</button>
           </div>
+          <div class="lkTabs" id="lkTabs"></div>
           <div id="lkBody"></div>
         </div>
       </div>
@@ -1378,12 +1388,13 @@ function lkRecent(){try{return JSON.parse(localStorage.pg3dLookupRecent||'[]')}c
 function lkRemember(p){const r=lkRecent().filter(x=>x.id!==p.player_id);r.unshift({id:p.player_id,name:p.name||p.player_id});try{localStorage.pg3dLookupRecent=JSON.stringify(r.slice(0,6))}catch{}}
 async function loadLookup(){try{lookupSuggest=await api('/api/lookup/suggest');renderLookupSuggest()}catch(e){console.error(e)}}
 function renderLookupSuggest(){const box=$('#lkAccounts');box.innerHTML='';const accs=lookupSuggest?.accounts||[];
-  if(!accs.length)box.append(el('div','xEmpty','No Steam accounts found on this Mac.'));
-  for(const a of accs){const b=el('button','lkAcc');b.type='button';const t=el('b',null,a.steam_name||`Steam ${a.steamid64.slice(-6)}`);if(a.active)t.append(el('span','on','ACTIVE'));
-    b.append(t,el('small',null,a.player_id?`${a.name?a.name+' · ':''}ID ${a.player_id}`:'ID not seen yet. Play PG3D once on this account.'));
-    b.disabled=!a.player_id;if(a.player_id)b.onclick=()=>runLookup(a.player_id);box.append(b)}
+  box.append(el('span','lkPickLabel','Steam'));const list=el('span','lkPickList');box.append(list);
+  if(!accs.length)list.append(el('span','sub','No Steam accounts found.'));
+  for(const a of accs){const b=el('button','lkPick'+(a.active?' on':''));b.type='button';b.append(el('b',null,a.steam_name||`Steam …${a.steamid64.slice(-4)}`));
+    b.append(el('small',null,a.player_id?(a.name||a.player_id):'no ID yet'));b.title=a.player_id?`PG3D ID ${a.player_id}${a.active?' · active Steam account':''}`:'Play PG3D once on this account to pick up its ID.';
+    b.disabled=!a.player_id;if(a.player_id)b.onclick=()=>runLookup(a.player_id);list.append(b)}
   const rec=lkRecent(),rw=$('#lkRecent');rw.innerHTML='';$('#lkRecentWrap').hidden=!rec.length;
-  for(const r of rec){const c=el('button','ovChip',r.name);c.type='button';c.title=`ID ${r.id}`;c.onclick=()=>runLookup(r.id);rw.append(c)}}
+  for(const r of rec){const c=el('button','lkPick');c.type='button';c.append(el('b',null,r.name));c.title=`ID ${r.id}`;c.onclick=()=>runLookup(r.id);rw.append(c)}}
 function drawSkinHead(b64){const cv=$('#lkAvatar'),ctx=cv.getContext('2d');ctx.clearRect(0,0,64,64);if(!b64)return;const im=new Image();
   im.onload=()=>{ctx.imageSmoothingEnabled=false;ctx.drawImage(im,8,8,8,8,0,0,64,64);
     // overlay (hat) layer: PG3D often fills it with one opaque colour, which would hide the face
@@ -1396,52 +1407,55 @@ async function runLookup(id){id=String(id||'').trim();if(!id)return;$('#lkId').v
 const LK_MODES={'2':'Team Fight','0':'Deathmatch','20':'Battle Royale','4':'Capture','16':'Team Strike','8':'Duels','1':'Tournament','5':'Free-Play','22e':'Raids Easy','22m':'Raids Medium','22h':'Raids Hard'};
 const LK_SLOTS={pw:'Primary',bw:'Backup',mw:'Melee',ar:'Armor',spw:'Special',snw:'Sniper',prw:'Heavy',pt:'Pet'};
 const LK_RARITY=['Common','Uncommon','Rare','Epic','Legendary','Mythical'],LK_RCOL=['#9a9a9a','#4ece5f','#4a9eff','#f5c400','#ff4545','#b04fff'];
-function lkTiles(rows){const g=el('div','emStats lkStats');for(const [l,v] of rows){if(v==null||v==='')continue;const d=el('div');d.append(el('b',null,typeof v==='number'?fmtNum(v):String(v)),el('span',null,l));g.append(d)}return g}
-function lkSec(title,body,{fold=false,open=false}={}){if(fold){const d=el('details','lkSec lkFold');d.open=open;d.append(el('summary',null,title),body);return d}const d=el('div','lkSec');d.append(el('div','xLabel',title),body);return d}
+function lkKV(rows){const g=el('div','lkKV');for(const [l,v] of rows){if(v==null||v==='')continue;const d=el('div');d.append(el('b',null,typeof v==='number'?fmtNum(v):String(v)),el('span',null,l));g.append(d)}return g}
+function lkGroup(title,node){const d=el('div','lkGroup');d.append(el('div','lkGroupT',title),node);return d}
 function lkPretty(k){return String(k).replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
-function lkTexture(b64,label,scale){const f=el('figure','lkTex');const im=el('img');im.src='data:image/png;base64,'+b64;im.alt=label;im.onload=()=>{im.style.width=im.naturalWidth*scale+'px'};const a=el('a','btn ghost','Save PNG');a.href=im.src;a.download=`${label}.png`;f.append(im,el('figcaption',null,label),a);return f}
+function lkTexture(b64,label,scale){const f=el('figure','lkTex');const im=el('img');im.src='data:image/png;base64,'+b64;im.alt=label;im.onload=()=>{im.style.width=im.naturalWidth*scale+'px'};
+  const a=el('a',null,'Save');a.href=im.src;a.download=`${label}.png`;const cap=el('figcaption',null,label+' · ');cap.append(a);f.append(im,cap);return f}
+let lkTab='overview';
 function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekly_stats||p.weekly||{};
   $('#lkResult').hidden=false;drawSkinHead(p.skin);$('#lkName').textContent=p.name||'Unknown';
-  $('#lkMeta').textContent=[`ID ${p.player_id}`,p.level?`Level ${p.level}`:null,p.clan?`Clan ${p.clan}${p.clan_tag?` [${p.clan_tag}]`:''}`:null,p.banned?'Banned':null].filter(Boolean).join(' · ');
+  $('#lkMeta').textContent=[`ID ${p.player_id}`,p.clan?`${p.clan}${p.clan_tag?` [${p.clan_tag}]`:''}`:null,p.banned?'Banned':null].filter(Boolean).join(' · ');
+  const keys=$('#lkKeys');keys.innerHTML='';for(const [l,v] of [['Lv',P.level??F.level],['XP',F.xp],...Object.entries(F.currencies||{})]){if(v==null)continue;const k=el('span','lkKey');k.append(el('b',null,fmtNum(v)),document.createTextNode(' '+l));keys.append(k)}
   $('#lkCopy').onclick=()=>{navigator.clipboard?.writeText(String(p.player_id)).then(()=>toast('ID copied.'),()=>{})};
-  const body=$('#lkBody');body.innerHTML='';const dt=t=>t?new Date(Number(t)*1000).toLocaleDateString():null;
-  // Account
-  const cur=Object.entries(F.currencies||{}).map(([k,v])=>[k,v]);
-  body.append(lkSec('Account',lkTiles([['Level',P.level??F.level],['XP',F.xp],...cur,['Weapons',P.weapon_count??F.weapon_count],['Armor',F.armor_count],['Gadgets',P.gadget_count],['Pets',P.pet_count],['Avatars',P.avatar_count],['Sets',P.sets_count],['Weapon skins',(F.weapon_skins||[]).length]])));
-  // Last 30 days
-  const kd=w.deaths?(w.kills/w.deaths).toFixed(2):(w.kills?'∞':'0'),wr=w.matches?Math.round(100*w.wins/w.matches)+'%':'—',hs=w.kills?Math.round(100*w.headshots/w.kills)+'%':'—';
-  const extra=Object.entries(w).filter(([k])=>!['kills','deaths','headshots','wins','matches','winstreak','killstreak','score'].includes(k)).map(([k,v])=>[lkPretty(k),v]);
-  const recent=Object.entries(P.recent_stats||{}).map(([k,v])=>[`Recent ${lkPretty(k)}`,typeof v==='object'?JSON.stringify(v):v]);
-  body.append(lkSec('Last 30 days',lkTiles([['Wins',w.wins],['Matches',w.matches],['Win rate',wr],['Kills',w.kills],['Deaths',w.deaths],['K/D',kd],['Headshots',w.headshots],['Headshot rate',hs],['Best killstreak',w.killstreak],['Best winstreak',w.winstreak],['Score',w.score],...extra,...recent])));
-  // Wins by mode
-  const gw=P.global_wins||{};const total=Object.entries(gw).filter(([k])=>k!=='t'&&k!=='weekly').reduce((a,[,v])=>a+(Number(v)||0),0);
-  const modes=el('div','lkModes');for(const [k,v] of Object.entries(gw).sort((a,b)=>(Number(b[1])||0)-(Number(a[1])||0))){const r=el('div','lkMode'+(Number(v)?'':' zero'));r.append(el('span',null,LK_MODES[k]||(k==='t'?'Total (t)':k==='weekly'?'Weekly':`Mode ${k}`)),el('b',null,fmtNum(v)));modes.append(r)}
-  if(Object.keys(gw).length)body.append(lkSec(`Wins by mode · ${fmtNum(total)} total`,modes));
-  // Loadout
-  const lo=P.loadout||{},ln=P.loadout_names||{},slots=Object.keys({...lo,...ln});
-  const lbox=el('div','lkModes');for(const k of slots){const r=el('div','lkMode');r.append(el('span',null,LK_SLOTS[k]||lkPretty(k)),el('b',null,String(ln[k]??lo[k])));lbox.append(r)}
-  for(const [k,l] of [['primary_weapon','Equipped primary (index)'],['backup_weapon','Equipped backup (index)']])if(V[k]!=null){const r=el('div','lkMode');r.append(el('span',null,l),el('b',null,String(V[k])));lbox.append(r)}
-  body.append(lkSec('Loadout',lbox.children.length?lbox:el('div','xEmpty','Not shared by this player.')));
-  // Weapons
-  const ws=(F.weapons||[]).slice().sort((a,b)=>(b.rarity??0)-(a.rarity??0)||(b.level??0)-(a.level??0));
-  if(ws.length){const t=el('div','lkTable');for(const x of ws){const r=el('div','lkRow');const rar=el('span','lkRar',LK_RARITY[x.rarity]??`Rarity ${x.rarity}`);rar.style.color=LK_RCOL[x.rarity]||'';r.append(el('b',null,x.name||`#${x.id}`),el('span',null,x.category||''),el('span',null,x.level!=null?`Lv ${x.level}`:''),rar,el('small',null,`#${x.id}`));t.append(r)}
-    body.append(lkSec(`Weapons · ${ws.length}`,t,{fold:true,open:ws.length<=20}))}
-  // Weapon skins
-  const sk=F.weapon_skins||[];if(sk.length){const c=el('div','lkChips');for(const x of sk){const ch=el('span','lkChip',x.name||`#${x.id}`);ch.title=`#${x.id}`;c.append(ch)}body.append(lkSec(`Weapon skins · ${sk.length}`,c,{fold:true}))}
-  // Wear
-  const wear=Object.entries(F.wear||{});if(wear.length){const b2=el('div','lkModes');for(const [cat,items] of wear){const r=el('div','lkMode');r.append(el('span',null,cat),el('b',null,(items||[]).map(i=>i.name||`#${i.id}`).join(', ')||'—'));b2.append(r)}body.append(lkSec('Wear',b2))}
-  // Skins & cape
-  const tex=el('div','lkTexRow');if(p.skin)tex.append(lkTexture(p.skin,'Skin',4));if(F.cape?.texture)tex.append(lkTexture(F.cape.texture,F.cape.name||'Cape',6));
-  for(const [i,ps] of (F.player_skins||[]).entries())if(ps?.texture)tex.append(lkTexture(ps.texture,ps.name||`Skin ${i+1}`,4));
-  if(tex.children.length)body.append(lkSec('Skin & cape',tex));
-  // Other
-  const other=[['Joined',dt(P.registered)],['Last seen',P.last_seen?(Date.now()/1000-P.last_seen<86400?ago(P.last_seen):dt(P.last_seen)):null],['Game version',P.version],['Crown',V.crown],['Banned',F.banned==null?null:(F.banned?'Yes':'No')],['Cape ID',F.cape?.id]];
-  for(const [k,v] of Object.entries(F.platforms||{}))other.push([`Platform ${k}`,v]);
-  body.append(lkSec('Other',lkTiles(other)));
-  // Raw
-  const raw=JSON.stringify(F,(k,v)=>typeof v==='string'&&v.length>120?v.slice(0,40)+`… (${v.length} chars)`:v,2);
-  const pre=el('pre','lkRaw',raw);const cp=el('button','btn ghost','Copy full JSON');cp.onclick=()=>navigator.clipboard?.writeText(JSON.stringify(F,null,2)).then(()=>toast('JSON copied.'),()=>{});
-  const rw=el('div');rw.append(cp,pre);body.append(lkSec('Raw data',rw,{fold:true}))}
+  const dt=t=>t?new Date(Number(t)*1000).toLocaleDateString():null;
+  // ---- panes
+  const panes={};
+  {const kd=w.deaths?(w.kills/w.deaths).toFixed(2):(w.kills?'∞':'0'),wr=w.matches?Math.round(100*w.wins/w.matches)+'%':'—',hs=w.kills?Math.round(100*w.headshots/w.kills)+'%':'—';
+   const extra=Object.entries(w).filter(([k])=>!['kills','deaths','headshots','wins','matches','winstreak','killstreak','score'].includes(k)).map(([k,v])=>[lkPretty(k),v]);
+   const recent=Object.entries(P.recent_stats||{}).map(([k,v])=>[`Recent ${lkPretty(k)}`,typeof v==='object'?JSON.stringify(v):v]);
+   const d=el('div');
+   d.append(lkGroup('Last 30 days',lkKV([['Wins',w.wins],['Matches',w.matches],['Win rate',wr],['Kills',w.kills],['Deaths',w.deaths],['K/D',kd],['Headshots',w.headshots],['HS rate',hs],['Kill streak',w.killstreak],['Win streak',w.winstreak],['Score',w.score],...extra,...recent])));
+   d.append(lkGroup('Collection',lkKV([['Weapons',P.weapon_count??F.weapon_count],['Weapon skins',(F.weapon_skins||[]).length],['Armor',F.armor_count],['Gadgets',P.gadget_count],['Pets',P.pet_count],['Avatars',P.avatar_count],['Sets',P.sets_count]])));
+   const other=[['Joined',dt(P.registered)],['Last seen',P.last_seen?(Date.now()/1000-P.last_seen<86400?ago(P.last_seen):dt(P.last_seen)):null],['Version',P.version],['Crown',V.crown],['Banned',F.banned==null?null:(F.banned?'Yes':'No')],['Cape ID',F.cape?.id]];
+   for(const [k,v] of Object.entries(F.platforms||{}))other.push([`Platform ${k}`,v]);
+   d.append(lkGroup('Account',lkKV(other)));panes.overview={label:'Overview',node:d}}
+  {const gw=P.global_wins||{},rows=Object.entries(gw),total=rows.filter(([k])=>k!=='t'&&k!=='weekly').reduce((a,[,v])=>a+(Number(v)||0),0);
+   const name=k=>LK_MODES[k]||(k==='t'?'Total (t)':k==='weekly'?'Weekly':`Mode ${k}`);
+   const won=rows.filter(([,v])=>Number(v)).sort((a,b)=>b[1]-a[1]),zero=rows.filter(([,v])=>!Number(v)),max=Math.max(1,...won.map(([,v])=>Number(v)));
+   const d=el('div','lkBars');for(const [k,v] of won){const r=el('div','lkBar');const bar=el('i');bar.style.width=Math.round(100*v/max)+'%';r.append(el('span',null,name(k)),el('div','lkBarT'),el('b',null,fmtNum(v)));r.children[1].append(bar);d.append(r)}
+   if(!won.length)d.append(el('div','sub','No wins recorded in any mode.'));
+   if(zero.length)d.append(el('div','lkZero','0 wins: '+zero.map(([k])=>name(k)).join(', ')));
+   panes.modes={label:`Modes · ${fmtNum(total)}`,node:d}}
+  {const d=el('div');const lo=P.loadout||{},ln=P.loadout_names||{};const lrows=Object.keys({...lo,...ln}).map(k=>[LK_SLOTS[k]||lkPretty(k),ln[k]??lo[k]]);
+   for(const [k,l] of [['primary_weapon','Primary slot #'],['backup_weapon','Backup slot #']])if(V[k]!=null)lrows.push([l,V[k]]);
+   for(const [cat,items] of Object.entries(F.wear||{}))lrows.push([cat,(items||[]).map(i=>i.name||`#${i.id}`).join(', ')||'—']);
+   d.append(lkGroup('Loadout & wear',lrows.length?lkKV(lrows):el('div','sub','Not shared.')));
+   const ws=(F.weapons||[]).slice().sort((a,b)=>(b.rarity??0)-(a.rarity??0)||(b.level??0)-(a.level??0));
+   const t=el('div','lkTable');for(const x of ws){const r=el('div','lkRow');const rar=el('span','lkRar',LK_RARITY[x.rarity]??`R${x.rarity}`);rar.style.color=LK_RCOL[x.rarity]||'';
+     r.title=`#${x.id}`;r.append(el('b',null,x.name||`#${x.id}`),el('span',null,x.category||''),el('span',null,x.level!=null?`Lv ${x.level}`:''),rar);t.append(r)}
+   d.append(lkGroup(`Weapons · ${ws.length}`,ws.length?t:el('div','sub','None.')));panes.items={label:`Items · ${ws.length}`,node:d}}
+  {const d=el('div');const tex=el('div','lkTexRow');if(p.skin)tex.append(lkTexture(p.skin,'Skin',3));if(F.cape?.texture)tex.append(lkTexture(F.cape.texture,F.cape.name||'Cape',4));
+   for(const [i,ps] of (F.player_skins||[]).entries())if(ps?.texture)tex.append(lkTexture(ps.texture,ps.name||`Skin ${i+1}`,3));
+   if(tex.children.length)d.append(lkGroup('Skin & cape',tex));
+   const sk=F.weapon_skins||[],c=el('div','lkChips');for(const x of sk){const ch=el('span','lkChip',x.name||`#${x.id}`);ch.title=`#${x.id}`;c.append(ch)}
+   d.append(lkGroup(`Weapon skins · ${sk.length}`,sk.length?c:el('div','sub','None.')));panes.skins={label:`Skins · ${sk.length}`,node:d}}
+  {const d=el('div');const raw=JSON.stringify(F,(k,v)=>typeof v==='string'&&v.length>120?v.slice(0,40)+`… (${v.length} chars)`:v,2);
+   const cp=el('button','btn ghost','Copy full JSON');cp.onclick=()=>navigator.clipboard?.writeText(JSON.stringify(F,null,2)).then(()=>toast('JSON copied.'),()=>{});d.append(cp,el('pre','lkRaw',raw));panes.raw={label:'Raw',node:d}}
+  const tabs=$('#lkTabs'),body=$('#lkBody');tabs.innerHTML='';
+  const show=k=>{lkTab=k;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));body.innerHTML='';body.append(panes[k].node)};
+  for(const [k,v] of Object.entries(panes)){const b=el('button',null,v.label);b.type='button';b.dataset.k=k;b.onclick=()=>show(k);tabs.append(b)}
+  show(panes[lkTab]?lkTab:'overview')}
 $('#lkForm').onsubmit=e=>{e.preventDefault();runLookup($('#lkId').value)};
 
 (async function init(){setTab(localStorage.pg3dTab||'play');await refreshStatus();selectedCursor=localStorage.pg3dCursor||statusData?.mods?.cursor?.cursor||'clean_dot';cursorSize=Math.max(8,Math.min(100,Number(localStorage.pg3dCursorSize||statusData?.mods?.cursor?.size||45)));cursorColor=(localStorage.pg3dCursorColor||statusData?.mods?.cursor?.color||'#FFFFFF').toUpperCase();cursorOutline=(localStorage.pg3dCursorOutline||statusData?.mods?.cursor?.outline||'#000000').toUpperCase();cursorOutlineWidth=Number(localStorage.pg3dCursorOW!=null?localStorage.pg3dCursorOW:(statusData?.mods?.cursor?.outline_width||0));$('#cursorSize').value=cursorSize;$('#fpsSelect').value=statusData?.prefs?.fps_target||'uncapped';renderCursorGrid();updateCursorPanel();await refreshPlayerCount();scheduleStatus();setInterval(refreshPlayerCount,30000)})();
