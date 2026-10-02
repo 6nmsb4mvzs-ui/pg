@@ -1,4 +1,4 @@
-PG3D Mac Client 1.28.0
+PG3D Mac Client 1.29.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -70,3 +70,9 @@ Play shows the account, FPS target and launch buttons in one card with
 playtime, players online and rank below. Accounts has labelled Save login
 and Rename buttons, clear badges, and each account's PG3D name with a
 one-click lookup.
+
+New in 1.29
+Settings > Appearance recolors the client itself with the same presets as
+the in-game Theme tab: Ember (default), Crimson, Dark Souls, Royal, Icy.
+Theme and Sky tabs tidied: Restore original only shows when something is
+applied, and the apply button names the preset.

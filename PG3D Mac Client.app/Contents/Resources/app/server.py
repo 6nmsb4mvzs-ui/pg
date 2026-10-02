@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.28.0"
+APP_VERSION = "1.29.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3086,6 +3086,18 @@ def prefs_payload():
     return prefs
 
 
+UI_THEMES = ("ember", "crimson", "dark_souls", "royal", "icy")
+
+
+def set_ui_theme_pref(value):
+    if value not in UI_THEMES:
+        raise RuntimeError("Unknown appearance preset.")
+    prefs = prefs_payload()
+    prefs["ui_theme"] = value
+    write_json(PREFS_JSON, prefs)
+    return {"ok": True, "ui_theme": value}
+
+
 def set_fps_pref(value):
     val = fps_target_value(value)
     human = "uncapped" if val == "-1" else val
@@ -3477,7 +3489,7 @@ def reset_theme():
         def change(state):
             state["theme"] = None
         mutate_state(change, "Reset theme", progress)
-        return "Original PG3D colours restored."
+        return "Original PG3D colors restored."
     return start_job("theme", job)
 
 
@@ -4406,6 +4418,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(reset_overlay_config())
             if path == "/api/overlay/edit":
                 return self.send_json(begin_overlay_editor(data))
+            if path == "/api/prefs/ui-theme":
+                return self.send_json(set_ui_theme_pref(str(data.get("theme", ""))))
             if path == "/api/prefs/fps":
                 return self.send_json(set_fps_pref(data.get("fps", "uncapped")))
             if path == "/api/clips/config":
