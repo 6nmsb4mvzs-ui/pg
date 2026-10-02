@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.26.0"
+APP_VERSION = "1.27.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3246,7 +3246,7 @@ def _dir_size(path: Path):
     return total
 
 
-CACHE_DIRS = ("clip_thumbs", "fps_logs", "music_cache")
+CACHE_DIRS = ("clip_thumbs", "fps_logs", "music_cache", "ember_icons")
 
 
 def settings_payload():
@@ -3868,6 +3868,36 @@ def remember_pg3d_id(account, pid, name=None):
 
 
 _LOOKUP_CACHE = {}
+EMBER_ICON_DIR = SUPPORT / "ember_icons"
+EMBER_ICON_FOLDERS = {"Weapons", "Armor", "WeaponSkin", "Pet", "Lookup", "Currency"}
+
+
+def ember_icon(folder, name):
+    """Item/stat icons from Ember's site, cached on disk. None if missing."""
+    if folder not in EMBER_ICON_FOLDERS or not re.fullmatch(r"[A-Za-z0-9 _-]{1,40}", name):
+        return None
+    path = EMBER_ICON_DIR / folder / f"{name}.png"
+    miss = path.with_suffix(".missing")
+    if path.is_file():
+        return path
+    if miss.exists() and time.time() - miss.stat().st_mtime < 7 * 86400:
+        return None
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        url = "https://emberpg3d.com/icons/{}/{}.png".format(folder, name.replace(" ", "%20"))
+        req = Request(url, headers={"User-Agent": f"PG3D-Mac-Client/{APP_VERSION}"})
+        with urlopen(req, timeout=8) as r:
+            data = r.read(2 * 1024 * 1024)
+            ctype = r.headers.get("Content-Type", "")
+        if not ctype.startswith("image/png") or not data.startswith(b"\x89PNG"):
+            miss.touch()
+            return None
+        tmp = path.with_suffix(".tmp")
+        tmp.write_bytes(data)
+        os.replace(tmp, path)
+        return path
+    except Exception:
+        return None
 
 
 def lookup_player(pid):
@@ -4208,6 +4238,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(steam_player_count())
         if path == "/api/gui-assets":
             return self.send_json(gui_catalog())
+        if path.startswith("/api/ember-icon/"):
+            parts = unquote(path[len("/api/ember-icon/"):]).split("/")
+            icon = ember_icon(parts[0], parts[1][:-4]) if len(parts) == 2 and parts[1].endswith(".png") else None
+            return self.send_file(icon, cache=True) if icon else self.send_error(404)
         if path == "/api/lookup/suggest":
             return self.send_json(lookup_suggestions())
         if path.startswith("/api/lookup/"):

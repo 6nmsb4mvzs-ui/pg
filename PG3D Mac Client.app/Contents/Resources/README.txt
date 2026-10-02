@@ -1,4 +1,4 @@
-PG3D Mac Client 1.26.0
+PG3D Mac Client 1.27.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -56,3 +56,9 @@ New in 1.26
 Compact Player Lookup: one search row with Steam and recent players as
 chips, a short header with level, XP and currencies, and tabs (Overview,
 Modes, Items, Skins, Raw) for the rest of the data.
+
+New in 1.27
+Player Lookup laid out like Ember: Profile (collection, currencies, 30-day
+stats, loadout), Wins by mode, Weapons with pictures and a category
+filter, and Cosmetics (skin, cape, armor, weapon skins with pictures).
+Item pictures come from Ember and are cached on this Mac.
