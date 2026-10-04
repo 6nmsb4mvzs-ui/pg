@@ -208,6 +208,11 @@ def _gui_textures_in(env, hints, log, label):
                 fid, pid = _pptr_ids(spr.m_RD.texture)
                 if fid == 0 and pid:
                     sprite_textures.add(pid)
+            elif tname == "SpriteAtlas":
+                for _key, rd in obj.parse_as_object().m_RenderDataMap:
+                    fid, pid = _pptr_ids(rd.texture)
+                    if fid == 0 and pid:
+                        sprite_textures.add(pid)
             elif tname == "Texture2D":
                 textures[int(obj.path_id)] = obj
         except Exception as e:
@@ -307,7 +312,70 @@ def _sky_textures_in(env, p: Path, app: Path, log):
     return out
 
 
-def scan_assets(files, app: Path, hints, progress=None, log=print, sample_cb=None, max_samples=10):
+LOADING_RE = re.compile(r"loading|splash|load_?screen|preloader|loader_?bg", re.I)
+
+
+def _loading_textures_in(env, p: Path, app: Path, log):
+    """Big Texture2Ds named like loading screens / splash art."""
+    out = []
+    for obj in env.objects:
+        if obj.type.name != "Texture2D":
+            continue
+        name = _name(obj)
+        if not LOADING_RE.search(name or ""):
+            continue
+        try:
+            tex = obj.parse_as_object()
+            w, h = int(tex.m_Width), int(tex.m_Height)
+            if int(tex.m_TextureFormat) in ALPHA_ONLY_FORMATS or w < 512 or h < 256:
+                continue
+            thumb = tex.image.convert("RGB")
+            thumb.thumbnail((320, 320))
+        except Exception as e:
+            log(f"LOADING TEX FAIL {p} {getattr(obj, 'path_id', '?')}: {e}")
+            continue
+        try:
+            rel = str(p.relative_to(app))
+        except ValueError:
+            rel = p.name
+        out.append({"source_file": str(p), "relative_file": rel, "path_id": int(obj.path_id),
+                    "name": name, "width": w, "height": h, "_thumb": thumb})
+    return out
+
+
+FONT_SKIP_RE = re.compile(r"icon|symbol|emoji|awesome|material|glyph|dingbat|cjk|chinese|japan|korea|arab|thai|hebrew|"
+                          r"devanagari|noto.?sans.?(sc|tc|jp|kr)|\b(jp|kr|zh|sc|tc)\b", re.I)
+
+
+def _fonts_in(env, p: Path, app: Path, log):
+    """Unity Font objects that carry their own TTF/OTF data (dynamic fonts)."""
+    out = []
+    for obj in env.objects:
+        if obj.type.name != "Font":
+            continue
+        try:
+            font = obj.parse_as_object()
+            size = len(font.m_FontData or [])
+        except Exception as e:
+            log(f"FONT FAIL {p} {getattr(obj, 'path_id', '?')}: {e}")
+            continue
+        name = getattr(font, "m_Name", "") or ""
+        if size < 1024 or FONT_SKIP_RE.search(name):
+            continue
+        try:
+            rel = str(p.relative_to(app))
+        except ValueError:
+            rel = p.name
+        out.append({"source_file": str(p), "relative_file": rel, "path_id": int(obj.path_id), "name": name, "bytes": size})
+    return out
+
+
+def replace_font_data(font, data: bytes):
+    """Swap the embedded font file; glyphs are rendered from it at runtime."""
+    font.m_FontData = list(data)
+
+
+def scan_assets(files, app: Path, hints, progress=None, log=print, sample_cb=None, max_samples=10, loading=None, fonts=None):
     """One pass over the game files for both features.
 
     Returns (gui_targets, sky_textures): gui_targets maps source file ->
@@ -340,10 +408,18 @@ def scan_assets(files, app: Path, hints, progress=None, log=print, sample_cb=Non
                 except Exception as e:
                     log(f"Theme sample failed for {p}: {e}")
         sky += _sky_textures_in(env, Path(p), app, log)
+        if loading is not None:
+            loading += _loading_textures_in(env, Path(p), app, log)
+        if fonts is not None:
+            fonts += _fonts_in(env, Path(p), app, log)
         del env
     sky.sort(key=lambda t: (not t["from_material"], t["relative_file"], t["name"].lower()))
     for i, t in enumerate(sky, 1):
         t["id"] = i
+    if loading is not None:
+        loading.sort(key=lambda t: -(t["width"] * t["height"]))
+        for i, t in enumerate(loading, 1):
+            t["id"] = i
     return gui, sky
 
 

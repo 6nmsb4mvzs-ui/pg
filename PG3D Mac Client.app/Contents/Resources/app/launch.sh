@@ -5,7 +5,7 @@
 set -u
 setopt NULL_GLOB
 
-VERSION="1.31.0"
+VERSION="1.32.0"
 PORT=38513
 APP_ID="pg3d-mac-client-v$VERSION"
 SOURCE_BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -162,6 +162,11 @@ fi
 # numpy speeds up panorama skybox projection; the Sky tab works without it.
 if ! "$VPY" -c 'import numpy' >/dev/null 2>&1; then
   ( "$VPY" -m pip install --disable-pip-version-check -q "numpy>=1.24,<3" >>"$LOG" 2>&1 ) &
+fi
+
+# Game sound in clips uses ScreenCaptureKit (macOS 13+); clips stay silent without it.
+if [[ "$(/usr/bin/sw_vers -productVersion | /usr/bin/cut -d. -f1)" -ge 13 ]] && ! "$VPY" -c 'import ScreenCaptureKit, CoreMedia' >/dev/null 2>&1; then
+  ( "$VPY" -m pip install --disable-pip-version-check -q pyobjc-framework-ScreenCaptureKit pyobjc-framework-CoreMedia >>"$LOG" 2>&1 ) &
 fi
 
 # ---------------------------------------------------------------- start

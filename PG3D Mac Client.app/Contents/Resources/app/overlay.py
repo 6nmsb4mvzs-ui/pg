@@ -31,6 +31,7 @@ STATE_DIR = SUPPORT / "state"
 CONFIG = STATE_DIR / "overlay_config.json"
 STATE = STATE_DIR / "overlay_runtime.json"
 EDIT_REQUEST = STATE_DIR / "overlay_edit_request.json"
+RANK_FILE = STATE_DIR / "overlay_rank.json"
 FPS_LOG_DIR = SUPPORT / "fps_logs"
 MUSIC_CACHE_DIR = SUPPORT / "music_cache"
 PIDFILE = SUPPORT / "overlay.pid"
@@ -94,6 +95,7 @@ def default_config():
             {"id":"ping","enabled":True,"size":18,"color":"#FFFFFF","order":2,"x":0.5,"y":0.5,"placed":False},
             {"id":"music","enabled":True,"size":16,"color":"#FFFFFF","order":3,"x":0.5,"y":0.5,"placed":False,
              "music":{"lyrics":False,"cover":True,"cover_size":48,"title":True,"artist":True,"album":False,"timestamp":True}},
+            {"id":"rank","enabled":False,"size":16,"color":"#FFFFFF","order":4,"x":0.5,"y":0.5,"placed":False},
         ],
     }
 
@@ -372,6 +374,24 @@ def hotkey_pressed(hk):
     return key_state(code)
 
 
+def rank_value():
+    """Current client rank, written by the server while PG3D runs."""
+    try:
+        return json.loads(RANK_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def rank_text(r):
+    if not r or not r.get("name"):
+        return "Rank —"
+    if r.get("next") is None:
+        return f"{r['name']}"
+    pct = max(0, min(100, int(round(float(r.get("progress", 0)) * 100))))
+    filled = pct // 10
+    return f"{r['name']} {'▰' * filled}{'▱' * (10 - filled)} {pct}%"
+
+
 def clock_text(item, now=None):
     now = now or datetime.now()
     c = item.get("clock") if isinstance(item.get("clock"),dict) else {}
@@ -469,7 +489,8 @@ class EditorController(NSObject):
         item = effective_item(self.overlay.config, item)
         if item['id']=='music':
             v=MusicView.alloc().init(); v.update_({'item':item,'size':size,'meta':{'title':'Song title','artist':'Artist','album':'Album','duration':220,'position':74,'lyric':'Live lyrics'}}); return v
-        text='144 FPS' if item['id']=='fps' else (clock_text(item) if item['id']=='clock' else '32 ms')
+        if item['id']=='rank':text=rank_text(rank_value() or {'name':'Gold','progress':0.42,'next':'Platinum'})
+        else:text='144 FPS' if item['id']=='fps' else (clock_text(item) if item['id']=='clock' else '32 ms')
         lab=NSTextField.labelWithString_(text); lab.setTextColor_(hex_color(item.get('color','#FFFFFF'))); lab.setFont_(NSFont.monospacedSystemFontOfSize_weight_(float(size),0.4)); lab.setSelectable_(False); lab.sizeToFit(); return lab
 
     def _wrap(self,target,view,padding=8):
@@ -567,6 +588,8 @@ class Overlay(NSObject):
         else:
             if item['id']=='clock':
                 text=clock_text(item)
+            elif item['id']=='rank':
+                text=rank_text(self.values.get('rank'))
             else:
                 value=self.values.get(item['id']); text=(f'{value} FPS' if item['id']=='fps' and value is not None else ('— FPS' if item['id']=='fps' else (f'{value} ms' if value is not None else '— ms')))
             v.setStringValue_(text); v.setTextColor_(hex_color(display_item.get('color','#FFFFFF'))); v.setFont_(NSFont.monospacedSystemFontOfSize_weight_(float(size),0.35)); v.sizeToFit()
@@ -615,7 +638,7 @@ class Overlay(NSObject):
         except Exception:pass
 
     def _update_data(self):
-        self.values={'fps':fps_value(),'ping':ping_value()}; self.music=music_metadata(); self._layout()
+        self.values={'fps':fps_value(),'ping':ping_value(),'rank':rank_value()}; self.music=music_metadata(); self._layout()
 
     def tick_(self,timer):
         self._reload_config(); self._check_editor_request(); now=time.time()

@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.31.0"
+APP_VERSION = "1.32.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -100,6 +100,9 @@ OVERLAY_RUNTIME_JSON = STATE_DIR / "overlay_runtime.json"
 OVERLAY_PID_FILE = SUPPORT / f"overlay-v{APP_VERSION}.pid"
 OVERLAY_SCRIPT = BASE / "overlay.py"
 OVERLAY_EDIT_REQUEST_JSON = STATE_DIR / "overlay_edit_request.json"
+OVERLAY_RANK_JSON = STATE_DIR / "overlay_rank.json"
+LAST_SESSION_JSON = STATE_DIR / "last_session.json"
+CLANS_JSON = STATE_DIR / "clans.json"
 _PLAYER_COUNT_CACHE = {"value": None, "at": 0.0}
 PLAYTIME_JSON = STATE_DIR / "playtime.json"
 WINS_JSON = STATE_DIR / "wins.json"
@@ -107,6 +110,14 @@ RANK_STATE_JSON = STATE_DIR / "rank_state.json"
 CUSTOMIZE_CATALOG_JSON = STATE_DIR / "customize_catalog.json"
 SKY_DIR = SUPPORT / "skies"
 SKY_PREVIEWS = RUNTIME / "sky_previews"
+GAME_FONTS_DIR = BASE / "fonts_game"
+USER_FONTS_DIR = SUPPORT / "fonts"
+GAME_FONTS = [  # bundled, all SIL Open Font License
+    {"id": "russo", "name": "Russo One", "file": "RussoOne-Regular.ttf"},
+    {"id": "bangers", "name": "Bangers", "file": "Bangers-Regular.ttf"},
+    {"id": "bebas", "name": "Bebas Neue", "file": "BebasNeue-Regular.ttf"},
+    {"id": "pixel", "name": "Press Start", "file": "PressStart2P-Regular.ttf"},
+]
 KEYCHAIN_SERVICE = "PG3D Mac Client Steam"
 # Build the bundled FPS unlocker was written against (see fps_unlocker/src/pg3d_fps_unlock.c).
 FPS_SUPPORTED_BUILDS = {"151027"}
@@ -153,6 +164,11 @@ PREFERRED_BUNDLE_WORDS = (
     "ui", "interface", "menu", "hud", "common", "shared", "cursor",
     "input", "battle", "lobby", "gui", "resources"
 )
+# In-game sprites the Cursor tab can swap with a crosshair design.
+SPRITE_ROLES = {
+    "hitmarker": re.compile(r"hit.?mark|hit.?indicator|hit.?cross|hit.?confirm|damage.?indicator|hit_?effect", re.I),
+    "killicon": re.compile(r"kill.?(icon|mark|feed|notif|confirm|skull)|skull|headshot", re.I),
+}
 GUI_HINTS = (
     "ui", "hud", "button", "icon", "menu", "panel", "bar", "frame", "window",
     "battle", "health", "armor", "ammo", "weapon", "crosshair", "reticle", "slot",
@@ -635,6 +651,9 @@ def scan_gui_assets(deep=False):
                     continue
                 name = obj_name(obj)
                 s = gui_score(name, rel, w, h)
+                role = next((r for r, rx in SPRITE_ROLES.items() if rx.search(name or "")), None)
+                if role:
+                    s += 200  # always keep these in the catalog
                 # Normal scan filters obvious low-value art. Deep scan keeps every reasonable sprite.
                 if not deep and s < 12:
                     continue
@@ -649,6 +668,7 @@ def scan_gui_assets(deep=False):
                     "pivot_x": px,
                     "pivot_y": py,
                     "score": int(s),
+                    "role": role,
                     "_image": img,
                 })
             except Exception as e:
@@ -711,7 +731,8 @@ def start_gui_scan(deep=False):
 
 
 def default_mods():
-    return {"cursor": None, "gui": {}, "hud_set": {}, "hud_disabled": False, "theme": None, "skybox": None}
+    return {"cursor": None, "gui": {}, "hud_set": {}, "hud_disabled": False, "theme": None, "skybox": None,
+            "loading": None, "font": None}
 
 
 def load_mods():
@@ -754,9 +775,10 @@ def sources_for_state(state):
     theme = state.get("theme")
     if theme:
         out.update(theme.get("targets", {}).keys())
-    sky = state.get("skybox")
-    if sky:
-        out.update(t["source_file"] for t in sky.get("targets", []) if t.get("source_file"))
+    for key in ("skybox", "loading", "font"):
+        sky = state.get(key)
+        if sky:
+            out.update(t["source_file"] for t in sky.get("targets", []) if t.get("source_file"))
     return out
 
 
@@ -855,6 +877,34 @@ def image_diff(a, b):
         b = b.resize(a.size, Image.Resampling.LANCZOS)
     d = ImageChops.difference(a.convert("RGBA"), b.convert("RGBA"))
     return sum(v * (i % 256) for i, v in enumerate(d.histogram()))
+
+
+def sprite_render_data(spr):
+    """Texture + rect a Sprite draws from: its own render data, or its SpriteAtlas entry."""
+    atlas = None
+    try:
+        if spr.m_SpriteAtlas:
+            atlas = spr.m_SpriteAtlas.deref_parse_as_object()
+        elif getattr(spr, "m_AtlasTags", None):
+            for obj in spr.assets_file.objects.values():
+                if obj.type.name == "SpriteAtlas" and obj.peek_name() == spr.m_AtlasTags[0]:
+                    atlas = obj.parse_as_object()
+                    break
+    except Exception:
+        atlas = None
+    if atlas is not None:
+        for key, value in atlas.m_RenderDataMap:
+            if key == spr.m_RenderDataKey:
+                return value
+    return spr.m_RD
+
+
+def sprite_texture(spr):
+    rd = sprite_render_data(spr)
+    try:
+        return rd.texture.deref(), rd.textureRect
+    except Exception:
+        return None, rd.textureRect
 
 
 def sprite_xy(atlas, sprite, rect):
@@ -1047,12 +1097,16 @@ def rebuild_sources(source_strings, state=None, progress=None):
         gui_ops = all_operations_for_source(state, source_str)
         sky_ops = [t for t in (sky or {}).get("targets", []) if t.get("source_file") == source_str]
         sky_pids = {int(t["path_id"]) for t in sky_ops}
+        load_cfg = state.get("loading") or None
+        load_ops = [t for t in (load_cfg or {}).get("targets", []) if t.get("source_file") == source_str]
+        sky_pids |= {int(t["path_id"]) for t in load_ops}
         theme_pids = {int(x) for x in (theme or {}).get("targets", {}).get(source_str, [])} - sky_pids
         if needs_cursor and state["cursor"]["target"].get("object_type") == "Texture2D":
             theme_pids.discard(int(state["cursor"]["target"]["path_id"]))
         if sky_ops and sky_image is None:
             sky_image = _load_sky_image(sky)
-        if not needs_cursor and not gui_ops and not theme_pids and not sky_ops:
+        font_ops = [t for t in ((state.get("font") or {}).get("targets") or []) if t.get("source_file") == source_str]
+        if not needs_cursor and not gui_ops and not theme_pids and not sky_ops and not load_ops and not font_ops:
             shutil.copy2(original, source)
             manifest["last_mod_sha256"] = None
             manifest["restored"] = datetime.now().isoformat(timespec="seconds")
@@ -1099,11 +1153,10 @@ def rebuild_sources(source_strings, state=None, progress=None):
                 elif target["object_type"] == "Sprite":
                     spr = reader.parse_as_object()
                     old_sprite = spr.image.convert("RGBA")
-                    tr = spr.m_RD.texture.deref()
+                    tr, r = sprite_texture(spr)
                     if tr is None:
                         raise RuntimeError("Cursor sprite texture atlas could not be resolved.")
                     entry = atlas_entry(tr)
-                    r = spr.m_RD.textureRect
                     x, y, w, h = sprite_xy(entry["orig"], old_sprite, [r.x, r.y, r.width, r.height])
                     entry["image"].paste((0, 0, 0, 0), (x, y, x + w, y + h))
                     entry["image"].alpha_composite(fit_cursor(icon, (w, h), pct, target.get("visible_bbox")), (x, y))
@@ -1122,16 +1175,23 @@ def rebuild_sources(source_strings, state=None, progress=None):
                     continue
                 spr = reader.parse_as_object()
                 old_sprite = spr.image.convert("RGBA")
-                tr = spr.m_RD.texture.deref()
+                tr, r = sprite_texture(spr)
                 if tr is None:
                     log(f"GUI asset path {path_id} has unresolved texture; skipped")
                     continue
                 entry = atlas_entry(tr)
-                r = spr.m_RD.textureRect
                 x, y, w, h = sprite_xy(entry["orig"], old_sprite, [r.x, r.y, r.width, r.height])
                 entry["image"].paste((0, 0, 0, 0), (x, y, x + w, y + h))
                 hidden = bool(op.get("hidden", False))
-                if not hidden:
+                rep = op.get("replace")
+                if rep and not hidden:
+                    try:
+                        icon = styled_cursor_icon(rep["cursor"], rep.get("color"), rep.get("outline"), rep.get("outline_width", 0))
+                        entry["image"].alpha_composite(fit_cursor(icon, (w, h), float(rep.get("size", 90))), (x, y))
+                    except Exception as e:
+                        log(f"Sprite swap skipped for {path_id}: {e}")
+                        entry["image"].alpha_composite(old_sprite.resize((w, h)) if old_sprite.size != (w, h) else old_sprite, (x, y))
+                elif not hidden:
                     scale = max(10.0, min(100.0, float(op.get("scale", 100))))
                     px = float(op.get("pivot_x", 0.5))
                     py = float(op.get("pivot_y", 0.5))
@@ -1172,6 +1232,28 @@ def rebuild_sources(source_strings, state=None, progress=None):
                     if sky.get("flip"):
                         img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
                     data.image = img
+                save_parsed_object(data, reader)
+
+            # Loading screens: the picked image, filling the texture like CSS cover.
+            if load_ops:
+                load_img = _load_sky_image(load_cfg)
+                for t in load_ops:
+                    reader = find_reader(env, int(t["path_id"]))
+                    if reader is None or reader.type.name != "Texture2D":
+                        log(f"Loading screen {t['path_id']} moved in {source.name}; skipped")
+                        continue
+                    data = reader.parse_as_object()
+                    data.image = customize.cover(load_img, (int(data.m_Width), int(data.m_Height)))
+                    save_parsed_object(data, reader)
+
+            # Font swap.
+            for t in font_ops:
+                reader = find_reader(env, int(t["path_id"]))
+                if reader is None or reader.type.name != "Font":
+                    log(f"Font {t['path_id']} moved in {source.name}; skipped")
+                    continue
+                data = reader.parse_as_object()
+                customize.replace_font_data(data, font_bytes(state["font"]))
                 save_parsed_object(data, reader)
 
             for entry in atlas_cache.values():
@@ -1320,6 +1402,52 @@ def apply_gui_asset(asset_id, scale=100, hidden=False):
     return {"ok": True}
 
 
+def role_items(role):
+    return [x for x in gui_catalog().get("items", []) if x.get("role") == role]
+
+
+def sprite_roles_payload():
+    cat = gui_catalog()
+    mods = load_mods()
+    out = {}
+    for role in SPRITE_ROLES:
+        items = [x for x in cat.get("items", []) if x.get("role") == role]
+        applied = next((op.get("replace") for op in mods.get("gui", {}).values() if op.get("role") == role and op.get("replace")), None)
+        out[role] = {"count": len(items), "previews": [x["preview"] for x in items[:6]], "applied": applied}
+    return {"scanned": bool(cat.get("generated")), "roles": out}
+
+
+def apply_sprite_role(role, cursor_id, size=90, color=None, outline=None, outline_width=0):
+    if role not in SPRITE_ROLES:
+        raise RuntimeError("Unknown sprite type.")
+    items = role_items(role)
+    if not items:
+        raise RuntimeError("PG3D's current build doesn't have a sprite for this that the client can find.")
+    cursor_image_path(cursor_id)
+    color, outline, ow = _cursor_style(color, outline, outline_width)
+    size = max(8.0, min(100.0, float(size)))
+    rep = {"cursor": cursor_id, "size": size, "color": color, "outline": outline, "outline_width": ow}
+
+    def change(state):
+        for item in items:
+            state["gui"][item["key"]] = {
+                "key": item["key"], "asset_id": int(item["id"]), "source_file": item["source_file"],
+                "relative_file": item["relative_file"], "path_id": int(item["path_id"]),
+                "name": item.get("name", ""), "width": int(item["width"]), "height": int(item["height"]),
+                "pivot_x": float(item.get("pivot_x", 0.5)), "pivot_y": float(item.get("pivot_y", 0.5)),
+                "scale": 100, "hidden": False, "role": role, "replace": rep,
+            }
+    mutate_state(change, f"{'Hit marker' if role == 'hitmarker' else 'Kill icon'}: {cursor_id}")
+    return {"ok": True}
+
+
+def reset_sprite_role(role):
+    def change(state):
+        state["gui"] = {k: v for k, v in state["gui"].items() if v.get("role") != role}
+    mutate_state(change, f"Reset {'hit marker' if role == 'hitmarker' else 'kill icon'}")
+    return {"ok": True}
+
+
 def reset_gui_asset(asset_id):
     item = find_gui_item(asset_id=asset_id)
     if not item:
@@ -1407,9 +1535,10 @@ def set_hud_disabled(enabled):
 
 def reset_all_gui():
     def change(state):
-        state["gui"] = {}
+        # Hit marker / kill icon swaps live in the Cursor tab and stay.
+        state["gui"] = {k: v for k, v in state["gui"].items() if v.get("role")}
         state["hud_disabled"] = False
-    mutate_state(change, "Reset all GUI changes")
+    mutate_state(change, "Reset HUD changes")
     return {"ok": True}
 
 
@@ -3052,6 +3181,7 @@ def default_overlay_config():
             {"id":"ping","enabled":True,"size":18,"color":"#FFFFFF","order":2,"x":0.5,"y":0.5,"placed":False},
             {"id":"music","enabled":True,"size":16,"color":"#FFFFFF","order":3,"x":0.5,"y":0.5,"placed":False,
              "music":{"lyrics":False,"cover":True,"cover_size":48,"title":True,"artist":True,"album":False,"timestamp":True}},
+            {"id":"rank","enabled":False,"size":16,"color":"#FFFFFF","order":4,"x":0.5,"y":0.5,"placed":False},
         ],
     }
 
@@ -3102,7 +3232,7 @@ def _validate_overlay_config(raw):
     templates = {x["id"]: x for x in default_overlay_config()["items"]}
     incoming = raw.get("items") if isinstance(raw.get("items"), list) else []
     out = []
-    for idx, item_id in enumerate(("fps","clock","ping","music")):
+    for idx, item_id in enumerate(("fps","clock","ping","music","rank")):
         src = next((x for x in incoming if isinstance(x,dict) and x.get("id")==item_id), {})
         item = copy.deepcopy(templates[item_id])
         item["enabled"] = bool(src.get("enabled", item["enabled"]))
@@ -3145,6 +3275,8 @@ def _validate_overlay_config(raw):
 def set_overlay_config(raw):
     cfg = _validate_overlay_config(raw)
     write_json(OVERLAY_CONFIG_JSON, cfg)
+    if any(x.get("id") == "rank" and x.get("enabled") for x in cfg["items"]):
+        threading.Thread(target=write_overlay_rank, args=(_playtime_account(),), daemon=True).start()
     ensure_overlay_process()
     return {"ok": True, "config": cfg}
 
@@ -3330,6 +3462,7 @@ def status_payload():
                    if updater.UPDATER else None),
         "playtime": playtime_summary(account_info.get("current") or account_info.get("selected") or "unknown"),
         "rank": _safe_rank(account_info.get("current") or account_info.get("selected") or "unknown"),
+        "last_session": last_session_payload(),
         "job": {k[4:]: s.get(k) for k in ("job_kind", "job_phase", "job_progress", "job_message", "job_error")},
         "overlay": {"config": overlay_config(), "runtime": overlay_runtime()},
     })
@@ -3361,15 +3494,66 @@ def _playtime_account():
         return "unknown"
 
 
+def _rank_snapshot(account):
+    try:
+        r = rank_payload(account)
+        return {"step": r["step"], "tier": r["tier"], "name": r["tier_name"], "xp": r["xp"], "wins": r["wins"],
+                "progress": round(float(r["progress"]), 4), "next": r.get("next_name"), "color": r["color"]}
+    except Exception as e:
+        log(f"Rank snapshot failed: {e}")
+        return None
+
+
+def write_overlay_rank(account):
+    snap = _rank_snapshot(account)
+    if snap:
+        try:
+            write_json(OVERLAY_RANK_JSON, snap)
+        except Exception:
+            pass
+    return snap
+
+
+def _clips_since(start):
+    try:
+        return sum(1 for p in clips.CLIPS_DIR.glob("*.mp4") if p.stat().st_mtime >= start)
+    except Exception:
+        return 0
+
+
+def _finish_session_report(session, length):
+    after = _rank_snapshot(session["account"]) or {}
+    before = session.get("rank") or {}
+    report = {
+        "account": session["account"], "start": int(session["start"]), "seconds": int(length),
+        "wins": max(0, int(after.get("wins", 0)) - int(before.get("wins", after.get("wins", 0)))),
+        "xp": max(0, int(after.get("xp", 0)) - int(before.get("xp", after.get("xp", 0)))),
+        "clips": _clips_since(session["start"]),
+        "before": before or None, "after": after or None,
+        "promoted": bool(before and after and after.get("step", 0) > before.get("step", 0)),
+    }
+    write_json(LAST_SESSION_JSON, report)
+    log(f"Session report: {_fmt_duration(length)}, +{report['xp']} XP, {report['wins']} wins")
+
+
+def last_session_payload():
+    rep = read_json(LAST_SESSION_JSON, None)
+    if not isinstance(rep, dict) or not rep.get("seconds"):
+        return None
+    return {**rep, "duration": _fmt_duration(rep["seconds"])}
+
+
 def playtime_watch():
     """Record PG3D sessions per Steam account while the client is open."""
     session = None
+    last_rank_write = 0.0
     while True:
         try:
             running = _game_running_uncached()
             now = time.time()
             if running and session is None:
-                session = {"account": _playtime_account(), "start": now}
+                account = _playtime_account()
+                session = {"account": account, "start": now, "rank": _rank_snapshot(account)}
                 with _LOCK:
                     STATUS["session_start"] = now
             elif not running and session is not None:
@@ -3382,7 +3566,14 @@ def playtime_watch():
                     sessions.append({"account": session["account"], "start": int(session["start"]), "seconds": int(length)})
                     data["sessions"] = sessions[-2000:]
                     write_json(PLAYTIME_JSON, data)
+                    try:
+                        _finish_session_report(session, length)
+                    except Exception as e:
+                        log(f"Session report failed: {e}")
                 session = None
+            if running and now - last_rank_write >= 30:
+                last_rank_write = now
+                write_overlay_rank(session["account"] if session else _playtime_account())
         except Exception as e:
             log(f"Playtime tracker error: {e}")
         time.sleep(5)
@@ -3545,12 +3736,12 @@ THEME_SAMPLES = RUNTIME / "theme_samples"
 
 
 def customize_catalog():
-    return read_json(CUSTOMIZE_CATALOG_JSON, {"generated": None, "app": None, "build": None, "gui": {}, "sky": []})
+    return read_json(CUSTOMIZE_CATALOG_JSON, {"generated": None, "app": None, "build": None, "gui": {}, "sky": [], "loading": []})
 
 
 def _catalog_fresh(cat):
     app = find_app()
-    if not app or not cat.get("generated") or cat.get("app") != str(app):
+    if not app or not cat.get("generated") or cat.get("app") != str(app) or "loading" not in cat or "fonts" not in cat:
         return False
     build = plist_value(app / "Contents/Info.plist", "CFBundleVersion")
     return cat.get("build") == build
@@ -3566,8 +3757,9 @@ def scan_customize(progress):
         raise RuntimeError("No readable Unity asset files were found in the PG3D app.")
     shutil.rmtree(THEME_SAMPLES, ignore_errors=True)
     THEME_SAMPLES.mkdir(parents=True, exist_ok=True)
-    for old in SKY_PREVIEWS.glob("target_*.jpg"):
-        old.unlink(missing_ok=True)
+    for pat in ("target_*.jpg", "loading_*.jpg"):
+        for old in SKY_PREVIEWS.glob(pat):
+            old.unlink(missing_ok=True)
     samples = []
 
     def keep_sample(img, meta):
@@ -3575,7 +3767,17 @@ def scan_customize(progress):
         img.save(THEME_SAMPLES / name)
         samples.append({"file": name, "name": meta.get("name", ""), "width": meta["width"], "height": meta["height"]})
 
-    gui, sky = customize.scan_assets(files, app, GUI_HINTS, progress, log, sample_cb=keep_sample)
+    loading, fonts = [], []
+    gui, sky = customize.scan_assets(files, app, GUI_HINTS, progress, log, sample_cb=keep_sample,
+                                     loading=loading, fonts=fonts)
+    for t in loading:
+        thumb = t.pop("_thumb", None)
+        if thumb is not None:
+            try:
+                thumb.save(SKY_PREVIEWS / f"loading_{t['id']}.jpg", quality=85)
+                t["preview"] = f"/api/sky/loading/{t['id']}.jpg"
+            except Exception:
+                pass
     for t in sky:
         thumb = t.pop("_thumb", None)
         if thumb is not None:
@@ -3590,11 +3792,14 @@ def scan_customize(progress):
         "build": plist_value(app / "Contents/Info.plist", "CFBundleVersion"),
         "gui": gui,
         "sky": sky,
+        "loading": loading,
+        "fonts": fonts,
         "samples": samples,
         "files_scanned": len(files),
     }
     write_json(CUSTOMIZE_CATALOG_JSON, data)
-    log(f"Customize scan: {sum(len(v) for v in gui.values())} GUI textures in {len(gui)} files, {len(sky)} sky textures")
+    log(f"Customize scan: {sum(len(v) for v in gui.values())} GUI textures in {len(gui)} files, "
+        f"{len(sky)} sky textures, {len(loading)} loading screens, {len(fonts)} fonts")
     return data
 
 
@@ -3790,10 +3995,12 @@ def upload_sky(data_url, name):
 
 
 def delete_sky(sky_id):
-    active = (load_mods().get("skybox") or {}).get("image", "")
+    mods = load_mods()
     sky = _sky_by_id(sky_id)
-    if active == sky["file"]:
+    if (mods.get("skybox") or {}).get("image", "") == sky["file"]:
         raise RuntimeError("That sky is in use. Restore the original sky first.")
+    if (mods.get("loading") or {}).get("image", "") == sky["file"]:
+        raise RuntimeError("That image is your loading screen. Restore the original loading screen first.")
     (SKY_DIR / sky["file"]).unlink(missing_ok=True)
     (SKY_PREVIEWS / f"{sky_id}.jpg").unlink(missing_ok=True)
     data = read_json(SKY_LIBRARY_JSON, {"skies": []})
@@ -3815,7 +4022,117 @@ def sky_payload():
                     "target_keys": [f"{t['source_file']}:{t['path_id']}" for t in sky.get("targets", [])]}
                    if sky else None),
         "numpy": customize.np is not None,
+        "loading": loading_payload(),
     }
+
+
+def font_list():
+    out = [{**f, "builtin": True} for f in GAME_FONTS if (GAME_FONTS_DIR / f["file"]).is_file()]
+    data = read_json(USER_FONTS_DIR / "library.json", {"fonts": []})
+    out += [{**f, "builtin": False} for f in data.get("fonts", []) if (USER_FONTS_DIR / f.get("file", "")).is_file()]
+    return out
+
+
+def _font_by_id(font_id):
+    for f in font_list():
+        if f["id"] == font_id:
+            return f
+    raise RuntimeError("That font is no longer available.")
+
+
+def font_path(f):
+    return (GAME_FONTS_DIR if f.get("builtin") else USER_FONTS_DIR) / Path(f["file"]).name
+
+
+def font_bytes(cfg):
+    path = (GAME_FONTS_DIR if cfg.get("builtin") else USER_FONTS_DIR) / Path(str(cfg.get("file", ""))).name
+    if not path.is_file():
+        raise RuntimeError("The selected font file is missing. Pick it again.")
+    return path.read_bytes()
+
+
+def upload_font(data_url, name):
+    if "," not in str(data_url):
+        raise RuntimeError("Invalid font upload.")
+    raw = base64.b64decode(str(data_url).split(",", 1)[1])
+    if len(raw) > 30 * 1024 * 1024:
+        raise RuntimeError("Fonts must be smaller than 30 MB.")
+    if raw[:4] not in (b"\x00\x01\x00\x00", b"OTTO", b"true"):
+        raise RuntimeError("Use a .ttf or .otf font file.")
+    USER_FONTS_DIR.mkdir(parents=True, exist_ok=True)
+    fid = "u" + hashlib.sha256(raw).hexdigest()[:12]
+    ext = ".otf" if raw[:4] == b"OTTO" else ".ttf"
+    (USER_FONTS_DIR / f"{fid}{ext}").write_bytes(raw)
+    lib = read_json(USER_FONTS_DIR / "library.json", {"fonts": []})
+    title = re.sub(r"\.(ttf|otf)$", "", str(name or "Custom font"), flags=re.I).replace("-", " ").replace("_", " ").strip()[:40]
+    lib["fonts"] = [f for f in lib.get("fonts", []) if f.get("id") != fid] + [{"id": fid, "name": title or "Custom font", "file": f"{fid}{ext}"}]
+    write_json(USER_FONTS_DIR / "library.json", lib)
+    return {"ok": True, "id": fid}
+
+
+def font_payload():
+    cat = customize_catalog()
+    cfg = load_mods().get("font")
+    return {"fonts": [{k: f[k] for k in ("id", "name", "builtin")} for f in font_list()],
+            "targets": len(cat.get("fonts", [])) if "fonts" in cat else None,
+            "active": cfg.get("id") if cfg else None}
+
+
+def apply_font(font_id):
+    if not font_id:
+        def job(progress):
+            def change(state):
+                state["font"] = None
+            mutate_state(change, "Original font", progress)
+            return "Original font restored."
+        return start_job("font", job)
+    f = _font_by_id(font_id)
+
+    def job(progress):
+        cat = ensure_catalog(_sub_progress(progress, 0, 0.4))
+        picked = [{k: t[k] for k in ("source_file", "relative_file", "path_id", "name")}
+                  for t in cat.get("fonts", []) if Path(t["source_file"]).exists()]
+        if not picked:
+            raise RuntimeError("This PG3D build has no font the client can swap.")
+
+        def change(state):
+            state["font"] = {"id": f["id"], "name": f["name"], "file": f["file"], "builtin": f["builtin"], "targets": picked}
+        mutate_state(change, f"Font: {f['name']}", _sub_progress(progress, 0.4, 1.0))
+        return f"Game text now uses {f['name']}."
+    return start_job("font", job)
+
+
+def loading_payload():
+    cat = customize_catalog()
+    cfg = load_mods().get("loading")
+    return {"targets": cat.get("loading", []),
+            "active": ({"id": cfg.get("id"), "name": cfg.get("name"), "count": len(cfg.get("targets", []))} if cfg else None)}
+
+
+def apply_loading(sky_id):
+    sky = _sky_by_id(sky_id)
+
+    def job(progress):
+        cat = ensure_catalog(_sub_progress(progress, 0, 0.4))
+        picked = [{k: t[k] for k in ("source_file", "relative_file", "path_id", "name", "width", "height")}
+                  for t in cat.get("loading", []) if Path(t["source_file"]).exists()]
+        if not picked:
+            raise RuntimeError("This PG3D build has no loading screen texture the client can find.")
+
+        def change(state):
+            state["loading"] = {"id": sky["id"], "image": sky["file"], "name": sky["name"], "targets": picked}
+        mutate_state(change, f"Loading screen: {sky['name']}", _sub_progress(progress, 0.4, 1.0))
+        return f"“{sky['name']}” is now the loading screen."
+    return start_job("sky", job)
+
+
+def reset_loading():
+    def job(progress):
+        def change(state):
+            state["loading"] = None
+        mutate_state(change, "Reset loading screen", progress)
+        return "Original loading screen restored."
+    return start_job("sky", job)
 
 
 def sky_cross_preview(sky_id, yaw=0.0, swap_lr=False, size=160):
@@ -3914,6 +4231,7 @@ def record_win(account, source, line=None, delta=1):
                                              "line": (line or "")[:300]}])[-300:]
         write_json(WINS_JSON, data)
     log(f"Win recorded ({source}, {delta:+d}) for {account}")
+    write_overlay_rank(account)
     return {"ok": True}
 
 
@@ -4169,7 +4487,93 @@ def lookup_player(pid):
         return hit
     data = _ember_fetch(pid, full=True)
     _LOOKUP_CACHE[pid] = data
+    try:
+        remember_clan_member(data)
+    except Exception as e:
+        log(f"Clan roster update failed: {e}")
     return data
+
+
+# --------------------------------------------------------------- clan roster
+# Ember's public lookup names a player's clan but has no clan member list, so
+# the client builds one from players you look up (and members you add by ID).
+_CLAN_LOCK = threading.Lock()
+
+
+def clan_key(name, tag):
+    return f"{(tag or '').strip().lower()}|{(name or '').strip().lower()}"
+
+
+def _member_snapshot(p):
+    w = p.get("weekly") or {}
+    return {"player_id": p["player_id"], "name": p.get("name") or "", "level": p.get("level"),
+            "wins_total": p.get("wins_total"), "kills": w.get("kills"), "deaths": w.get("deaths"),
+            "wins_week": w.get("wins"), "last_seen": p.get("last_seen"), "banned": p.get("banned"),
+            "fetched": p.get("fetched") or int(time.time())}
+
+
+def remember_clan_member(p):
+    """Keep the roster in step with a fresh lookup: join, update or move clans."""
+    pid = p.get("player_id")
+    if not pid:
+        return
+    key = clan_key(p.get("clan"), p.get("clan_tag")) if p.get("clan") else None
+    with _CLAN_LOCK:
+        data = read_json(CLANS_JSON, {"clans": {}})
+        clans = data.setdefault("clans", {})
+        changed = False
+        for k, c in clans.items():
+            if k != key and pid in c.get("members", {}):
+                c["members"].pop(pid, None)  # left or switched clan
+                changed = True
+        if key:
+            c = clans.setdefault(key, {"name": p["clan"], "tag": p.get("clan_tag") or "", "members": {}})
+            c["name"], c["tag"] = p["clan"], p.get("clan_tag") or c.get("tag", "")
+            c["members"][pid] = _member_snapshot(p)
+            changed = True
+        if changed:
+            write_json(CLANS_JSON, data)
+
+
+def clan_payload(key):
+    c = read_json(CLANS_JSON, {"clans": {}}).get("clans", {}).get(key)
+    if not c:
+        raise RuntimeError("Look up a member of this clan first.")
+    members = sorted(c.get("members", {}).values(), key=lambda m: -(m.get("wins_total") or 0))
+    num = lambda k: sum(int(m.get(k) or 0) for m in members)
+    return {"key": key, "name": c["name"], "tag": c.get("tag", ""), "members": members,
+            "totals": {"wins": num("wins_total"), "kills": num("kills"), "deaths": num("deaths"), "wins_week": num("wins_week")}}
+
+
+def clan_add_member(key, pid):
+    p = lookup_player(pid)
+    if clan_key(p.get("clan"), p.get("clan_tag")) != key or not p.get("clan"):
+        where = f"[{p['clan_tag']}] {p['clan']}" if p.get("clan_tag") else (p.get("clan") or "no clan")
+        raise RuntimeError(f"{p.get('name') or pid} is in {where}, not this clan.")
+    return clan_payload(key)
+
+
+def clan_remove_member(key, pid):
+    with _CLAN_LOCK:
+        data = read_json(CLANS_JSON, {"clans": {}})
+        c = data.get("clans", {}).get(key)
+        if c:
+            c.get("members", {}).pop(str(pid), None)
+            write_json(CLANS_JSON, data)
+    return clan_payload(key)
+
+
+def clan_refresh(key):
+    ids = [m["player_id"] for m in clan_payload(key)["members"]][:40]
+    for pid in ids:
+        try:
+            lookup_player(pid)
+        except Exception as e:
+            log(f"Clan refresh skipped {pid}: {e}")
+    try:
+        return clan_payload(key)
+    except RuntimeError:
+        return {"key": key, "members": [], "gone": True}
 
 
 def lookup_suggestions():
@@ -4522,6 +4926,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(steam_player_count())
         if path == "/api/gui-assets":
             return self.send_json(gui_catalog())
+        if path == "/api/sprites":
+            return self.send_json(sprite_roles_payload())
         if path.startswith("/api/ember-icon/"):
             parts = unquote(path[len("/api/ember-icon/"):]).split("/")
             if len(parts) != 2 or not parts[1].endswith(".png"):
@@ -4545,6 +4951,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+        if path == "/api/clan":
+            try:
+                return self.send_json(clan_payload((query.get("key") or [""])[0]))
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
         if path == "/api/lookup/suggest":
             return self.send_json(lookup_suggestions())
         if path.startswith("/api/lookup/"):
@@ -4555,7 +4966,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/rank":
             return self.send_json(rank_payload(_playtime_account(), full=True))
         if path == "/api/theme":
-            return self.send_json(theme_payload())
+            return self.send_json({**theme_payload(), "font": font_payload()})
+        if path.startswith("/api/font-file/"):
+            fid = Path(path).name
+            try:
+                return self.send_file(font_path(_font_by_id(fid)), cache=True)
+            except Exception:
+                return self.send_error(404)
         if path.startswith("/api/theme/sample/"):
             name = Path(path).name
             if not re.fullmatch(r"\d{2}\.png", name):
@@ -4587,6 +5004,11 @@ class Handler(BaseHTTPRequestHandler):
             if not re.fullmatch(r"\d{1,5}\.jpg", name):
                 return self.send_error(403)
             return self.send_file(SKY_PREVIEWS / f"target_{name}")
+        if path.startswith("/api/sky/loading/"):
+            name = Path(path).name
+            if not re.fullmatch(r"\d{1,5}\.jpg", name):
+                return self.send_error(403)
+            return self.send_file(SKY_PREVIEWS / f"loading_{name}")
         if path == "/api/sky/cross.png":
             try:
                 raw = sky_cross_preview((query.get("id") or [""])[0], float((query.get("yaw") or ["0"])[0]),
@@ -4643,6 +5065,11 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/cursor/redetect":
                 start_cursor_init(force=True)
                 return self.send_json({"ok": True})
+            if path == "/api/sprites/apply":
+                return self.send_json(apply_sprite_role(data.get("role"), data.get("cursor"), data.get("size", 90),
+                                                        data.get("color"), data.get("outline"), data.get("outline_width", 0)))
+            if path == "/api/sprites/reset":
+                return self.send_json(reset_sprite_role(data.get("role")))
             if path == "/api/gui/scan":
                 start_gui_scan(bool(data.get("deep", False)))
                 return self.send_json({"ok": True})
@@ -4660,6 +5087,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(clear_hud_set())
             if path == "/api/gui/import-hud-selection":
                 return self.send_json(import_hud_selector_selection())
+            if path == "/api/clan/add":
+                return self.send_json(clan_add_member(str(data.get("key", "")), data.get("id")))
+            if path == "/api/clan/remove":
+                return self.send_json(clan_remove_member(str(data.get("key", "")), data.get("id")))
+            if path == "/api/clan/refresh":
+                return self.send_json(clan_refresh(str(data.get("key", ""))))
+            if path == "/api/font/apply":
+                return self.send_json(apply_font(str(data.get("id") or "")))
+            if path == "/api/font/upload":
+                return self.send_json(upload_font(data.get("data"), data.get("name")))
             if path == "/api/theme/apply":
                 return self.send_json(apply_theme(data.get("preset"), data.get("strength", 0.85)))
             if path == "/api/theme/reset":
@@ -4677,6 +5114,10 @@ class Handler(BaseHTTPRequestHandler):
                                                 bool(data.get("swap_lr")), bool(data.get("flip"))))
             if path == "/api/sky/reset":
                 return self.send_json(reset_sky())
+            if path == "/api/loading/apply":
+                return self.send_json(apply_loading(str(data.get("id", ""))))
+            if path == "/api/loading/reset":
+                return self.send_json(reset_loading())
             if path == "/api/rank/win":
                 delta = 1 if int(data.get("delta", 1)) >= 0 else -1
                 return self.send_json(record_win(_playtime_account(), "manual", None, delta))
@@ -4733,6 +5174,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(clips.rename_clip(data.get("name"), data.get("title")))
             if path == "/api/clips/reveal":
                 return self.send_json(clips.reveal_clip(data.get("name")))
+            if path == "/api/clips/copy":
+                return self.send_json(clips.copy_clip(data.get("name")))
             if path == "/api/clips/install-ffmpeg":
                 return self.send_json(clips.RECORDER.install_ffmpeg(manual=True))
             if path == "/api/clips/trim":

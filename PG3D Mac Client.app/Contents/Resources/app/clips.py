@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import threading
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,9 @@ CLIPS_DIR = Path.home() / "Movies/PG3D Clips"
 CONFIG_JSON = STATE_DIR / "clips_config.json"
 INDEX_JSON = STATE_DIR / "clips_index.json"
 FFMPEG_LOG = SUPPORT / "ffmpeg.log"
+AUDIO_DIR = SUPPORT / "replay_audio"
+AUDIO_HELPER = Path(__file__).resolve().parent / "game_audio.py"
+AUDIO_RATE = 48000
 
 FFMPEG_URLS = {
     # Static builds by Martin Riedl (ffmpeg.martin-riedl.de); include AVFoundation capture + VideoToolbox.
@@ -95,6 +99,8 @@ def default_config():
         "screen": None,              # avfoundation device index; None = first screen
         "only_while_playing": True,
         "notify": True,
+        "game_audio": True,          # PG3D's own sound via the ScreenCaptureKit helper
+        "copy_after_save": False,    # put the saved clip on the clipboard
         "hotkey": {"code": "KeyC", "key": "c", "display": "Ctrl+Shift+C",
                    "mods": {"shift": True, "ctrl": True, "alt": False, "cmd": False}},
     }
@@ -115,6 +121,8 @@ def _validate(cfg, base=None):
     out["enabled"] = bool(cfg.get("enabled", base["enabled"]))
     out["only_while_playing"] = bool(cfg.get("only_while_playing", base["only_while_playing"]))
     out["notify"] = bool(cfg.get("notify", base["notify"]))
+    out["game_audio"] = bool(cfg.get("game_audio", base["game_audio"]))
+    out["copy_after_save"] = bool(cfg.get("copy_after_save", base["copy_after_save"]))
     try:
         length = int(cfg.get("length", base["length"]))
     except Exception:
@@ -245,6 +253,8 @@ class Recorder:
         self._game_running = lambda: False
         self.shutting_down = False
         self.trim_job = None
+        self.audio_proc = None
+        self.audio_unavailable = False
 
     # ----- lifecycle
     def ffmpeg_args(self, ffmpeg, cfg):
@@ -304,9 +314,49 @@ class Recorder:
         log_f.close()
         self.proc_started = time.time()
         self.phase, self.message = "recording", "Replay buffer is recording."
+        if cfg.get("game_audio"):
+            self.start_audio()
         _log(f"Clips: replay buffer started ({self.encoder}, {cfg['quality']}).")
 
+    def start_audio(self):
+        if self.audio_unavailable or (self.audio_proc and self.audio_proc.poll() is None):
+            return
+        try:
+            log_f = open(FFMPEG_LOG, "a", encoding="utf-8")
+            self.audio_proc = subprocess.Popen([sys.executable, str(AUDIO_HELPER)], stdin=subprocess.DEVNULL,
+                                               stdout=log_f, stderr=log_f)
+            log_f.close()
+        except Exception as e:
+            _log(f"Clips: game audio helper failed to start: {e}")
+            self.audio_proc = None
+
+    def stop_audio(self):
+        proc, self.audio_proc = self.audio_proc, None
+        if proc and proc.poll() is None:
+            try:
+                proc.terminate()
+                proc.wait(timeout=3)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+
+    def audio_state(self):
+        if self.audio_unavailable:
+            return "unavailable"
+        if not self.audio_proc:
+            return "off"
+        code = self.audio_proc.poll()
+        if code is None:
+            return "on"
+        if code == 3:  # ScreenCaptureKit missing (older macOS or framework not installed)
+            self.audio_unavailable = True
+            return "unavailable"
+        return "off"
+
     def stop(self, reason="stopped"):
+        self.stop_audio()
         with self.lock:
             proc, self.proc = self.proc, None
         if not proc:
@@ -369,6 +419,11 @@ class Recorder:
                     _log(f"Clips: ffmpeg exited after {lived:.1f}s: {tail}")
                 return
 
+            if running:
+                if cfg.get("game_audio") and self.audio_state() == "off":
+                    self.start_audio()
+                elif not cfg.get("game_audio") and self.audio_proc:
+                    self.stop_audio()
             if wanted and not running:
                 if time.time() < self.retry_at:
                     return
@@ -447,15 +502,33 @@ class Recorder:
                 shutil.copyfile(seg, dst)
                 staged.append(dst)
 
+            try:
+                clip_end = chosen[-1].stat().st_mtime
+            except OSError:
+                clip_end = time.time()
+
             CLIPS_DIR.mkdir(parents=True, exist_ok=True)
             name = datetime.now().strftime("PG3D %Y-%m-%d %H-%M-%S.mp4")
             out = CLIPS_DIR / name
+            video = job / "video.mp4"
             subprocess.run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
                             "-i", "concat:" + "|".join(str(p) for p in staged),
                             "-c", "copy", "-avoid_negative_ts", "make_zero",
-                            "-movflags", "+faststart", str(out)],
+                            "-movflags", "+faststart", str(video)],
                            check=True, capture_output=True, timeout=180)
-            duration = media_duration(ffmpeg, out) or len(staged) * SEGMENT_SECONDS
+            duration = media_duration(ffmpeg, video) or len(staged) * SEGMENT_SECONDS
+            audio = job / "audio.f32"
+            if cfg.get("game_audio") and build_audio(audio, clip_end - duration, clip_end):
+                r = subprocess.run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(video),
+                                    "-f", "f32le", "-ar", str(AUDIO_RATE), "-ac", "2", "-i", str(audio),
+                                    "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
+                                    "-shortest", "-movflags", "+faststart", str(out)],
+                                   capture_output=True, timeout=180)
+                if r.returncode != 0:
+                    _log(f"Clips: adding game sound failed, saving without it: {r.stderr.decode(errors='ignore')[-200:]}")
+                    out.unlink(missing_ok=True)
+            if not out.exists():
+                shutil.move(str(video), str(out))
             make_thumb(ffmpeg, out, duration)
             make_strip(ffmpeg, out, duration)
             index = _read_json(INDEX_JSON, {})
@@ -465,8 +538,15 @@ class Recorder:
                 self.last_clip = {"name": name, "at": int(time.time())}
                 self.last_error = None
             _log(f"Clips: saved {name} ({duration:.1f}s).")
+            copied = False
+            if cfg.get("copy_after_save"):
+                try:
+                    copy_clip(name)
+                    copied = True
+                except Exception as e:
+                    _log(f"Clips: copying to the clipboard failed: {e}")
             if cfg.get("notify"):
-                notify("Clip saved", f"Last {fmt_len(length)} saved to PG3D Clips.")
+                notify("Clip saved", f"Last {fmt_len(length)} saved" + (" and copied. Paste it anywhere." if copied else " to PG3D Clips."))
         except subprocess.CalledProcessError as e:
             err = (e.stderr or b"").decode(errors="ignore").strip()[-400:]
             _log(f"Clips: saving failed: {err}")
@@ -654,6 +734,7 @@ class Recorder:
                 "install": {k: v for k, v in self.install.items() if k != "retry_at"},
                 "trim": dict(self.trim_job) if self.trim_job else None,
                 "permission": screen_permission(),
+                "audio": self.audio_state(),
             }
 
 
@@ -821,6 +902,45 @@ def rename_clip(name, new_title):
         index[target.name] = {**index.pop(name), "mtime": target.stat().st_mtime}
         _write_json(INDEX_JSON, index)
     return {"ok": True, "name": target.name}
+
+
+def build_audio(dest: Path, t0: float, t1: float) -> bool:
+    """Write PG3D's sound between wall-clock t0 and t1 as raw f32le stereo; False if none was captured."""
+    frames = int(round((t1 - t0) * AUDIO_RATE))
+    if frames <= 0 or not AUDIO_DIR.exists():
+        return False
+    out = bytearray(frames * 8)
+    got = False
+    for p in sorted(AUDIO_DIR.glob("a*.f32")):
+        try:
+            start = int(p.stem[1:]) / 1000
+            size = p.stat().st_size
+        except (ValueError, OSError):
+            continue
+        n = size // 8
+        off = int(round((start - t0) * AUDIO_RATE))
+        if off + n <= 0 or off >= frames:
+            continue
+        data = p.read_bytes()
+        lo, hi = max(0, -off), min(n, frames - off)
+        out[(off + lo) * 8:(off + hi) * 8] = data[lo * 8:hi * 8]
+        got = True
+    if got:
+        dest.write_bytes(bytes(out))
+    return got
+
+
+def copy_clip(name):
+    """Put the clip file on the clipboard so it pastes straight into Discord, Messages or Finder."""
+    path = safe_clip_path(name)
+    if not path.exists():
+        raise RuntimeError("That clip no longer exists.")
+    lit = str(path).replace("\\", "\\\\").replace('"', '\\"')
+    r = subprocess.run(["/usr/bin/osascript", "-e", f'set the clipboard to (POSIX file "{lit}")'],
+                       capture_output=True, timeout=10)
+    if r.returncode != 0:
+        raise RuntimeError("Couldn't copy the clip.")
+    return {"ok": True}
 
 
 def reveal_clip(name=None):

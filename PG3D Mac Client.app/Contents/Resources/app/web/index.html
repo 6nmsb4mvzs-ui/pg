@@ -180,7 +180,7 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .ovChip{height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--border2);background:hsl(var(--nh) var(--ns) 4.1%);color:var(--muted);font-weight:700;font-size:12px;cursor:pointer}
 .ovChip.on{background:hsl(var(--nh) var(--ns) 10.2%);border-color:var(--accent);color:#f5f5ff}
 .guiElement .geDesc{display:none}
-#guiElements{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+#guiElements{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 .crOrder.horizontal{display:flex;flex-wrap:wrap;gap:8px}
 .crOrder .crOrderItem{padding:6px 12px 6px 6px!important;border-radius:10px!important;gap:8px!important;min-height:0!important}
 .crOrder .crOrderPreview{display:none}
@@ -291,7 +291,7 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .guiStepNum{width:30px;height:30px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:900;font-size:14px;color:#f5f5ff;background:linear-gradient(135deg,var(--ember),var(--accent-deep));box-shadow:0 6px 18px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .28)}
 .guiStepHead h3{margin:0;font-size:16px;letter-spacing:-.01em}
 .guiStepHead .sub{margin:2px 0 0}
-.guiElements{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.guiElements{display:grid;grid-template-columns:repeat(5,1fr);gap:11px}
 .guiElement{text-align:left;border:1px solid hsl(var(--nh) var(--ns) 14.7%);background:linear-gradient(180deg,hsl(var(--nh) var(--ns) 5.3%),hsl(var(--nh) var(--ns) 3.5%));border-radius:16px;padding:15px;cursor:pointer;color:#b8b8e6;transition:border-color .14s,transform .06s;display:grid;gap:12px}
 .guiElement:hover{border-color:hsl(var(--ah) calc(41% * var(--as)) 27.5%)}.guiElement:active{transform:translateY(1px)}
 .guiElement.on{border-color:var(--accent);color:#f5f5ff;background:radial-gradient(circle at 50% -40%,hsl(var(--ah) calc(100% * var(--as)) 55.1% / .16),transparent 60%),linear-gradient(180deg,hsl(var(--nh) var(--ns) 7.1%),hsl(var(--nh) var(--ns) 4.5%));box-shadow:inset 0 0 0 1px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .25),0 10px 30px hsl(var(--ah) calc(89% * var(--as)) 37.3% / .14)}
@@ -336,6 +336,31 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .curOutlineRow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .curSeg{display:inline-grid;grid-auto-flow:column;gap:4px;background:hsl(var(--nh) var(--ns) 3.1%);border:1px solid var(--line);border-radius:9px;padding:4px}
 .curSeg button{border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer}
+.hudGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;max-height:640px;overflow:auto;align-content:start}
+.hudCard{background:hsl(var(--nh) var(--ns) 7.6%);border:1px solid var(--border);border-radius:10px;padding:6px;cursor:pointer;color:var(--text);position:relative;text-align:left}
+.hudCard:hover{border-color:hsl(var(--nh) var(--ns) 30%)}.hudCard.selected{border-color:var(--accent);box-shadow:0 0 0 1px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .35)}
+.hudCard .ht{height:64px;display:grid;place-items:center;border-radius:7px;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 9%) 0 25%,hsl(var(--nh) var(--ns) 6%) 0 50%) 0 0/14px 14px}
+.hudCard .ht img{max-width:76px;max-height:56px;object-fit:contain}.hudCard small{display:block;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:5px}
+.hudCard.changed::after{content:"";position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.hudPrev{height:200px;border-radius:13px;border:1px solid var(--border);display:grid;place-items:center;overflow:hidden;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 9%) 0 25%,hsl(var(--nh) var(--ns) 6%) 0 50%) 0 0/18px 18px}
+.hudPrev img{max-width:85%;max-height:85%;object-fit:contain;transition:transform .15s,opacity .15s;image-rendering:auto}
+.hudEmpty{grid-column:1/-1;padding:36px 20px;text-align:center;color:var(--muted);display:grid;gap:12px;justify-items:center}
+.fnRow{display:flex;gap:8px;flex-wrap:wrap}
+.fnChip{border:1px solid var(--border);background:hsl(var(--nh) var(--ns) 6%);color:var(--text);border-radius:10px;padding:10px 14px;cursor:pointer;font-size:15px;min-width:96px;text-align:center;position:relative}
+.fnChip:hover:not(:disabled){border-color:hsl(var(--nh) var(--ns) 30%)}.fnChip.sel{border-color:var(--accent);box-shadow:0 0 0 1px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .35)}
+.fnChip:disabled{opacity:.45;cursor:not-allowed}.fnChip.add{color:var(--muted);font-size:13px}.fnChip.pixel{font-size:10px;line-height:19px}
+.skModeSeg{margin-right:auto}.skLoadPrev{aspect-ratio:16/9;border-radius:12px;border:1px solid var(--border);background:#000 center/cover no-repeat;width:min(100%,560px)}
+.lkBadge.clanLink{cursor:pointer}.lkBadge.clanLink:hover{border-color:var(--accent)!important;color:var(--text)!important}
+.clanTotals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.clanTotals div{background:hsl(var(--nh) var(--ns) 6%);border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+.clanTotals b{display:block;font-size:17px;color:var(--text);font-family:var(--font-head);text-transform:none;letter-spacing:0}
+.clanList{display:grid;gap:4px}.clanRow{display:grid;grid-template-columns:24px minmax(0,1fr) 90px 80px 96px 24px;gap:10px;align-items:center;padding:8px 10px;border-radius:9px;border:1px solid transparent;background:hsl(var(--nh) var(--ns) 5%);cursor:pointer;color:var(--text);text-align:left;font-size:12.5px}
+.clanRow:hover{border-color:var(--border)}.clanRow .n{color:var(--muted);font-weight:700}.clanRow b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.clanRow small{color:var(--muted);font-size:11px}
+.clanRow .v{text-align:right;font-weight:700}.clanRow .v small{display:block;font-weight:500}.clanRow .x{opacity:0;color:var(--muted);background:none;border:0;cursor:pointer;font-size:15px}.clanRow:hover .x{opacity:1}
+.clanAdd{display:flex;gap:8px;margin-top:12px}.clanAdd .search{flex:1}
+@media(max-width:760px){.clanTotals{grid-template-columns:1fr 1fr}.clanRow{grid-template-columns:20px minmax(0,1fr) 80px 24px}.clanRow .hideS{display:none}}
+.curRoleNote{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;min-height:20px}
+#curRoleNote img{width:26px!important;height:26px!important;max-width:26px;flex:none;object-fit:contain;background:hsl(var(--nh) var(--ns) 3%);border:1px solid var(--border);border-radius:6px;padding:2px}
 .curSeg button.active{background:linear-gradient(135deg,var(--ember),var(--accent-deep));color:#f5f5ff}
 .curOutlineColors{display:flex;gap:6px}
 .curOutlineColors.disabled{opacity:.35;pointer-events:none}
@@ -594,6 +619,10 @@ input[type=range]{accent-color:var(--accent)}
 .playStats .playtime>div,.pStat{display:flex;flex-direction:column;justify-content:flex-end;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 15px;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin:0}
 .playStats .playtime>div b,.pStat b{font-size:20px!important;color:var(--text)!important;text-transform:none;letter-spacing:-.02em;font-family:var(--font-head);font-weight:700}
 .playStats .playtime>div.live b{color:#4ece5f!important}
+.lastSess{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 16px;flex-wrap:wrap}
+.lastSess .xLabel{margin:0}.lastSess .lsVals{display:flex;gap:16px;flex-wrap:wrap;flex:1}
+.lastSess .lsVals span{font-size:12px;color:var(--muted)}.lastSess .lsVals b{color:var(--text);font-family:var(--font-head);font-size:14px;margin-right:4px}
+.lastSess .lsUp{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700}.lastSess .lsUp img{width:22px;height:22px;object-fit:contain}
 #page-play .rkChip{width:auto!important;max-width:none!important;margin:0!important;background:var(--card)!important;border:1px solid var(--border)!important;border-radius:12px!important;padding:12px 16px 12px 12px!important}
 #page-play .rkChip img{width:48px;height:48px}
 #page-play .rkChip b{font-family:var(--font-head);font-size:15px}
@@ -713,6 +742,7 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
       <div class="navLabel">Customize</div>
       <button data-tab="cursor"><span class="ico">＋</span><span class="label">Cursor</span></button>
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
+      <button data-tab="hud"><span class="ico">▦</span><span class="label">HUD</span></button>
       <button data-tab="theme"><span class="ico">◈</span><span class="label">Theme</span></button>
       <button data-tab="sky"><span class="ico">☁</span><span class="label">Sky</span></button>
     </nav>
@@ -751,13 +781,14 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <div class="pStat"><b id="steamPlayerCount">—</b><span>Players online (Steam)</span></div>
         </div>
         <div class="rkChip" id="rankChip" onclick="setTab('rank')" title="Open Rank"><img src="/ranks/iron.png" alt=""><div style="flex:1;min-width:0"><b>—</b><small></small><div class="mini"><i style="width:0"></i></div></div><span class="rkChipGo">View rank ›</span></div>
+        <div class="lastSess" id="lastSession" hidden></div>
       </div>
     </section>
 
     <section class="page" id="page-cursor">
       <div class="cursorLayout">
         <div class="card pad">
-          <div class="sectionHead"><h2>Cursors</h2><div class="toolbar"><input class="search" id="cursorSearch" hidden><button class="btn" id="importCursor">Import PNG</button><input type="file" id="cursorFile" accept="image/png" hidden></div></div>
+          <div class="sectionHead"><div class="curSeg" id="curTargetSeg"><button data-t="cursor" class="active">Crosshair</button><button data-t="hitmarker">Hit marker</button><button data-t="killicon">Kill icon</button></div><div class="toolbar"><input class="search" id="cursorSearch" hidden><button class="btn" id="importCursor">Import PNG</button><input type="file" id="cursorFile" accept="image/png" hidden></div></div>
           <div class="cursorGrid" id="cursorGrid"></div>
         </div>
         <div class="card previewPanel">
@@ -767,6 +798,7 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <div class="curField"><div class="xLabel">Color</div><div class="curSwatches" id="curSwatches"></div></div>
           <div hidden><span id="cursorHexPreview"></span><input id="cursorHex" value="FFFFFF"><input id="cursorSpectrum" type="range" min="0" max="359" value="0"></div>
           <div class="curField"><div class="xLabel">Outline</div><div class="curSeg" id="cursorOutlineSeg"><button data-ow="0" class="active">Off</button><button data-ow="2">Thin</button><button data-ow="3">Bold</button></div><div id="cursorOutlineColors" hidden></div></div>
+          <div class="curRoleNote" id="curRoleNote" hidden></div>
           <div class="xRow"><button class="btn primary xBig" id="applyCursor">Apply</button><button class="btn" id="resetCursor">Reset</button></div>
         </div>
       </div>
@@ -834,7 +866,7 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
         <div class="edTop">
           <button class="btn ghost edBack" id="edBack" title="Back to all clips (Esc)">‹ All clips</button>
           <input class="edTitle" id="edTitle" spellcheck="false" aria-label="Clip name" title="Click to rename">
-          <div class="toolbar"><button class="btn" id="edReveal">Show in Finder</button><button class="btn danger" id="edDelete">Delete</button></div>
+          <div class="toolbar"><button class="btn" id="edCopy" title="Copy the clip, then paste it into Discord or Messages">Copy</button><button class="btn" id="edReveal">Show in Finder</button><button class="btn danger" id="edDelete">Delete</button></div>
         </div>
         <div class="edBody">
           <div class="edMain">
@@ -951,6 +983,29 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <div class="lkTabs" id="lkTabs"></div>
           <div id="lkBody"></div>
         </div>
+        <div class="crCard" id="clanCard" hidden>
+          <div class="crCardHead"><h3 id="clanTitle">Clan</h3><div class="xRow"><button class="btn ghost" id="clanRefresh" title="Refresh every member's stats">Refresh</button><button class="btn ghost" id="clanClose" title="Close">×</button></div></div>
+          <div class="clanTotals" id="clanTotals"></div>
+          <div class="clanList" id="clanList"></div>
+          <form class="clanAdd" id="clanAdd"><input class="search" id="clanAddId" inputmode="numeric" placeholder="Add member by player ID" autocomplete="off" spellcheck="false"><button class="btn" type="submit">Add</button></form>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-hud">
+      <div class="cursorLayout">
+        <div class="card pad">
+          <div class="sectionHead"><div class="curSeg" id="hudFilter"><button data-f="all" class="active">All</button><button data-f="changed">Changed</button></div><div class="toolbar"><input class="search" id="hudSearch" placeholder="Search" spellcheck="false"><button class="btn ghost" id="hudScan" title="Look through PG3D's files again">Rescan</button></div></div>
+          <div class="hudGrid" id="hudGrid"></div>
+        </div>
+        <div class="card previewPanel">
+          <div class="sectionHead"><h2 id="hudSelName">Pick a HUD piece</h2></div>
+          <div class="hudPrev" id="hudPrev"><img id="hudPrevImg" alt="" hidden></div>
+          <div class="curField"><div class="xLabel">Size</div><div class="rangeRow"><input type="range" id="hudScale" min="10" max="100" value="100"><div class="rangeVal" id="hudScaleVal">100%</div></div></div>
+          <div class="xRow"><button class="ovChip" id="hudHide" type="button">Hide in game</button></div>
+          <div class="xRow"><button class="btn primary xBig" id="hudApply">Apply</button><button class="btn" id="hudReset">Reset</button></div>
+          <button class="btn ghost" id="hudResetAll">Reset all HUD changes</button>
+        </div>
       </div>
     </section>
 
@@ -970,24 +1025,31 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <p class="xNote" id="thScanInfo"></p>
           <div hidden><input type="range" id="thStrength" min="30" max="100" value="85"><b id="thStrengthVal"></b><button id="thPrev"></button><button id="thNext"></button><span id="thSampleIdx"></span></div>
         </div>
+        <div class="crCard">
+          <div class="crCardHead"><h3>Game font</h3><span class="xPill" id="fnActive"></span></div>
+          <div class="fnRow" id="fnRow"></div>
+          <input type="file" id="fnFile" accept=".ttf,.otf,font/ttf,font/otf" hidden>
+        </div>
       </div>
     </section>
 
     <section class="page" id="page-sky">
       <div class="xPage">
         <div class="crCard">
-          <div class="crCardHead"><h3>Your skies</h3><span class="xPill" id="skActive"></span></div>
+          <div class="crCardHead"><div class="curSeg skModeSeg" id="skMode"><button data-m="sky" class="active">Sky</button><button data-m="loading">Loading screen</button></div><span class="xPill" id="skActive"></span></div>
           <div class="skGrid">
-            <button class="skDrop" id="skDrop"><span>＋</span><b>Add sky</b><small>PNG or JPEG · 2:1 panoramas wrap around</small></button>
+            <button class="skDrop" id="skDrop"><span>＋</span><b>Add image</b><small id="skDropHint">PNG or JPEG · 2:1 panoramas wrap around</small></button>
             <div class="skLib" id="skLib"></div>
           </div>
           <input type="file" id="skFile" accept="image/png,image/jpeg" hidden>
         </div>
         <div class="crCard" id="skSetup">
-          <div class="crCardHead"><h3>Preview</h3><div class="xRow"><button class="ovChip" id="skSwap" type="button" title="Use if the left and right sides look mirrored in game">Mirror sides</button><button class="ovChip" id="skFlip" type="button" title="Use if the sky shows upside down in game">Upside down</button></div></div>
+          <div class="crCardHead"><h3>Preview</h3><div class="xRow" id="skSkyOpts"><button class="ovChip" id="skSwap" type="button" title="Use if the left and right sides look mirrored in game">Mirror sides</button><button class="ovChip" id="skFlip" type="button" title="Use if the sky shows upside down in game">Upside down</button></div></div>
           <div class="skCross" id="skCross"></div>
+          <div class="skLoadPrev" id="skLoadPrev" hidden></div>
           <input type="range" id="skYaw" min="0" max="359" value="0" hidden><b id="skYawVal" hidden></b>
-          <details class="xDetails"><summary id="skTargetsSum">Sky textures</summary>
+          <p class="xNote" id="skLoadNote" hidden></p>
+          <details class="xDetails" id="skTargetsBox"><summary id="skTargetsSum">Sky textures</summary>
             <div class="xRow" style="margin:8px 0"><button class="btn ghost" id="skAll">All</button><button class="btn ghost" id="skNone">None</button><button class="btn ghost" id="skRescan">Rescan</button></div>
             <div class="skTargets" id="skTargets"></div>
           </details>
@@ -1024,6 +1086,7 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
 <div class="toast" id="toast"></div>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
 let __uiAudio=null;
 let SND={enabled:true,rankup:true,volume:70};
 try{Object.assign(SND,JSON.parse(localStorage.pg3dSound||'{}'))}catch{}
@@ -1060,11 +1123,11 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Theme',sky:'Sky',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Theme',sky:'Sky & loading screen',accounts:'Accounts',gui:'Overlay',hud:'HUD',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 async function api(path,opts={}){const r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)})}
-function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='sky')loadSky()}
+function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='sky')loadSky();if(tab==='hud')loadHud()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -1072,12 +1135,16 @@ function setState(id,text,kind=''){const e=$(id);if(!e)return;e.textContent=text
 function renderStatus(){if(!statusData)return;
   $('#launchMessage').textContent=statusData.launch_error||'';
   $('#startNormal').disabled=statusData.game_running;$('#startFps').disabled=statusData.game_running||!statusData.fps_bundle_present;
-  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.sound){Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
+  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderLastSession();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.sound){Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
   if(statusData.overlay && (!overlayConfig || !overlayDirty)){overlayConfig=structuredClone(statusData.overlay.config);renderOverlayEditor()}
 }
 function renderBuildBadge(){const b=$('#buildBadge');if(!b||!statusData)return;const m=statusData.fps_build_match,build=statusData.game_build;if(m===false){b.className='buildBadge show warn';b.textContent=`PG3D build ${build} is newer than the FPS unlocker supports (${(statusData.fps_supported_builds||[]).join(', ')}). Start Normal will still work.`}else if(m===true){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build} · FPS unlocker compatible`}else{b.className='buildBadge'}}
 function renderPlaytime(){const el=$('#playtime'),p=statusData?.playtime;if(!el||!p)return;const cells=[];if(p.live)cells.push(['live','This session',p.live]);cells.push(['','Today',p.today],['','Last 7 days',p.week],['','All time',p.total]);const sig=JSON.stringify(cells);if(sig===el.__sig)return;el.__sig=sig;el.innerHTML='';for(const[c,l,v]of cells){const d=document.createElement('div');d.className=c;const b=document.createElement('b');b.textContent=v;d.append(b,document.createTextNode(l));el.appendChild(d)}}
-function scheduleStatus(){clearTimeout(statusTimer);if(document.visibilityState==='hidden')return;const busy=statusData&&(['launching','switching','steam_guard','preparing','starting'].includes(statusData.launch_phase)||statusData.pending_guard||statusData.cursor_phase==='scanning'||statusData.job?.phase==='running');statusTimer=setTimeout(async()=>{await refreshStatus();scheduleStatus()},busy?700:3500)}
+function renderLastSession(){const box=$('#lastSession'),r=statusData?.last_session;if(!box)return;const show=!!r&&!statusData.game_running&&(Date.now()/1000-r.start<4*86400);box.hidden=!show;if(!show)return;
+  const sig=JSON.stringify(r);if(box.__sig===sig)return;box.__sig=sig;const n=v=>Number(v||0).toLocaleString();
+  let up='';if(r.promoted&&r.before&&r.after)up=`<div class="lsUp"><img src="/ranks/${r.before.tier}.png" alt="">›<img src="/ranks/${r.after.tier}.png" alt=""><span style="color:${r.after.color}">${esc(r.after.name)}</span></div>`;
+  box.innerHTML=`<div class="xLabel">Last session</div><div class="lsVals"><span><b>${esc(r.duration)}</b>played</span><span><b>+${n(r.xp)}</b>XP</span><span><b>${n(r.wins)}</b>${r.wins===1?'win':'wins'}</span>${r.clips?`<span><b>${n(r.clips)}</b>${r.clips===1?'clip':'clips'}</span>`:''}</div>${up}`}
+function scheduleStatus(){clearTimeout(statusTimer);if(document.visibilityState==='hidden')return;const busy=statusData&&(['launching','switching','steam_guard','preparing','starting'].includes(statusData.launch_phase)||statusData.pending_guard||statusData.cursor_phase==='scanning'||statusData.gui_phase==='scanning'||statusData.job?.phase==='running');statusTimer=setTimeout(async()=>{await refreshStatus();scheduleStatus()},busy?700:3500)}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshStatus().then(scheduleStatus)}else clearTimeout(statusTimer)});
 async function refreshStatus(){try{statusData=await api('/api/status');cursorCatalog=statusData.cursor_catalog||[];renderStatus();if(!$('#cursorGrid').children.length)renderCursorGrid();if(statusData.pending_guard&&!$('#guardModal').classList.contains('show'))openGuard()}catch(e){console.error(e)}}
 
@@ -1115,8 +1182,22 @@ $('#startNormal').onclick=()=>launch('normal');$('#startFps').onclick=()=>launch
 // Cursor
 function renderCursorGrid(){const q=($('#cursorSearch').value||'').toLowerCase();const grid=$('#cursorGrid');grid.innerHTML='';const list=cursorCatalog.filter(x=>(x.name+' '+x.category).toLowerCase().includes(q));for(const x of list){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor===x.id?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/${x.file}"></div><div class="cursorName"></div>`;b.querySelector('.cursorName').textContent=x.name;b.onclick=()=>{selectedCursor=x.id;localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}if(statusData?.custom_cursor){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor==='custom'?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/api/custom-cursor.png?t=${Date.now()}"></div><div class="cursorName">Custom</div>`;b.onclick=()=>{selectedCursor='custom';localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}}
 $('#cursorSearch').oninput=renderCursorGrid;
+let curTarget=localStorage.pg3dCurTarget||'cursor',spritesData=null,spritesLoading=false,lastGuiPhase=null,spritesErrAt=0;
+const ROLE_NAMES={hitmarker:'hit marker',killicon:'kill icon'};
+async function loadSprites(){if(spritesLoading)return;spritesLoading=true;try{spritesData=await api('/api/sprites')}catch{spritesErrAt=Date.now()}finally{spritesLoading=false}updateCursorPanel()}
+function renderRoleNote(){const n=$('#curRoleNote');if(curTarget==='cursor'){n.hidden=true;return false}n.hidden=false;
+  if(statusData.gui_phase==='scanning'){n.textContent=`Finding the ${ROLE_NAMES[curTarget]} in PG3D… ${statusData.gui_progress||0}%`;return false}
+  if(!spritesData){n.textContent='';if(Date.now()-spritesErrAt>5000)setTimeout(loadSprites,0);return false}
+  if(!spritesData.scanned){n.textContent=`Finding the ${ROLE_NAMES[curTarget]} in PG3D…`;if(statusData.app_found&&statusData.gui_phase!=='error')post('/api/gui/scan',{}).then(refreshStatus).catch(()=>{});else n.textContent='Pixel Gun 3D wasn\'t found.';return false}
+  const r=spritesData.roles[curTarget];if(!r||!r.count){n.textContent=`This PG3D build has no separate ${ROLE_NAMES[curTarget]} to swap.`;return false}
+  n.innerHTML=r.previews.slice(0,4).map(u=>`<img src="${u}" alt="">`).join('')+`<span>${r.applied?'Swapped':'Original'}${r.count>1?` · ${r.count} sprites`:''}</span>`;return true}
 function updateCursorPanel(){
   if(!statusData)return;
+  $$('#curTargetSeg button').forEach(b=>b.classList.toggle('active',b.dataset.t===curTarget));
+  if(lastGuiPhase==='scanning'&&statusData.gui_phase!=='scanning')loadSprites();lastGuiPhase=statusData.gui_phase;
+  if(curTarget!=='cursor'){const ok=renderRoleNote();renderCursorStyleControls();$('#cursorSizeValue').textContent=cursorSize+'%';
+    $('#applyCursor').disabled=statusData.game_running||!ok;$('#resetCursor').disabled=statusData.game_running||!spritesData?.roles?.[curTarget]?.applied;return}
+  $('#curRoleNote').hidden=true;
   const t=statusData.cursor_target;
   renderCursorStyleControls();
   $('#cursorPreview').classList.add('checker');
@@ -1140,8 +1221,11 @@ function updateCursorPanel(){
 $('#cursorSize').oninput=e=>{cursorSize=Number(e.target.value);localStorage.pg3dCursorSize=cursorSize;updateCursorPanel()};
 $('#cursorPreview').onmousemove=e=>{const r=e.currentTarget.getBoundingClientRect(),im=$('#cursorPreviewImg');im.style.left=(e.clientX-r.left)+'px';im.style.top=(e.clientY-r.top)+'px'};
 $('#cursorPreview').onmouseleave=()=>{$('#cursorPreviewImg').style.left='50%';$('#cursorPreviewImg').style.top='50%'};
-$('#applyCursor').onclick=async()=>{try{await post('/api/cursor/apply',{cursor:selectedCursor,size:cursorSize,color:cursorColor,outline:cursorOutlineWidth?cursorOutline:null,outline_width:cursorOutlineWidth});toast('Cursor applied.');await refreshStatus()}catch(e){toast(e.message,true)}};
-$('#resetCursor').onclick=async()=>{try{await post('/api/cursor/reset');toast('Cursor reset.');await refreshStatus()}catch(e){toast(e.message,true)}};
+$$('#curTargetSeg button').forEach(b=>b.onclick=()=>{curTarget=b.dataset.t;localStorage.pg3dCurTarget=curTarget;if(curTarget!=='cursor'&&!spritesData)loadSprites();updateCursorPanel()});
+$('#applyCursor').onclick=async()=>{if(curTarget!=='cursor'){try{$('#applyCursor').disabled=true;await post('/api/sprites/apply',{role:curTarget,cursor:selectedCursor,size:cursorSize,color:cursorColor,outline:cursorOutlineWidth?cursorOutline:null,outline_width:cursorOutlineWidth});toast(`New ${ROLE_NAMES[curTarget]} applied.`);await loadSprites();await refreshStatus()}catch(e){toast(e.message,true);updateCursorPanel()}return}
+  try{await post('/api/cursor/apply',{cursor:selectedCursor,size:cursorSize,color:cursorColor,outline:cursorOutlineWidth?cursorOutline:null,outline_width:cursorOutlineWidth});toast('Cursor applied.');await refreshStatus()}catch(e){toast(e.message,true)}};
+$('#resetCursor').onclick=async()=>{if(curTarget!=='cursor'){try{await post('/api/sprites/reset',{role:curTarget});toast(`Original ${ROLE_NAMES[curTarget]} restored.`);await loadSprites();await refreshStatus()}catch(e){toast(e.message,true)}return}
+  try{await post('/api/cursor/reset');toast('Cursor reset.');await refreshStatus()}catch(e){toast(e.message,true)}};
 $('#redetectCursor').onclick=async()=>{try{await post('/api/cursor/redetect');toast('Re-detecting cursor…');setTimeout(refreshStatus,700)}catch(e){toast(e.message,true)}};
 $('#importCursor').onclick=()=>$('#cursorFile').click();
 $('#cursorFile').onchange=e=>{const f=e.target.files?.[0];if(!f)return;if(f.type!=='image/png'){toast('Use a PNG file.',true);return}const rd=new FileReader();rd.onload=async()=>{try{await post('/api/cursor/custom',{data:rd.result});selectedCursor='custom';localStorage.pg3dCursor='custom';lastPreviewKey='';await refreshStatus();renderCursorGrid();updateCursorPanel();toast('Custom cursor imported.')}catch(err){toast(err.message,true)}};rd.readAsDataURL(f);e.target.value=''};
@@ -1173,7 +1257,8 @@ function renderAccounts(){const info=statusData?.accounts;if(!info)return;const 
 $('#refreshAccounts').onclick=async()=>{await refreshStatus();toast('Accounts refreshed.')};
 
 let overlayConfig=null,hotkeyRecording=false,overlayDirty=false,overlaySaving=false,overlayDebounce=null;
-const widgetNames={fps:'FPS',ping:'Ping',music:'Music',clock:'Clock'};
+const widgetNames={fps:'FPS',ping:'Ping',music:'Music',clock:'Clock',rank:'Rank'};
+function rankOverlayText(){const r=statusData?.rank;const name=r?.tier_name||'Gold',p=Math.round((r?(r.progress||0):.42)*100);if(r&&!r.next_name)return name;const f=Math.floor(p/10);return `${name} ${'▰'.repeat(f)}${'▱'.repeat(10-f)} ${p}%`}
 function overlayItem(id){return overlayConfig?.items?.find(x=>x.id===id)}
 function hotkeyDisplay(h){if(!h)return'F8';if(typeof h==='string')return h;return h.display||h.key||h.code||'F8'}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
@@ -1210,7 +1295,7 @@ function renderCursorStyleControls(){
 function itemSize(it){return overlayConfig?.group?.enabled?Number(overlayConfig.group.size||18):Number(it.size||18)}
 function itemColor(it){return overlayConfig?.group?.enabled?(overlayConfig.group.color||'#FFFFFF'):(it.color||'#FFFFFF')}
 function clockText(it){const c=it.clock||{};let s=c.format12?'3:33 PM':'15:33';if(c.seconds)s=c.format12?'3:33:42 PM':'15:33:42';if(c.calendar)s+='  28.9.26';return s}
-function previewHtml(it,compact=false){const color=itemColor(it);if(it.id==='music'){const m=it.music||{},cover=Math.max(22,Math.min(46,Math.round((m.cover_size||48)*.6)));return `<div class="crMiniMusic" style="color:${color}">${m.cover?`<div class="crMiniCover" style="width:${cover}px;height:${cover}px"></div>`:''}<div class="crMiniMusicText">${m.title?'<b>Song title</b>':''}${m.artist?'<span>Artist</span>':''}${m.timestamp?'<div class="crMiniProgress"><i></i></div>':''}</div></div>`}const txt=it.id==='fps'?'144 FPS':it.id==='ping'?'32 ms':clockText(it);return `<span class="crMiniText" style="font-size:${Math.max(9,itemSize(it)*(compact?.62:.78))}px;color:${color}">${txt}</span>`}
+function previewHtml(it,compact=false){const color=itemColor(it);if(it.id==='music'){const m=it.music||{},cover=Math.max(22,Math.min(46,Math.round((m.cover_size||48)*.6)));return `<div class="crMiniMusic" style="color:${color}">${m.cover?`<div class="crMiniCover" style="width:${cover}px;height:${cover}px"></div>`:''}<div class="crMiniMusicText">${m.title?'<b>Song title</b>':''}${m.artist?'<span>Artist</span>':''}${m.timestamp?'<div class="crMiniProgress"><i></i></div>':''}</div></div>`}const txt=it.id==='fps'?'144 FPS':it.id==='ping'?'32 ms':it.id==='rank'?rankOverlayText():clockText(it);return `<span class="crMiniText" style="font-size:${Math.max(9,itemSize(it)*(compact?.62:.78))}px;color:${color}">${txt}</span>`}
 function markOverlayDirty(){overlayDirty=true;clearTimeout(overlayDebounce);overlayDebounce=setTimeout(()=>saveOverlayQuiet(false),2500)}
 async function saveOverlayQuiet(force=false){if(!overlayConfig||overlaySaving||(!overlayDirty&&!force))return;overlaySaving=true;try{const d=await post('/api/overlay/config',overlayConfig);overlayConfig=d.config;overlayDirty=false}catch(e){console.error(e)}finally{overlaySaving=false}}
 function saveOverlayBeforeClose(){if(!overlayConfig||!overlayDirty)return;try{fetch('/api/overlay/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(overlayConfig),keepalive:true})}catch{}}
@@ -1223,7 +1308,7 @@ let orderDragId=null;
 function syncOrder(){const ids=[...document.querySelectorAll('#groupOrder .crOrderItem')].map(r=>r.dataset.id);const enabled=overlayConfig.items.filter(x=>x.enabled);let i=0;for(const id of ids){const it=overlayItem(id);if(it)it.order=i++}for(const it of overlayConfig.items)if(!enabled.includes(it))it.order=i++;markOverlayDirty()}
 function bindMusicOptions(root,it,disabled=false){const m=it.music||(it.music={});root.innerHTML=[optionButton('Song name',!!m.title,'title',disabled),optionButton('Artist',!!m.artist,'artist',disabled),optionButton('Timestamp',!!m.timestamp,'timestamp',disabled),optionButton('Cover art',!!m.cover,'cover',disabled)].join('');root.querySelectorAll('[data-opt]').forEach(b=>b.onclick=()=>{m[b.dataset.opt]=!m[b.dataset.opt];markOverlayDirty();renderStyleList(false)})}
 function bindClockOptions(root,it,disabled=false){const c=it.clock||(it.clock={format24:true,format12:false,calendar:false,seconds:false});root.innerHTML=[optionButton('24-hour',!!c.format24,'format24',disabled),optionButton('12-hour',!!c.format12,'format12',disabled),optionButton('Date',!!c.calendar,'calendar',disabled),optionButton('Seconds',!!c.seconds,'seconds',disabled)].join('');root.querySelectorAll('[data-opt]').forEach(b=>b.onclick=()=>{const k=b.dataset.opt;if(k==='format24'){c.format24=true;c.format12=false}else if(k==='format12'){c.format12=true;c.format24=false}else c[k]=!c[k];markOverlayDirty();renderStyleList(false)})}
-const widgetDesc={fps:'Frames per second',ping:'Server latency',music:'Now playing (Apple Music / Spotify)',clock:'Current time'};
+const widgetDesc={fps:'Frames per second',ping:'Server latency',music:'Now playing (Apple Music / Spotify)',clock:'Current time',rank:'Tier and progress to the next'};
 function elementCard(id){
   const it=overlayItem(id),card=document.createElement('button');
   card.className='guiElement'+(it.enabled?' on':'');card.setAttribute('role','switch');card.setAttribute('aria-checked',!!it.enabled);
@@ -1231,7 +1316,7 @@ function elementCard(id){
   card.onclick=()=>{it.enabled=!it.enabled;markOverlayDirty();renderOverlayEditor()};
   return card;
 }
-function renderElements(){const box=$('#guiElements');box.innerHTML='';for(const id of ['fps','ping','clock','music'])box.appendChild(elementCard(id))}
+function renderElements(){const box=$('#guiElements');box.innerHTML='';for(const id of ['fps','ping','clock','music','rank'])if(overlayItem(id))box.appendChild(elementCard(id))}
 function styleCard(it){
   const card=document.createElement('div');card.className='guiStyleCard';
   card.innerHTML=`<div class="gsHead"><h4>${widgetNames[it.id]}</h4><div class="gsPreview">${previewHtml(it,true)}</div></div>
@@ -1294,6 +1379,44 @@ async function openPlacement(){const grouped=!!overlayConfig.group.enabled;if(!o
 $('#guiPlace').onclick=openPlacement;
 async function refreshPlayerCount(){try{const d=await api('/api/steam-player-count');$('#steamPlayerCount').textContent=d.count==null?'—':Number(d.count).toLocaleString()}catch{$('#steamPlayerCount').textContent='—'}}
 
+/* ===== HUD: resize / hide PG3D's own HUD sprites ===== */
+let hudCat=null,hudSel=null,hudFilter='all',hudScale=100,hudHidden=false,hudLastPhase=null,hudLoading=false;
+async function loadHud(force=false){if(hudLoading)return;if(hudCat&&!force){renderHud();return}hudLoading=true;try{hudCat=await api('/api/gui-assets')}catch(e){toast(e.message,true)}finally{hudLoading=false}renderHud()}
+function hudOps(){const g=statusData?.mods?.gui||{};const o={};for(const[k,v]of Object.entries(g))if(!v.role)o[k]=v;return o}
+function renderHud(){const grid=$('#hudGrid');if(!grid||!statusData)return;const scanning=statusData.gui_phase==='scanning';
+  $('#hudScan').disabled=scanning;$$('#hudFilter button').forEach(b=>b.classList.toggle('active',b.dataset.f===hudFilter));
+  const items=hudCat?.items||[];const ops=hudOps();
+  if(scanning||!items.length){const sig='e'+scanning+(statusData.gui_progress||0)+(statusData.gui_error||'');if(grid.__sig===sig)return renderHudPanel();grid.__sig=sig;
+    grid.innerHTML=scanning?`<div class="hudEmpty"><b>Looking through PG3D's HUD…</b><div class="xJob" style="width:240px"><div class="bar"><i style="width:${statusData.gui_progress||0}%"></i></div></div></div>`
+      :`<div class="hudEmpty"><b>Find the HUD pieces in your PG3D</b><span>Takes about a minute, only once per game update.</span>${statusData.gui_error?`<span style="color:var(--bad)">${esc(statusData.gui_error)}</span>`:''}<button class="btn primary" id="hudScanFirst">Scan PG3D</button></div>`;
+    const b=$('#hudScanFirst');if(b)b.onclick=startHudScan;return renderHudPanel()}
+  const q=($('#hudSearch').value||'').toLowerCase().trim();
+  const list=items.filter(x=>(hudFilter!=='changed'||ops[x.key])&&(!q||(x.name||'').toLowerCase().includes(q)));
+  const sig=JSON.stringify([hudCat.generated,q,hudFilter,Object.keys(ops).sort(),hudSel?.key]);if(grid.__sig===sig)return renderHudPanel();grid.__sig=sig;
+  grid.innerHTML='';
+  if(!list.length)grid.innerHTML=`<div class="hudEmpty">${hudFilter==='changed'?'Nothing changed yet.':'No HUD pieces match.'}</div>`;
+  const frag=document.createDocumentFragment();
+  for(const x of list.slice(0,600)){const b=document.createElement('button');b.className='hudCard'+(hudSel?.key===x.key?' selected':'')+(ops[x.key]?' changed':'');b.title=`${x.name||'Unnamed'} · ${x.width}×${x.height}`;
+    b.innerHTML=`<div class="ht"><img loading="lazy" src="${x.preview}" alt=""></div><small>${esc(x.name||'Unnamed')}</small>`;
+    b.onclick=()=>{hudSel=x;const op=ops[x.key];hudScale=op?Math.round(op.scale||100):100;hudHidden=!!op?.hidden;grid.__sig='';renderHud()};frag.append(b)}
+  grid.append(frag);renderHudPanel()}
+function renderHudPanel(){const has=!!hudSel,ops=hudOps(),op=has&&ops[hudSel.key],busy=statusData.game_running;
+  $('#hudSelName').textContent=has?(hudSel.name||'Unnamed'):'Pick a HUD piece';
+  const im=$('#hudPrevImg');im.hidden=!has;if(has){if(im.dataset.src!==hudSel.preview){im.src=hudSel.preview;im.dataset.src=hudSel.preview}im.style.transform=`scale(${hudScale/100})`;im.style.opacity=hudHidden?.12:1}
+  $('#hudScale').value=hudScale;$('#hudScaleVal').textContent=hudScale+'%';$('#hudScale').disabled=!has||hudHidden;
+  $('#hudHide').classList.toggle('on',hudHidden);$('#hudHide').disabled=!has;
+  $('#hudApply').disabled=!has||busy;$('#hudReset').disabled=!has||!op||busy;$('#hudResetAll').hidden=!Object.keys(ops).length;$('#hudResetAll').disabled=busy}
+async function startHudScan(){try{await post('/api/gui/scan',{});await refreshStatus();renderHud()}catch(e){toast(e.message,true)}}
+$('#hudScan').onclick=startHudScan;
+$('#hudSearch').oninput=()=>renderHud();
+$$('#hudFilter button').forEach(b=>b.onclick=()=>{hudFilter=b.dataset.f;renderHud()});
+$('#hudScale').oninput=e=>{hudScale=Number(e.target.value);renderHudPanel()};
+$('#hudHide').onclick=()=>{hudHidden=!hudHidden;renderHudPanel()};
+$('#hudApply').onclick=async()=>{if(!hudSel)return;const b=$('#hudApply');b.disabled=true;try{await post('/api/gui/apply',{asset_id:hudSel.id,scale:hudScale,hidden:hudHidden});toast(hudHidden?'Hidden in game.':`Set to ${hudScale}%.`);await refreshStatus();renderHud()}catch(e){toast(e.message,true);renderHudPanel()}};
+$('#hudReset').onclick=async()=>{if(!hudSel)return;try{await post('/api/gui/reset',{asset_id:hudSel.id});hudScale=100;hudHidden=false;toast('Back to original.');await refreshStatus();renderHud()}catch(e){toast(e.message,true)}};
+$('#hudResetAll').onclick=async()=>{try{await post('/api/gui/reset-all',{});hudScale=100;hudHidden=false;toast('All HUD changes undone.');await refreshStatus();renderHud()}catch(e){toast(e.message,true)}};
+function hudTick(){if(!statusData)return;const ph=statusData.gui_phase;if(hudLastPhase==='scanning'&&ph!=='scanning'){loadHud(true);loadSprites()}hudLastPhase=ph;if(localStorage.pg3dTab==='hud')renderHud()}
+
 
 /* ===== Clips: library ===== */
 let clipsData=null,clipHotkeyRec=false,clipSigs={};
@@ -1330,13 +1453,13 @@ function renderClipStatus(){
   const err=$('#clipErr');err.hidden=!(st.last_error&&st.phase==='error');if(!err.hidden)err.textContent=st.last_error;
 }
 function renderClipSettings(force=false){
-  if(clipHotkeyRec)return;const cfg=clipsData.config,sig=JSON.stringify([cfg,clipsData.screens]);if(!force&&sig===clipSigs.settings)return;clipSigs.settings=sig;
+  if(clipHotkeyRec)return;const cfg=clipsData.config,sig=JSON.stringify([cfg,clipsData.screens,clipsData.status?.audio==='unavailable']);if(!force&&sig===clipSigs.settings)return;clipSigs.settings=sig;
   const lm=$('#clipLengthMode');lm.innerHTML='';for(const n of clipsData.lengths){const b=document.createElement('button');b.textContent=clipLenLabel(n);b.classList.toggle('active',cfg.length===n);b.setAttribute('aria-pressed',cfg.length===n);b.onclick=()=>setClipConfig({length:n});lm.appendChild(b)}
   const qm=$('#clipQualityMode');qm.innerHTML='';for(const q of clipsData.qualities){const [res,fps]=CLIP_QUALITY[q]||[q,''];const b=document.createElement('button');b.textContent=`${res} ${fps.replace(' fps','')}`;b.title=`${res}, ${fps}`;b.classList.toggle('active',cfg.quality===q);b.setAttribute('aria-pressed',cfg.quality===q);b.onclick=()=>setClipConfig({quality:q});qm.appendChild(b)}
   const mb=Math.round((CLIP_QUALITY[cfg.quality]?.[2]||12)*CLIP_BUFFER_MAX/8);$('#clipDiskHint').textContent=`Keeps the last 3 minutes on disk, about ${mb} MB. Changing quality restarts the buffer.`;
   $('#clipHotkey').textContent=cfg.hotkey.display;
   const sw=$('#clipScreenWrap'),sel=$('#clipScreen');sw.hidden=(clipsData.screens||[]).length<2;sel.innerHTML='';for(const sc of clipsData.screens||[]){const o=document.createElement('option');o.value=sc.index;o.textContent=sc.name.replace('Capture screen','Display').replace(/(\d+)/,n=>String(+n+1));sel.appendChild(o)}if(cfg.screen!=null)sel.value=cfg.screen;
-  const tg=$('#clipToggles');tg.innerHTML='';for(const [key,label,sub] of [['enabled','Replay buffer','Record in the background while you play'],['only_while_playing','Only while PG3D runs','Stops recording when the game closes'],['notify','Notify when saved','Shows a macOS notification with a sound']])tg.appendChild(toggleRow(label,sub,cfg[key],()=>setClipConfig({[key]:!cfg[key]})));
+  const tg=$('#clipToggles');tg.innerHTML='';for(const [key,label,sub] of [['enabled','Replay buffer','Record in the background while you play'],['only_while_playing','Only while PG3D runs','Stops recording when the game closes'],['notify','Notify when saved','Shows a macOS notification with a sound'],['game_audio','Game sound',clipsData.status?.audio==='unavailable'?'Needs macOS 13 or newer':'Records PG3D only, no music or other apps'],['copy_after_save','Copy after saving','Ready to paste into Discord or Messages']])tg.appendChild(toggleRow(label,sub,cfg[key],()=>setClipConfig({[key]:!cfg[key]})));
 }
 function toggleRow(label,sub,on,onclick){const b=document.createElement('button');b.className='clipToggle'+(on?' on':'');b.setAttribute('role','switch');b.setAttribute('aria-checked',!!on);b.innerHTML='<div><span></span><small></small></div><span class="pill"></span>';b.querySelector(':scope>div>span').textContent=label;b.querySelector('small').textContent=sub;b.onclick=onclick;return b}
 function renderClipGrid(){
@@ -1447,6 +1570,7 @@ async function renameEditorClip(){if(!ed.clip)return;const el=$('#edTitle'),titl
 $('#edTitle').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.target.blur()}else if(e.key==='Escape'){e.preventDefault();e.target.value=ed.clip?.title||'';e.target.blur()}e.stopPropagation()});
 $('#edTitle').addEventListener('blur',renameEditorClip);
 $('#edBack').onclick=closeEditor;
+$('#edCopy').onclick=async()=>{if(!ed.clip)return;try{await post('/api/clips/copy',{name:ed.clip.name});toast('Copied. Paste it anywhere.')}catch(e){toast(e.message,true)}};
 $('#edReveal').onclick=()=>ed.clip&&post('/api/clips/reveal',{name:ed.clip.name}).catch(e=>toast(e.message,true));
 $('#edDelete').onclick=async()=>{if(!ed.clip||!confirmStep('#edDelete','Delete','Move to Trash?'))return;
   const list=clipsData.clips||[],i=list.findIndex(c=>c.name===ed.clip.name),next=list[i+1]||list[i-1];
@@ -1515,10 +1639,10 @@ const TIER_IMG=t=>`/ranks/${t}.png`;
 // Shared job progress (theme / sky / scan run in the background on the server)
 let lastJobPhase=null;
 function renderJob(){const j=statusData?.job;if(!j)return;
-  for(const [id,kinds] of [['#thJob',['theme','scan']],['#skJob',['sky','scan']]]){const box=$(id);if(!box)continue;
+  for(const [id,kinds] of [['#thJob',['theme','scan','font']],['#skJob',['sky','scan']]]){const box=$(id);if(!box)continue;
     const mine=kinds.includes(j.kind)&&(j.phase==='running'||j.phase==='error');box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
     box.querySelector('.msg').textContent=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');box.querySelector('.bar i').style.width=(j.phase==='error'?0:j.progress||0)+'%'}
-  const busy=j.phase==='running';['#thApply','#thReset','#thRescan','#skApply','#skReset','#skRescan'].forEach(s=>{const b=$(s);if(b)b.disabled=busy||statusData.game_running});
+  const busy=j.phase==='running';$$('.fnChip').forEach(b=>b.disabled=busy||statusData.game_running);['#thApply','#thReset','#thRescan','#skApply','#skReset','#skRescan'].forEach(s=>{const b=$(s);if(b)b.disabled=busy||statusData.game_running});
   if(lastJobPhase==='running'&&j.phase!=='running'){if(j.phase==='done')toast(j.message||'Done.');else if(j.phase==='error')toast(j.error||'Failed.',true);loadTheme();loadSky()}
   lastJobPhase=j.phase}
 
@@ -1592,6 +1716,17 @@ if(document.querySelector('#rkPromo'))$('#rkPromo').onclick=()=>$('#rkPromo').cl
 // Theme
 let themeData=null,themePreset=null,themeSample=0;
 function themeGradient(stops){return `linear-gradient(90deg,${stops.map(([p,c])=>`${c} ${Math.round(p*100)}%`).join(',')})`}
+const FONT_LOADED=new Set();
+function renderFonts(){const f=themeData?.font;const row=$('#fnRow');if(!f||!row)return;row.innerHTML='';
+  const busy=statusData?.game_running||statusData?.job?.phase==='running';
+  const mk=(id,name,family)=>{const b=el('button','fnChip'+((f.active||'')===id?' sel':'')+(id==='pixel'?' pixel':''),name);b.type='button';if(family)b.style.fontFamily=family;b.disabled=busy;
+    b.onclick=async()=>{if((f.active||'')===id)return;try{await post('/api/font/apply',{id});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};return b};
+  row.append(mk('','Original',''));
+  for(const x of f.fonts){const fam='pgf_'+x.id;if(!FONT_LOADED.has(fam)){FONT_LOADED.add(fam);try{const ff=new FontFace(fam,`url(/api/font-file/${x.id})`);ff.load().then(v=>document.fonts.add(v)).catch(()=>{})}catch{}}row.append(mk(x.id,x.name,fam))}
+  const add=el('button','fnChip add','＋ Import');add.type='button';add.title='Use your own .ttf or .otf';add.disabled=busy;add.onclick=()=>$('#fnFile').click();row.append(add);
+  const cur=f.fonts.find(x=>x.id===f.active);const pa=$('#fnActive');pa.textContent=cur?`${cur.name} in game`:'Original font';pa.className='xPill'+(cur?' on':'')}
+$('#fnFile').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});
+  try{await post('/api/font/upload',{data,name:file.name});await loadTheme();toast('Font added. Click it to use it in game.')}catch(err){toast(err.message,true)}};
 async function loadTheme(){try{themeData=await api('/api/theme');if(!themePreset)themePreset=themeData.active?.preset||localStorage.pg3dThemePreset||'crimson';if(themeData.active&&!$('#thStrength').dataset.touched){$('#thStrength').value=Math.round(themeData.active.strength*100)}renderTheme()}catch(e){console.error(e)}}
 function renderTheme(){const d=themeData;if(!d)return;const host=$('#thPresets');host.innerHTML='';
   const opts=[...d.presets,{id:'original',name:'Original',desc:'Pixel Gun 3D’s own colors.',stops:null}];
@@ -1603,7 +1738,7 @@ function renderTheme(){const d=themeData;if(!d)return;const host=$('#thPresets')
   $('#thApply').textContent=orig?'Restore original':`Apply ${selName}`;
   $('#thReset').hidden=!d.active||orig;
   const n=d.scan.textures||0;$('#thScanInfo').textContent=d.scan.generated?`${fmtNum(n)} GUI ${n===1?'texture':'textures'} found${d.scan.fresh?'':' · game updated, will rescan on apply'}.`:'';
-  renderThemePreview()}
+  renderThemePreview();renderFonts()}
 function renderThemePreview(){const d=themeData;if(!d)return;const orig=themePreset==='original',name=orig?'Original':(d.presets.find(p=>p.id===themePreset)?.name||'');
   const a=$('#thShotOrig'),b=$('#thShotNew');if(!a.dataset.set){a.dataset.set='1';a.src='/api/theme/shot.jpg?preset=original'}
   b.src=`/api/theme/shot.jpg?preset=${orig?'original':themePreset}`;$('#thShotCap').textContent=name.toUpperCase();
@@ -1617,15 +1752,25 @@ $('#thReset').onclick=async()=>{try{await post('/api/theme/reset');await refresh
 $('#thRescan').onclick=async()=>{try{await post('/api/customize/scan');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
 
 // Sky
-let skyData=null,skySel=null,skyTargetsOff=new Set();
+let skyData=null,skySel=null,skyTargetsOff=new Set(),skMode=localStorage.pg3dSkMode==='loading'?'loading':'sky';
 async function loadSky(){try{skyData=await api('/api/sky');const act=skyData.active;if(!skySel)skySel=act?.id||skyData.library[0]?.id||null;if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=0;setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip);
     const keys=new Set(act.target_keys||[]);skyTargetsOff=new Set(skyData.targets.filter(t=>!keys.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id))}renderSky()}catch(e){console.error(e)}}
 function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.innerHTML='';
   if(!d.library.find(s=>s.id===skySel))skySel=d.library[0]?.id||null;
-  for(const s of d.library){const b=el('button','skItem'+(s.id===skySel?' sel':''));const im=el('img');im.src=s.thumb;im.alt='';const cap=el('div',null,s.name);cap.append(el('small',null,`${s.width}×${s.height}${s.panorama?' · panorama':''}`));b.append(im,cap);
-    if(d.active?.id===s.id)b.append(el('span','live','IN GAME'));else{const x=el('button','del','×');x.title='Remove from library';x.onclick=async ev=>{ev.stopPropagation();try{await post('/api/sky/delete',{id:s.id});await loadSky()}catch(e){toast(e.message,true)}};b.append(x)}
+  for(const s of d.library){const b=el('button','skItem'+(s.id===skySel?' sel':''));const im=el('img');im.src=s.thumb;im.alt='';const cap=el('div',null,s.name);cap.append(el('small',null,`${s.width}×${s.height}${s.panorama&&skMode==='sky'?' · panorama':''}`));b.append(im,cap);
+    {const x=el('button','del','×');x.title='Remove from library';x.onclick=async ev=>{ev.stopPropagation();try{await post('/api/sky/delete',{id:s.id});await loadSky()}catch(e){toast(e.message,true)}};b.append(x)}
     b.onclick=()=>{skySel=s.id;renderSky()};lib.append(b)}
-  const sa=$('#skActive');sa.textContent=d.active?`${d.active.name} in game`:'Original sky';sa.className='xPill'+(d.active?' on':'');$('#skSetup').hidden=!d.library.length;
+  const ld=skMode==='loading',act=ld?d.loading?.active:d.active;
+  $$('#skMode button').forEach(b=>b.classList.toggle('active',b.dataset.m===skMode));
+  lib.querySelectorAll('.skItem').forEach(b=>b.querySelector('.live')?.remove());
+  [...lib.children].forEach((b,i)=>{const s=d.library[i];const inUse=(d.active?.id===s.id)||(d.loading?.active?.id===s.id);b.querySelector('.del')?.toggleAttribute('hidden',inUse);if(act?.id===s.id)b.append(el('span','live','IN GAME'))});
+  const sa=$('#skActive');sa.textContent=act?`${act.name} in game`:ld?'Original loading screen':'Original sky';sa.className='xPill'+(act?' on':'');$('#skSetup').hidden=!d.library.length;
+  $('#skDropHint').textContent=ld?'PNG or JPEG · 16:9 fills the screen':'PNG or JPEG · 2:1 panoramas wrap around';
+  $('#skSkyOpts').hidden=ld;$('#skCross').hidden=ld;$('#skTargetsBox').hidden=ld;$('#skLoadPrev').hidden=!ld;
+  const cur=d.library.find(s=>s.id===skySel);$('#skLoadPrev').style.backgroundImage=ld&&cur?`url("${cur.thumb}")`:'';
+  const lt=d.loading?.targets||[];const ln=$('#skLoadNote');ln.hidden=!ld||(!!lt.length||!d.scan.generated);ln.textContent='No loading screen texture was found in this PG3D build.';
+  $('#skApply').textContent=ld?'Set loading screen':'Apply sky';
+  if(ld){$('#skReset').hidden=!act;$('#skApply').disabled=!skySel||statusData?.game_running||statusData?.job?.phase==='running'||(d.scan.generated&&!lt.length);return}
   $('#skYawVal').textContent=$('#skYaw').value+'°';renderSkyCross();
   const tg=$('#skTargets');tg.innerHTML='';
   if(!d.targets.length){tg.append(el('div','xEmpty',d.scan.generated?'No sky textures were found in this PG3D build.':'Not scanned yet. Apply scans the game first, or press Rescan.'))}
@@ -1642,9 +1787,10 @@ $('#skDrop').onclick=()=>$('#skFile').click();$('#skFile').onchange=e=>{uploadSk
 ['dragenter','dragover'].forEach(t=>$('#skDrop').addEventListener(t,e=>{e.preventDefault();$('#skDrop').classList.add('over')}));
 ['dragleave','drop'].forEach(t=>$('#skDrop').addEventListener(t,e=>{e.preventDefault();$('#skDrop').classList.remove('over')}));
 $('#skDrop').addEventListener('drop',e=>uploadSky(e.dataTransfer.files[0]));
-$('#skApply').onclick=async()=>{if(!skySel)return $('#skFile').click();const ids=(skyData?.targets||[]).filter(t=>!skyTargetsOff.has(t.id)).map(t=>t.id);if(skyData?.targets?.length&&!ids.length)return toast('Pick at least one sky texture.',true);
+$$('#skMode button').forEach(b=>b.onclick=()=>{skMode=b.dataset.m;try{localStorage.pg3dSkMode=skMode}catch{}renderSky()});
+$('#skApply').onclick=async()=>{if(!skySel)return $('#skFile').click();if(skMode==='loading'){try{await post('/api/loading/apply',{id:skySel});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}return}const ids=(skyData?.targets||[]).filter(t=>!skyTargetsOff.has(t.id)).map(t=>t.id);if(skyData?.targets?.length&&!ids.length)return toast('Pick at least one sky texture.',true);
   try{await post('/api/sky/apply',{id:skySel,targets:skyData?.targets?.length?ids:null,yaw:Number($('#skYaw').value),swap_lr:$('#skSwap').classList.contains('on'),flip:$('#skFlip').classList.contains('on')});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
-$('#skReset').onclick=async()=>{try{await post('/api/sky/reset');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
+$('#skReset').onclick=async()=>{try{await post(skMode==='loading'?'/api/loading/reset':'/api/sky/reset');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
 $('#skRescan').onclick=async()=>{try{await post('/api/customize/scan');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
 
 setInterval(()=>{if(document.visibilityState==='visible'&&$('#page-rank').classList.contains('active'))loadRank()},10000);
@@ -1686,7 +1832,7 @@ function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekl
   $('#lkResult').hidden=false;drawSkinHead(p.skin);$('#lkName').textContent=p.name||'Unknown';
   const badges=$('#lkBadges');badges.innerHTML='';const lv=P.level??F.level;if(lv!=null)badges.append(el('span','lkBadge',`Lv ${lv}`));
   if(F.banned!=null)badges.append(el('span','lkBadge '+(F.banned?'bad':'good'),F.banned?'Banned':'Clean'));
-  if(p.clan)badges.append(el('span','lkBadge',p.clan_tag?`[${p.clan_tag}] ${p.clan}`:p.clan));
+  if(p.clan){const cb=el('button','lkBadge clanLink',(p.clan_tag?`[${p.clan_tag}] ${p.clan}`:p.clan)+' ›');cb.type='button';cb.title='Show clan members';cb.onclick=()=>openClan(clanKeyOf(p));badges.append(cb)}
   for(const k of Object.keys(F.platforms||{}))badges.append(el('span','lkBadge',k));
   const dt=t=>t?new Date(Number(t)*1000).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):null;
   $('#lkMeta').textContent=[`ID ${p.player_id}`,P.registered?`Joined ${dt(P.registered)}`:null,P.last_seen?`Last active ${Date.now()/1000-P.last_seen<86400?ago(P.last_seen):dt(P.last_seen)}`:null].filter(Boolean).join(' · ');
@@ -1735,6 +1881,23 @@ function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekl
   for(const [k,v] of Object.entries(panes)){const b=el('button',null,v.label);b.type='button';b.dataset.k=k;b.onclick=()=>show(k);tabs.append(b)}
   show(panes[lkTab]?lkTab:'profile')}
 $('#lkForm').onsubmit=e=>{e.preventDefault();runLookup($('#lkId').value)};
+
+// Clan roster: built from players you look up (Ember has no public member list)
+let clanData=null;
+const clanKeyOf=p=>`${(p.clan_tag||'').trim().toLowerCase()}|${(p.clan||'').trim().toLowerCase()}`;
+async function openClan(key){try{clanData=await api('/api/clan?key='+encodeURIComponent(key));renderClan();$('#clanCard').hidden=false;$('#clanCard').scrollIntoView({behavior:'smooth',block:'start'})}catch(e){toast(e.message,true)}}
+function renderClan(){const c=clanData;if(!c)return;$('#clanTitle').textContent=(c.tag?`[${c.tag}] `:'')+c.name;
+  const t=c.totals||{},kd=t.deaths?(t.kills/t.deaths).toFixed(2):'—';
+  $('#clanTotals').innerHTML=`<div><b>${fmtNum(c.members.length)}</b>Known members</div><div><b>${fmtNum(t.wins)}</b>Total wins</div><div><b>${fmtNum(t.wins_week)}</b>Wins this week</div><div><b>${kd}</b>Weekly K/D</div>`;
+  const list=$('#clanList');list.innerHTML='';
+  c.members.forEach((m,i)=>{const r=el('div','clanRow');r.tabIndex=0;const kdm=m.deaths?(m.kills/m.deaths).toFixed(2):(m.kills?'∞':'—');
+    r.innerHTML=`<span class="n">${i+1}</span><div><b>${esc(m.name||'Unknown')}</b><small>${m.level!=null?`Lv ${m.level} · `:''}ID ${esc(m.player_id)}</small></div><div class="v">${fmtNum(m.wins_total)}<small>wins</small></div><div class="v hideS">${kdm}<small>K/D week</small></div><div class="v hideS"><small>${m.last_seen?ago(m.last_seen):'—'}</small></div><button class="x" title="Remove from this list">×</button>`;
+    r.onclick=e=>{if(e.target.closest('.x'))return;runLookup(m.player_id);window.scrollTo({top:0,behavior:'smooth'})};
+    r.querySelector('.x').onclick=async e=>{e.stopPropagation();try{clanData=await post('/api/clan/remove',{key:c.key,id:m.player_id});renderClan()}catch(err){toast(err.message,true)}};list.append(r)});
+  if(c.members.length<2)list.append(el('div','sub','Members show up here as you look them up, or add them by ID below.'))}
+$('#clanClose').onclick=()=>{$('#clanCard').hidden=true};
+$('#clanRefresh').onclick=async()=>{if(!clanData)return;const b=$('#clanRefresh');b.disabled=true;b.textContent='Refreshing…';try{clanData=await post('/api/clan/refresh',{key:clanData.key});renderClan()}catch(e){toast(e.message,true)}finally{b.disabled=false;b.textContent='Refresh'}};
+$('#clanAdd').onsubmit=async e=>{e.preventDefault();const id=$('#clanAddId').value.trim();if(!id||!clanData)return;try{clanData=await post('/api/clan/add',{key:clanData.key,id});$('#clanAddId').value='';renderClan();toast('Member added.')}catch(err){toast(err.message,true)}};
 
 // Client appearance (Settings > Appearance)
 const UI_THEMES=[
