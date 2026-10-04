@@ -1,4 +1,4 @@
-PG3D Mac Client 1.33.0
+PG3D Mac Client 1.34.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -113,3 +113,10 @@ Updates   New versions are published as releases of the private GitHub repo.
           client downloads and installs new versions by itself (checks every
           30 minutes, never mid-game). Dropping a zip into Downloads still
           works too.
+
+New in 1.34
+Style     Settings › Appearance › Style: "Noble" gives the client gold
+          frames, serif titles and navy backgrounds, inspired by the League
+          of Legends client. "Modern" is the look you know.
+Motion    Smoother hover effects, button presses and page transitions in
+          both styles. Turn them off with the Animations switch.

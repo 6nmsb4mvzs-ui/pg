@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.33.0"
+APP_VERSION = "1.34.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3455,6 +3455,19 @@ def set_ui_theme_pref(value):
     return {"ok": True, "ui_theme": value}
 
 
+def set_ui_style_pref(raw):
+    prefs = prefs_payload()
+    style = raw.get("style")
+    if style is not None:
+        if style not in ("modern", "noble"):
+            raise RuntimeError("Unknown style.")
+        prefs["ui_style"] = style
+    if "animations" in raw:
+        prefs["animations"] = bool(raw["animations"])
+    write_json(PREFS_JSON, prefs)
+    return {"ok": True, "ui_style": prefs.get("ui_style", "modern"), "animations": prefs.get("animations", True)}
+
+
 def set_fps_pref(value):
     val = fps_target_value(value)
     human = "uncapped" if val == "-1" else val
@@ -5136,6 +5149,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(set_sound_prefs(data))
             if path == "/api/prefs/ui-theme":
                 return self.send_json(set_ui_theme_pref(str(data.get("theme", ""))))
+            if path == "/api/prefs/ui-style":
+                return self.send_json(set_ui_style_pref(data))
             if path == "/api/prefs/fps":
                 return self.send_json(set_fps_pref(data.get("fps", "uncapped")))
             if path == "/api/clips/config":
