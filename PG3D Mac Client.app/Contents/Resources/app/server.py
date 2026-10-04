@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.29.0"
+APP_VERSION = "1.29.1"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3884,6 +3884,25 @@ EMBER_ICON_DIR = SUPPORT / "ember_icons"
 EMBER_ICON_FOLDERS = {"Weapons", "Armor", "WeaponSkin", "Pet", "Lookup", "Currency"}
 
 
+def ember_icon_url(folder, name):
+    if folder not in EMBER_ICON_FOLDERS or not re.fullmatch(r"[A-Za-z0-9 _-]{1,40}", name):
+        return None
+    return "https://emberpg3d.com/icons/{}/{}.png".format(folder, name.replace(" ", "%20"))
+
+
+def ember_icon_cached(folder, name):
+    """Path if the icon is cached, "missing" if Ember has none, else None."""
+    if not ember_icon_url(folder, name):
+        return "missing"
+    path = EMBER_ICON_DIR / folder / f"{name}.png"
+    if path.is_file():
+        return path
+    miss = path.with_suffix(".missing")
+    if miss.exists() and time.time() - miss.stat().st_mtime < 7 * 86400:
+        return "missing"
+    return None
+
+
 def ember_icon(folder, name):
     """Item/stat icons from Ember's site, cached on disk. None if missing."""
     if folder not in EMBER_ICON_FOLDERS or not re.fullmatch(r"[A-Za-z0-9 _-]{1,40}", name):
@@ -4252,8 +4271,27 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(gui_catalog())
         if path.startswith("/api/ember-icon/"):
             parts = unquote(path[len("/api/ember-icon/"):]).split("/")
-            icon = ember_icon(parts[0], parts[1][:-4]) if len(parts) == 2 and parts[1].endswith(".png") else None
-            return self.send_file(icon, cache=True) if icon else self.send_error(404)
+            if len(parts) != 2 or not parts[1].endswith(".png"):
+                return self.send_error(404)
+            folder, name = parts[0], parts[1][:-4]
+            cached_icon = ember_icon_cached(folder, name)
+            if cached_icon == "missing":
+                return self.send_error(404)
+            if cached_icon:
+                return self.send_file(cached_icon, cache=True)
+            # Not cached yet: let the browser load it from Ember directly (so slow
+            # first downloads don't tie up connections to this server) and save
+            # a copy in the background for next time.
+            url = ember_icon_url(folder, name)
+            if not url:
+                return self.send_error(404)
+            threading.Thread(target=ember_icon, args=(folder, name), daemon=True).start()
+            self.send_response(302)
+            self.send_header("Location", url)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         if path == "/api/lookup/suggest":
             return self.send_json(lookup_suggestions())
         if path.startswith("/api/lookup/"):

@@ -1,4 +1,4 @@
-PG3D Mac Client 1.29.0
+PG3D Mac Client 1.29.1
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
