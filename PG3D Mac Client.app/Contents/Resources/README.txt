@@ -1,4 +1,4 @@
-PG3D Mac Client 1.37.0
+PG3D Mac Client 1.38.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -139,3 +139,8 @@ Rank up   New rank-up sound in the style of League's promotion: magic
           glassy bell chord, a crystal sparkle run and an airy choir pad.
           Settings › Sounds › Rank-up sound file lets you use your own sound
           file instead (MP3, WAV, M4A, OGG, FLAC).
+
+New in 1.38
+Rank up   Deeper, warmer rank-up sound: a reverse swell rushing into the hit,
+          a soft deep boom with a short metallic shing, and a warm string and
+          low choir chord in a dark hall. No more high music-box notes.

@@ -1815,7 +1815,7 @@ function ruBus(ac){
   const out=ac.createGain(),lim=ac.createDynamicsCompressor();out.gain.value=1.7*(SND.volume/100);lim.threshold.value=-2.5;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.15;
   comp.connect(out);out.connect(lim);lim.connect(ac.destination);
   const len=Math.floor(ac.sampleRate*4.5),ir=ac.createBuffer(2,len,ac.sampleRate);
-  for(let c=0;c<2;c++){const d=ir.getChannelData(c);let lp=0;for(let i=0;i<len;i++){const x=i/len;lp=lp*.55+(Math.random()*2-1)*.45;d[i]=lp*Math.pow(1-x,2.4)*(i<ac.sampleRate*.02?i/(ac.sampleRate*.02):1)}}
+  for(let c=0;c<2;c++){const d=ir.getChannelData(c);let lp=0;for(let i=0;i<len;i++){const x=i/len;lp=lp*.78+(Math.random()*2-1)*.22;d[i]=lp*2.2*Math.pow(1-x,2.6)*(i<ac.sampleRate*.02?i/(ac.sampleRate*.02):1)}}
   const verb=ac.createConvolver();verb.buffer=ir;const wet=ac.createGain();wet.gain.value=.8;const pre=ac.createBiquadFilter();pre.type='highpass';pre.frequency.value=250;
   const predelay=ac.createDelay(.2);predelay.delayTime.value=.03;pre.connect(predelay);predelay.connect(verb);verb.connect(wet);wet.connect(comp);
   const bus={dry:comp,verb:pre};try{Object.defineProperty(ac,'__ruBus',{value:bus,configurable:true})}catch{}return bus}
@@ -1828,41 +1828,45 @@ function ruBell(ac,bus,f,t,{peak=.2,len=2.6,ratio=3.5,index=4,dry=.8,wet=.8,pan=
   mg.gain.setValueAtTime(f*index,t);mg.gain.exponentialRampToValueAtTime(f*.05,t+len*.6);mod.connect(mg);mg.connect(car.frequency);
   g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+.004);g.gain.exponentialRampToValueAtTime(peak*.35,t+.25);g.gain.exponentialRampToValueAtTime(.0001,t+len);
   car.connect(g);ruOut(ac,g,bus,{dry,wet,pan});car.start(t);mod.start(t);car.stop(t+len+.05);mod.stop(t+len+.05)}
-// Airy choir pad: soft detuned triangles, slow attack, gentle low-pass.
-function ruPad(ac,bus,freqs,t,{peak=.1,att=.6,hold=1,rel=2.6,cut=2600}={}){
-  const lp=ac.createBiquadFilter(),g=ac.createGain();lp.type='lowpass';lp.frequency.value=cut;lp.Q.value=.5;
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+att);g.gain.setValueAtTime(peak,t+att+hold);g.gain.exponentialRampToValueAtTime(.0001,t+att+hold+rel);lp.connect(g);ruOut(ac,g,bus,{dry:.6,wet:1});
-  freqs.forEach((f,k)=>{for(let v=0;v<3;v++){const o=ac.createOscillator();o.type=v===1?'sine':'triangle';o.frequency.value=f;o.detune.value=(v-1)*8+(k%2?3:-3);
-    const lfo=ac.createOscillator(),lg=ac.createGain();lfo.frequency.value=.25+v*.11+k*.05;lg.gain.value=6;lfo.connect(lg);lg.connect(o.detune);o.connect(lp);const end=t+att+hold+rel+.05;o.start(t);o.stop(end);lfo.start(t);lfo.stop(end)}})}
 // Soft deep "whoom": warm sine swell, no harsh click.
 function ruWhoom(ac,bus,t,{from=110,to=48,peak=.7,len=1.4}={}){const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.setValueAtTime(from,t);o.frequency.exponentialRampToValueAtTime(to,t+len*.6);
   g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+.025);g.gain.exponentialRampToValueAtTime(.0001,t+len);o.connect(g);ruOut(ac,g,bus,{dry:1,wet:.15});o.start(t);o.stop(t+len+.05)}
-function ruAir(ac,bus,t,{dur=1,from=800,to=7000,peak=.12,rise=true}={}){const n=ruNoise(ac,dur+.1),f=ac.createBiquadFilter(),g=ac.createGain();f.type='bandpass';f.Q.value=1.4;
-  f.frequency.setValueAtTime(from,t);f.frequency.exponentialRampToValueAtTime(to,t+dur);g.gain.setValueAtTime(.0001,t);
-  if(rise){g.gain.exponentialRampToValueAtTime(peak,t+dur*.95);g.gain.exponentialRampToValueAtTime(.0001,t+dur+.05)}else{g.gain.exponentialRampToValueAtTime(peak,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+dur)}
-  n.connect(f);f.connect(g);ruOut(ac,g,bus,{dry:.7,wet:.7});n.start(t);n.stop(t+dur+.1)}
-const RU_E={E2:82.41,B2:123.47,E3:164.81,Gs3:207.65,B3:246.94,Cs4:277.18,E4:329.63,Fs4:369.99,Gs4:415.3,B4:493.88,Cs5:554.37,E5:659.25,Fs5:739.99,Gs5:830.61,B5:987.77,E6:1318.51,Gs6:1661.22,B6:1975.53};
-// Charge: magic gathering. Shimmering bell tremolo climbing over an airy rising rush and a low swell.
+const RU_E={E1:41.2,E2:82.41,B2:123.47,E3:164.81,Gs3:207.65,B3:246.94,Cs4:277.18,Ds4:311.13,E4:329.63,Fs4:369.99,Gs4:415.3,B4:493.88,E5:659.25};
+// Warm string section: detuned saws, slow bow attack, dark low-pass that breathes open.
+function ruStrings(ac,bus,freqs,t,{peak=.1,att=.12,hold=.6,rel=3,cut=1300,open=2200,wet=.9}={}){
+  const lp=ac.createBiquadFilter(),g=ac.createGain();lp.type='lowpass';lp.Q.value=.7;lp.frequency.setValueAtTime(cut*.6,t);lp.frequency.exponentialRampToValueAtTime(open,t+att+.25);lp.frequency.exponentialRampToValueAtTime(cut,t+att+hold+rel*.6);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+att);g.gain.setValueAtTime(peak,t+att+hold);g.gain.exponentialRampToValueAtTime(.0001,t+att+hold+rel);lp.connect(g);ruOut(ac,g,bus,{dry:.7,wet});
+  const end=t+att+hold+rel+.05;freqs.forEach((f,k)=>{for(let v=0;v<4;v++){const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;o.detune.value=(v-1.5)*6;
+    const lfo=ac.createOscillator(),lg=ac.createGain();lfo.frequency.value=4.6+v*.37+k*.13;lg.gain.value=4;lfo.connect(lg);lg.connect(o.detune);o.connect(lp);o.start(t);o.stop(end);lfo.start(t);lfo.stop(end)}})}
+// Low "oh" choir: saws through dark vowel formants.
+function ruChoirLow(ac,bus,freqs,t,{peak=.1,att=.5,hold=.9,rel=3}={}){
+  const mix=ac.createGain();mix.gain.setValueAtTime(.0001,t);mix.gain.exponentialRampToValueAtTime(peak,t+att);mix.gain.setValueAtTime(peak,t+att+hold);mix.gain.exponentialRampToValueAtTime(.0001,t+att+hold+rel);ruOut(ac,mix,bus,{dry:.5,wet:1});
+  const src=ac.createGain();for(const [ff,q,gg] of [[480,8,1],[860,9,.5],[2600,12,.12]]){const bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=ff;bp.Q.value=q;const fg=ac.createGain();fg.gain.value=gg*3;src.connect(bp);bp.connect(fg);fg.connect(mix)}
+  const end=t+att+hold+rel+.05;for(const f of freqs)for(let v=0;v<3;v++){const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;o.detune.value=(v-1)*10;const lfo=ac.createOscillator(),lg=ac.createGain();lfo.frequency.value=5+v*.4;lg.gain.value=6;lfo.connect(lg);lg.connect(o.detune);o.connect(src);o.start(t);o.stop(end);lfo.start(t);lfo.stop(end)}}
+// Reverse-cymbal style swell: noise that accelerates into the hit.
+function ruReverse(ac,bus,t,dur,{peak=.3}={}){const n=ruNoise(ac,dur+.05),lp=ac.createBiquadFilter(),hp=ac.createBiquadFilter(),g=ac.createGain();lp.type='lowpass';hp.type='highpass';hp.frequency.value=400;
+  lp.frequency.setValueAtTime(700,t);lp.frequency.exponentialRampToValueAtTime(9000,t+dur);
+  const steps=24;g.gain.setValueAtTime(.0001,t);for(let i=1;i<=steps;i++){const x=i/steps;g.gain.linearRampToValueAtTime(Math.max(.0001,peak*Math.pow(x,3.2)),t+dur*x)}g.gain.setValueAtTime(.0001,t+dur+.01);
+  n.connect(hp);hp.connect(lp);lp.connect(g);ruOut(ac,g,bus,{dry:.8,wet:.5});n.start(t);n.stop(t+dur+.05)}
+// Charge: reverse swell + low strings rising into the hit.
 function ruRiser(dur=1.1){if(!SND.enabled||!SND.rankup||ruCustomSound())return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_E;
-  ruAir(ac,bus,t,{dur,from:600,to:6500,peak:.16});
-  ruPad(ac,bus,[N.E2,N.B2],t,{peak:.09,att:dur*.9,hold:.05,rel:.25,cut:900});
-  const notes=[N.B4,N.E5,N.Gs5,N.B5,N.E6,N.Gs6];let x=0,k=0;while(x<dur-.04){ruBell(ac,bus,notes[k%notes.length]*(1+Math.floor(k/notes.length)*0),t+x,{peak:.04+.06*(x/dur),len:.6,ratio:2.01,index:2.5,dry:.5,wet:.9,pan:k%2?.45:-.45});x+=Math.max(.045,.13*(1-x/dur)+.04);k++}}catch{}}
-// Landing: soft whoom + a big glassy bell chord, a crystal sparkle arpeggio, then a warm choir pad.
+  ruReverse(ac,bus,t,dur,{peak:.32});
+  ruStrings(ac,bus,[N.E2,N.B2,N.E3],t,{peak:.09,att:dur*.92,hold:.02,rel:.18,cut:500,open:1500,wet:.5});
+  ruWhoom(ac,bus,t+dur*.55,{from:45,to:60,peak:.25,len:dur*.5})}catch{}}
+// Landing: deep boom + metallic shing + a warm heroic E chord in strings and low choir, dark hall tail.
 function ruSound(){const cs=ruCustomSound();if(cs){ruPlayCustom(cs);return}if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_E;
-  ruWhoom(ac,bus,t,{from:120,to:46,peak:.75,len:1.6});
-  ruAir(ac,bus,t,{dur:1.6,from:9000,to:2500,peak:.1,rise:false});
-  ruBell(ac,bus,N.E3,t,{peak:.2,len:4,ratio:1.4,index:3,dry:.9,wet:.9});
-  ruBell(ac,bus,N.B3,t+.005,{peak:.12,len:3.6,ratio:3.5,index:2.5,pan:-.2});
-  ruBell(ac,bus,N.E4,t+.01,{peak:.13,len:3.4,ratio:3.5,index:3,pan:.2});
-  ruBell(ac,bus,N.Gs4,t+.015,{peak:.08,len:3,ratio:2.01,index:2});
-  [N.E5,N.Gs5,N.B5,N.E6,N.Gs6,N.B6].forEach((f,i)=>ruBell(ac,bus,f,t+.16+i*.075,{peak:.075-i*.006,len:1.8,ratio:2.01,index:1.8,dry:.55,wet:1,pan:(i%2?.55:-.55)*(1-i*.08)}));
-  ruPad(ac,bus,[N.E3,N.Gs3,N.B3,N.E4],t+.2,{peak:.11,att:.7,hold:1.1,rel:2.8,cut:3000});
-  ruPad(ac,bus,[N.E2,N.B2],t+.1,{peak:.07,att:.4,hold:1.2,rel:2.2,cut:600})}catch{}}
-// Trophy road step: glassy bell "ting" with a soft whoom, climbing an E major scale.
+  ruWhoom(ac,bus,t,{from:90,to:36,peak:.9,len:2});
+  {const n=ruNoise(ac,.6),lp=ac.createBiquadFilter(),g=ac.createGain();lp.type='lowpass';lp.frequency.setValueAtTime(900,t);lp.frequency.exponentialRampToValueAtTime(120,t+.5);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.5,t+.005);g.gain.exponentialRampToValueAtTime(.0001,t+.55);n.connect(lp);lp.connect(g);ruOut(ac,g,bus,{dry:1,wet:.4});n.start(t);n.stop(t+.6)}
+  ruBell(ac,bus,N.E5,t,{peak:.05,len:1.4,ratio:2.76,index:7,dry:.4,wet:.9,pan:.25});ruBell(ac,bus,N.B4,t+.004,{peak:.04,len:1.2,ratio:3.17,index:6,dry:.4,wet:.9,pan:-.25});
+  ruBell(ac,bus,N.E2,t,{peak:.22,len:4.5,ratio:1.4,index:2.2,dry:.8,wet:.8});ruBell(ac,bus,N.E3,t+.01,{peak:.1,len:3.8,ratio:1.4,index:1.8});
+  ruStrings(ac,bus,[N.E2,N.B2,N.E3,N.Gs3,N.B3],t+.02,{peak:.085,att:.09,hold:.9,rel:3.2,cut:1200,open:2600});
+  ruStrings(ac,bus,[N.E4,N.Gs4],t+.35,{peak:.035,att:.6,hold:.6,rel:2.6,cut:1800,open:2600,wet:1});
+  ruChoirLow(ac,bus,[N.E3,N.B3,N.E4,N.Gs3],t+.15,{peak:.09,att:.55,hold:.9,rel:3})}catch{}}
+// Trophy road step: low bell + short string swell, stepping up E major in the mid register.
 function ruStep(i){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_E;
-  const sc=[N.E4,N.Fs4,N.Gs4,N.B4,N.Cs5,N.E5,N.Fs5,N.Gs5][Math.min(7,i)];
-  ruBell(ac,bus,sc,t,{peak:.16,len:1.6,ratio:3.5,index:2.6,pan:0});ruBell(ac,bus,sc*2,t+.01,{peak:.05,len:1,ratio:2.01,index:1.5,dry:.4,wet:1});
-  ruWhoom(ac,bus,t,{from:140,to:70,peak:.35,len:.5});ruAir(ac,bus,t,{dur:.35,from:5000,to:1500,peak:.05,rise:false})}catch{}}
+  const sc=[N.E3,N.Fs4/2,N.Gs3,N.B3/1,N.Cs4,N.Ds4,N.E4,N.Gs4][Math.min(7,i)];
+  ruBell(ac,bus,sc,t,{peak:.14,len:1.8,ratio:1.4,index:2.4});ruBell(ac,bus,sc*2,t+.003,{peak:.03,len:.7,ratio:2.76,index:5,dry:.3,wet:.9});
+  ruStrings(ac,bus,[sc/2,sc],t,{peak:.06,att:.05,hold:.15,rel:.7,cut:1000,open:1900,wet:.7});ruWhoom(ac,bus,t,{from:100,to:55,peak:.4,len:.6})}catch{}}
 // Custom rank-up sound file chosen in Settings > Sounds.
 function ruCustomSound(){return SND.custom_rankup?`/api/sound/rankup?v=${encodeURIComponent(SND.custom_rankup)}`:null}
 function ruPlayCustom(url){if(!SND.enabled||!SND.rankup)return;try{const a=new Audio(url);a.volume=Math.max(0,Math.min(1,SND.volume/100));a.play().catch(()=>{})}catch{}}
