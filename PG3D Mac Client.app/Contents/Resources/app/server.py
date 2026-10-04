@@ -102,7 +102,6 @@ OVERLAY_SCRIPT = BASE / "overlay.py"
 OVERLAY_EDIT_REQUEST_JSON = STATE_DIR / "overlay_edit_request.json"
 OVERLAY_RANK_JSON = STATE_DIR / "overlay_rank.json"
 LAST_SESSION_JSON = STATE_DIR / "last_session.json"
-CLANS_JSON = STATE_DIR / "clans.json"
 _PLAYER_COUNT_CACHE = {"value": None, "at": 0.0}
 PLAYTIME_JSON = STATE_DIR / "playtime.json"
 WINS_JSON = STATE_DIR / "wins.json"
@@ -1186,7 +1185,10 @@ def rebuild_sources(source_strings, state=None, progress=None):
                 rep = op.get("replace")
                 if rep and not hidden:
                     try:
-                        icon = styled_cursor_icon(rep["cursor"], rep.get("color"), rep.get("outline"), rep.get("outline_width", 0))
+                        if rep.get("file"):
+                            icon = Image.open(ROLE_DIR / op.get("role", "") / Path(rep["file"]).name).convert("RGBA")
+                        else:
+                            icon = styled_cursor_icon(rep["cursor"], rep.get("color"), rep.get("outline"), rep.get("outline_width", 0))
                         entry["image"].alpha_composite(fit_cursor(icon, (w, h), float(rep.get("size", 90))), (x, y))
                     except Exception as e:
                         log(f"Sprite swap skipped for {path_id}: {e}")
@@ -1402,6 +1404,64 @@ def apply_gui_asset(asset_id, scale=100, hidden=False):
     return {"ok": True}
 
 
+ROLE_DIR = SUPPORT / "sprite_packs"
+
+
+def role_library(role):
+    data = read_json(ROLE_DIR / role / "library.json", {"items": []})
+    return [x for x in data.get("items", []) if (ROLE_DIR / role / x.get("file", "")).is_file()]
+
+
+def install_role_sprite(role, data_url, name):
+    if role not in SPRITE_ROLES:
+        raise RuntimeError("Unknown sprite type.")
+    if "," not in str(data_url):
+        raise RuntimeError("Invalid image upload.")
+    raw = base64.b64decode(str(data_url).split(",", 1)[1])
+    if len(raw) > 8 * 1024 * 1024:
+        raise RuntimeError("Images must be smaller than 8 MB.")
+    try:
+        im = Image.open(io.BytesIO(raw)).convert("RGBA")
+    except Exception:
+        raise RuntimeError("Use a PNG image.")
+    im = trim_alpha(im)
+    if im.width < 4 or im.height < 4:
+        raise RuntimeError("That image is empty.")
+    if max(im.size) > 512:
+        im.thumbnail((512, 512), Image.Resampling.LANCZOS)
+    folder = ROLE_DIR / role
+    folder.mkdir(parents=True, exist_ok=True)
+    item_id = hashlib.sha256(raw).hexdigest()[:12]
+    im.save(folder / f"{item_id}.png")
+    lib = read_json(folder / "library.json", {"items": []})
+    title = re.sub(r"\.png$", "", str(name or ""), flags=re.I).replace("_", " ").replace("-", " ").strip()[:40]
+    lib["items"] = [x for x in lib.get("items", []) if x.get("id") != item_id] + [
+        {"id": item_id, "name": title or "Custom", "file": f"{item_id}.png"}]
+    write_json(folder / "library.json", lib)
+    return {"ok": True, "id": item_id}
+
+
+def _role_in_use(role):
+    return next((op.get("replace") for op in load_mods().get("gui", {}).values()
+                 if op.get("role") == role and op.get("replace")), None)
+
+
+def delete_role_sprite(role, item_id):
+    if role not in SPRITE_ROLES:
+        raise RuntimeError("Unknown sprite type.")
+    used = _role_in_use(role)
+    if used and used.get("id") == item_id:
+        raise RuntimeError("That one is in use. Reset it first.")
+    folder = ROLE_DIR / role
+    lib = read_json(folder / "library.json", {"items": []})
+    for x in lib.get("items", []):
+        if x.get("id") == item_id:
+            (folder / Path(x["file"]).name).unlink(missing_ok=True)
+    lib["items"] = [x for x in lib.get("items", []) if x.get("id") != item_id]
+    write_json(folder / "library.json", lib)
+    return {"ok": True}
+
+
 def role_items(role):
     return [x for x in gui_catalog().get("items", []) if x.get("role") == role]
 
@@ -1413,20 +1473,23 @@ def sprite_roles_payload():
     for role in SPRITE_ROLES:
         items = [x for x in cat.get("items", []) if x.get("role") == role]
         applied = next((op.get("replace") for op in mods.get("gui", {}).values() if op.get("role") == role and op.get("replace")), None)
-        out[role] = {"count": len(items), "previews": [x["preview"] for x in items[:6]], "applied": applied}
+        out[role] = {"count": len(items), "previews": [x["preview"] for x in items[:6]], "applied": applied,
+                     "installed": [{"id": x["id"], "name": x["name"], "thumb": f"/api/sprites/file/{role}/{x['id']}.png"}
+                                   for x in role_library(role)]}
     return {"scanned": bool(cat.get("generated")), "roles": out}
 
 
-def apply_sprite_role(role, cursor_id, size=90, color=None, outline=None, outline_width=0):
+def apply_sprite_role(role, item_id, size=90):
     if role not in SPRITE_ROLES:
         raise RuntimeError("Unknown sprite type.")
     items = role_items(role)
     if not items:
         raise RuntimeError("PG3D's current build doesn't have a sprite for this that the client can find.")
-    cursor_image_path(cursor_id)
-    color, outline, ow = _cursor_style(color, outline, outline_width)
+    pack = next((x for x in role_library(role) if x["id"] == item_id), None)
+    if not pack:
+        raise RuntimeError("Install one first.")
     size = max(8.0, min(100.0, float(size)))
-    rep = {"cursor": cursor_id, "size": size, "color": color, "outline": outline, "outline_width": ow}
+    rep = {"id": pack["id"], "file": pack["file"], "name": pack["name"], "size": size}
 
     def change(state):
         for item in items:
@@ -1437,7 +1500,7 @@ def apply_sprite_role(role, cursor_id, size=90, color=None, outline=None, outlin
                 "pivot_x": float(item.get("pivot_x", 0.5)), "pivot_y": float(item.get("pivot_y", 0.5)),
                 "scale": 100, "hidden": False, "role": role, "replace": rep,
             }
-    mutate_state(change, f"{'Hit marker' if role == 'hitmarker' else 'Kill icon'}: {cursor_id}")
+    mutate_state(change, f"{'Hit marker' if role == 'hitmarker' else 'Kill icon'}: {pack['name']}")
     return {"ok": True}
 
 
@@ -4487,93 +4550,7 @@ def lookup_player(pid):
         return hit
     data = _ember_fetch(pid, full=True)
     _LOOKUP_CACHE[pid] = data
-    try:
-        remember_clan_member(data)
-    except Exception as e:
-        log(f"Clan roster update failed: {e}")
     return data
-
-
-# --------------------------------------------------------------- clan roster
-# Ember's public lookup names a player's clan but has no clan member list, so
-# the client builds one from players you look up (and members you add by ID).
-_CLAN_LOCK = threading.Lock()
-
-
-def clan_key(name, tag):
-    return f"{(tag or '').strip().lower()}|{(name or '').strip().lower()}"
-
-
-def _member_snapshot(p):
-    w = p.get("weekly") or {}
-    return {"player_id": p["player_id"], "name": p.get("name") or "", "level": p.get("level"),
-            "wins_total": p.get("wins_total"), "kills": w.get("kills"), "deaths": w.get("deaths"),
-            "wins_week": w.get("wins"), "last_seen": p.get("last_seen"), "banned": p.get("banned"),
-            "fetched": p.get("fetched") or int(time.time())}
-
-
-def remember_clan_member(p):
-    """Keep the roster in step with a fresh lookup: join, update or move clans."""
-    pid = p.get("player_id")
-    if not pid:
-        return
-    key = clan_key(p.get("clan"), p.get("clan_tag")) if p.get("clan") else None
-    with _CLAN_LOCK:
-        data = read_json(CLANS_JSON, {"clans": {}})
-        clans = data.setdefault("clans", {})
-        changed = False
-        for k, c in clans.items():
-            if k != key and pid in c.get("members", {}):
-                c["members"].pop(pid, None)  # left or switched clan
-                changed = True
-        if key:
-            c = clans.setdefault(key, {"name": p["clan"], "tag": p.get("clan_tag") or "", "members": {}})
-            c["name"], c["tag"] = p["clan"], p.get("clan_tag") or c.get("tag", "")
-            c["members"][pid] = _member_snapshot(p)
-            changed = True
-        if changed:
-            write_json(CLANS_JSON, data)
-
-
-def clan_payload(key):
-    c = read_json(CLANS_JSON, {"clans": {}}).get("clans", {}).get(key)
-    if not c:
-        raise RuntimeError("Look up a member of this clan first.")
-    members = sorted(c.get("members", {}).values(), key=lambda m: -(m.get("wins_total") or 0))
-    num = lambda k: sum(int(m.get(k) or 0) for m in members)
-    return {"key": key, "name": c["name"], "tag": c.get("tag", ""), "members": members,
-            "totals": {"wins": num("wins_total"), "kills": num("kills"), "deaths": num("deaths"), "wins_week": num("wins_week")}}
-
-
-def clan_add_member(key, pid):
-    p = lookup_player(pid)
-    if clan_key(p.get("clan"), p.get("clan_tag")) != key or not p.get("clan"):
-        where = f"[{p['clan_tag']}] {p['clan']}" if p.get("clan_tag") else (p.get("clan") or "no clan")
-        raise RuntimeError(f"{p.get('name') or pid} is in {where}, not this clan.")
-    return clan_payload(key)
-
-
-def clan_remove_member(key, pid):
-    with _CLAN_LOCK:
-        data = read_json(CLANS_JSON, {"clans": {}})
-        c = data.get("clans", {}).get(key)
-        if c:
-            c.get("members", {}).pop(str(pid), None)
-            write_json(CLANS_JSON, data)
-    return clan_payload(key)
-
-
-def clan_refresh(key):
-    ids = [m["player_id"] for m in clan_payload(key)["members"]][:40]
-    for pid in ids:
-        try:
-            lookup_player(pid)
-        except Exception as e:
-            log(f"Clan refresh skipped {pid}: {e}")
-    try:
-        return clan_payload(key)
-    except RuntimeError:
-        return {"key": key, "members": [], "gone": True}
 
 
 def lookup_suggestions():
@@ -4928,6 +4905,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(gui_catalog())
         if path == "/api/sprites":
             return self.send_json(sprite_roles_payload())
+        if path.startswith("/api/sprites/file/"):
+            parts = path.split("/")
+            if len(parts) != 6 or parts[4] not in SPRITE_ROLES or not re.fullmatch(r"[0-9a-f]{12}\.png", parts[5]):
+                return self.send_error(403)
+            return self.send_file(ROLE_DIR / parts[4] / parts[5])
         if path.startswith("/api/ember-icon/"):
             parts = unquote(path[len("/api/ember-icon/"):]).split("/")
             if len(parts) != 2 or not parts[1].endswith(".png"):
@@ -4951,11 +4933,6 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
-        if path == "/api/clan":
-            try:
-                return self.send_json(clan_payload((query.get("key") or [""])[0]))
-            except Exception as e:
-                return self.send_json({"error": str(e)}, 400)
         if path == "/api/lookup/suggest":
             return self.send_json(lookup_suggestions())
         if path.startswith("/api/lookup/"):
@@ -5066,8 +5043,11 @@ class Handler(BaseHTTPRequestHandler):
                 start_cursor_init(force=True)
                 return self.send_json({"ok": True})
             if path == "/api/sprites/apply":
-                return self.send_json(apply_sprite_role(data.get("role"), data.get("cursor"), data.get("size", 90),
-                                                        data.get("color"), data.get("outline"), data.get("outline_width", 0)))
+                return self.send_json(apply_sprite_role(data.get("role"), str(data.get("id") or ""), data.get("size", 90)))
+            if path == "/api/sprites/install":
+                return self.send_json(install_role_sprite(data.get("role"), data.get("data"), data.get("name")))
+            if path == "/api/sprites/delete":
+                return self.send_json(delete_role_sprite(data.get("role"), str(data.get("id") or "")))
             if path == "/api/sprites/reset":
                 return self.send_json(reset_sprite_role(data.get("role")))
             if path == "/api/gui/scan":
@@ -5087,12 +5067,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(clear_hud_set())
             if path == "/api/gui/import-hud-selection":
                 return self.send_json(import_hud_selector_selection())
-            if path == "/api/clan/add":
-                return self.send_json(clan_add_member(str(data.get("key", "")), data.get("id")))
-            if path == "/api/clan/remove":
-                return self.send_json(clan_remove_member(str(data.get("key", "")), data.get("id")))
-            if path == "/api/clan/refresh":
-                return self.send_json(clan_refresh(str(data.get("key", ""))))
             if path == "/api/font/apply":
                 return self.send_json(apply_font(str(data.get("id") or "")))
             if path == "/api/font/upload":

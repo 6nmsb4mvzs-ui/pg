@@ -350,15 +350,7 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .fnChip:hover:not(:disabled){border-color:hsl(var(--nh) var(--ns) 30%)}.fnChip.sel{border-color:var(--accent);box-shadow:0 0 0 1px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .35)}
 .fnChip:disabled{opacity:.45;cursor:not-allowed}.fnChip.add{color:var(--muted);font-size:13px}.fnChip.pixel{font-size:10px;line-height:19px}
 .skModeSeg{margin-right:auto}.skLoadPrev{aspect-ratio:16/9;border-radius:12px;border:1px solid var(--border);background:#000 center/cover no-repeat;width:min(100%,560px)}
-.lkBadge.clanLink{cursor:pointer}.lkBadge.clanLink:hover{border-color:var(--accent)!important;color:var(--text)!important}
-.clanTotals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
-.clanTotals div{background:hsl(var(--nh) var(--ns) 6%);border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
-.clanTotals b{display:block;font-size:17px;color:var(--text);font-family:var(--font-head);text-transform:none;letter-spacing:0}
-.clanList{display:grid;gap:4px}.clanRow{display:grid;grid-template-columns:24px minmax(0,1fr) 90px 80px 96px 24px;gap:10px;align-items:center;padding:8px 10px;border-radius:9px;border:1px solid transparent;background:hsl(var(--nh) var(--ns) 5%);cursor:pointer;color:var(--text);text-align:left;font-size:12.5px}
-.clanRow:hover{border-color:var(--border)}.clanRow .n{color:var(--muted);font-weight:700}.clanRow b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.clanRow small{color:var(--muted);font-size:11px}
-.clanRow .v{text-align:right;font-weight:700}.clanRow .v small{display:block;font-weight:500}.clanRow .x{opacity:0;color:var(--muted);background:none;border:0;cursor:pointer;font-size:15px}.clanRow:hover .x{opacity:1}
-.clanAdd{display:flex;gap:8px;margin-top:12px}.clanAdd .search{flex:1}
-@media(max-width:760px){.clanTotals{grid-template-columns:1fr 1fr}.clanRow{grid-template-columns:20px minmax(0,1fr) 80px 24px}.clanRow .hideS{display:none}}
+.cursorGrid>.empty{grid-column:1/-1}.roleCard{position:relative}.roleDel{position:absolute;top:6px;right:8px;opacity:0;color:var(--muted);font-size:15px;line-height:1;padding:2px 4px;border-radius:5px}.roleCard:hover .roleDel{opacity:1}.roleDel:hover{color:var(--text);background:hsl(var(--nh) var(--ns) 14%)}
 .curRoleNote{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;min-height:20px}
 #curRoleNote img{width:26px!important;height:26px!important;max-width:26px;flex:none;object-fit:contain;background:hsl(var(--nh) var(--ns) 3%);border:1px solid var(--border);border-radius:6px;padding:2px}
 .curSeg button.active{background:linear-gradient(135deg,var(--ember),var(--accent-deep));color:#f5f5ff}
@@ -795,9 +787,9 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <div class="sectionHead"><h2 id="cursorPreviewTitle">Preview</h2></div>
           <div class="previewField" id="cursorPreview" hidden><img class="previewCursor" id="cursorPreviewImg"></div>
           <div class="curField"><div class="xLabel">Size</div><div class="rangeRow"><input type="range" id="cursorSize" min="8" max="100" value="45"><div class="rangeVal" id="cursorSizeValue">45%</div></div></div>
-          <div class="curField"><div class="xLabel">Color</div><div class="curSwatches" id="curSwatches"></div></div>
+          <div class="curField" id="curColorField"><div class="xLabel">Color</div><div class="curSwatches" id="curSwatches"></div></div>
           <div hidden><span id="cursorHexPreview"></span><input id="cursorHex" value="FFFFFF"><input id="cursorSpectrum" type="range" min="0" max="359" value="0"></div>
-          <div class="curField"><div class="xLabel">Outline</div><div class="curSeg" id="cursorOutlineSeg"><button data-ow="0" class="active">Off</button><button data-ow="2">Thin</button><button data-ow="3">Bold</button></div><div id="cursorOutlineColors" hidden></div></div>
+          <div class="curField" id="curOutlineField"><div class="xLabel">Outline</div><div class="curSeg" id="cursorOutlineSeg"><button data-ow="0" class="active">Off</button><button data-ow="2">Thin</button><button data-ow="3">Bold</button></div><div id="cursorOutlineColors" hidden></div></div>
           <div class="curRoleNote" id="curRoleNote" hidden></div>
           <div class="xRow"><button class="btn primary xBig" id="applyCursor">Apply</button><button class="btn" id="resetCursor">Reset</button></div>
         </div>
@@ -945,7 +937,7 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
         <div class="crCard setCard">
           <div class="crCardHead"><h3>Troubleshooting</h3></div>
           <p class="setNote">If something isn't working, copy the report and paste it into your message.</p>
-          <div class="setActions"><button class="btn primary" id="diagCopy">Copy diagnostic report</button><button class="btn" id="diagLogs">Show log files</button><button class="btn" id="redetectCursor">Re-detect cursor</button></div>
+          <div class="setActions"><button class="btn primary" id="diagCopy">Copy diagnostic report</button><button class="btn" id="diagLogs">Show log files</button><button class="btn" id="redetectCursor">Re-detect cursor</button><button class="btn" id="rescanGame" title="Look through PG3D's files again, for example after a game update">Rescan game files</button></div>
         </div>
       </div>
     </section>
@@ -983,19 +975,13 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <div class="lkTabs" id="lkTabs"></div>
           <div id="lkBody"></div>
         </div>
-        <div class="crCard" id="clanCard" hidden>
-          <div class="crCardHead"><h3 id="clanTitle">Clan</h3><div class="xRow"><button class="btn ghost" id="clanRefresh" title="Refresh every member's stats">Refresh</button><button class="btn ghost" id="clanClose" title="Close">×</button></div></div>
-          <div class="clanTotals" id="clanTotals"></div>
-          <div class="clanList" id="clanList"></div>
-          <form class="clanAdd" id="clanAdd"><input class="search" id="clanAddId" inputmode="numeric" placeholder="Add member by player ID" autocomplete="off" spellcheck="false"><button class="btn" type="submit">Add</button></form>
-        </div>
       </div>
     </section>
 
     <section class="page" id="page-hud">
       <div class="cursorLayout">
         <div class="card pad">
-          <div class="sectionHead"><div class="curSeg" id="hudFilter"><button data-f="all" class="active">All</button><button data-f="changed">Changed</button></div><div class="toolbar"><input class="search" id="hudSearch" placeholder="Search" spellcheck="false"><button class="btn ghost" id="hudScan" title="Look through PG3D's files again">Rescan</button></div></div>
+          <div class="sectionHead"><div class="curSeg" id="hudFilter"><button data-f="all" class="active">All</button><button data-f="changed">Changed</button></div><div class="toolbar"><input class="search" id="hudSearch" placeholder="Search" spellcheck="false"></div></div>
           <div class="hudGrid" id="hudGrid"></div>
         </div>
         <div class="card previewPanel">
@@ -1021,8 +1007,7 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <div class="thPreview" id="thPreview" hidden></div>
           <p class="xNote">Preview: the Armory from Steam, recolored. In game every menu, HUD and icon texture changes the same way; maps and characters in matches keep their colors.</p>
           <div class="xJob" id="thJob" style="margin-top:12px"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <div class="xRow" style="margin-top:14px"><button class="btn primary xBig" id="thApply">Apply theme</button><button class="btn" id="thReset">Restore original</button><span class="xSpacer"></span><button class="btn ghost" id="thRescan">Rescan game files</button></div>
-          <p class="xNote" id="thScanInfo"></p>
+          <div class="xRow" style="margin-top:14px"><button class="btn primary xBig" id="thApply">Apply theme</button><button class="btn" id="thReset">Restore original</button></div>
           <div hidden><input type="range" id="thStrength" min="30" max="100" value="85"><b id="thStrengthVal"></b><button id="thPrev"></button><button id="thNext"></button><span id="thSampleIdx"></span></div>
         </div>
         <div class="crCard">
@@ -1050,7 +1035,7 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <input type="range" id="skYaw" min="0" max="359" value="0" hidden><b id="skYawVal" hidden></b>
           <p class="xNote" id="skLoadNote" hidden></p>
           <details class="xDetails" id="skTargetsBox"><summary id="skTargetsSum">Sky textures</summary>
-            <div class="xRow" style="margin:8px 0"><button class="btn ghost" id="skAll">All</button><button class="btn ghost" id="skNone">None</button><button class="btn ghost" id="skRescan">Rescan</button></div>
+            <div class="xRow" style="margin:8px 0"><button class="btn ghost" id="skAll">All</button><button class="btn ghost" id="skNone">None</button></div>
             <div class="skTargets" id="skTargets"></div>
           </details>
           <div class="xJob" id="skJob" style="margin-top:12px"><div class="msg"></div><div class="bar"><i></i></div></div>
@@ -1180,11 +1165,20 @@ function renderLaunch(){const s=statusData;if(!s)return;const busy=LAUNCH_BUSY.i
 $('#startNormal').onclick=()=>launch('normal');$('#startFps').onclick=()=>launch('fps');
 
 // Cursor
-function renderCursorGrid(){const q=($('#cursorSearch').value||'').toLowerCase();const grid=$('#cursorGrid');grid.innerHTML='';const list=cursorCatalog.filter(x=>(x.name+' '+x.category).toLowerCase().includes(q));for(const x of list){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor===x.id?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/${x.file}"></div><div class="cursorName"></div>`;b.querySelector('.cursorName').textContent=x.name;b.onclick=()=>{selectedCursor=x.id;localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}if(statusData?.custom_cursor){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor==='custom'?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/api/custom-cursor.png?t=${Date.now()}"></div><div class="cursorName">Custom</div>`;b.onclick=()=>{selectedCursor='custom';localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}}
+function renderCursorGrid(){if(curTarget!=='cursor')return renderRoleGrid();const q=($('#cursorSearch').value||'').toLowerCase();const grid=$('#cursorGrid');grid.innerHTML='';const list=cursorCatalog.filter(x=>(x.name+' '+x.category).toLowerCase().includes(q));for(const x of list){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor===x.id?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/${x.file}"></div><div class="cursorName"></div>`;b.querySelector('.cursorName').textContent=x.name;b.onclick=()=>{selectedCursor=x.id;localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}if(statusData?.custom_cursor){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor==='custom'?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/api/custom-cursor.png?t=${Date.now()}"></div><div class="cursorName">Custom</div>`;b.onclick=()=>{selectedCursor='custom';localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}}
 $('#cursorSearch').oninput=renderCursorGrid;
+let roleSel={};try{roleSel=JSON.parse(localStorage.pg3dRoleSel||'{}')}catch{}
 let curTarget=localStorage.pg3dCurTarget||'cursor',spritesData=null,spritesLoading=false,lastGuiPhase=null,spritesErrAt=0;
 const ROLE_NAMES={hitmarker:'hit marker',killicon:'kill icon'};
-async function loadSprites(){if(spritesLoading)return;spritesLoading=true;try{spritesData=await api('/api/sprites')}catch{spritesErrAt=Date.now()}finally{spritesLoading=false}updateCursorPanel()}
+async function loadSprites(){if(spritesLoading)return;spritesLoading=true;try{spritesData=await api('/api/sprites')}catch{spritesErrAt=Date.now()}finally{spritesLoading=false}if(curTarget!=='cursor')renderRoleGrid();updateCursorPanel()}
+function roleInstalled(){return spritesData?.roles?.[curTarget]?.installed||[]}
+function roleSelected(){const l=roleInstalled();return l.find(x=>x.id===roleSel[curTarget])||null}
+function renderRoleGrid(){const grid=$('#cursorGrid');grid.innerHTML='';const list=roleInstalled(),applied=spritesData?.roles?.[curTarget]?.applied;
+  if(!list.length){grid.append(el('div','empty',`No ${ROLE_NAMES[curTarget]}s installed yet. Use Install PNG to add one.`));return}
+  for(const x of list){const b=document.createElement('button');b.className='cursorCard roleCard'+(roleSel[curTarget]===x.id?' selected':'');
+    b.innerHTML=`<div class="cursorThumb"><img src="${x.thumb}" alt=""></div><div class="cursorName"></div>`;b.querySelector('.cursorName').textContent=x.name+(applied?.id===x.id?' · in game':'');
+    if(applied?.id!==x.id){const d=el('span','roleDel','×');d.title='Uninstall';d.onclick=async ev=>{ev.stopPropagation();try{await post('/api/sprites/delete',{role:curTarget,id:x.id});await loadSprites()}catch(e){toast(e.message,true)}};b.append(d)}
+    b.onclick=()=>{roleSel[curTarget]=x.id;try{localStorage.pg3dRoleSel=JSON.stringify(roleSel)}catch{}renderRoleGrid();updateCursorPanel()};grid.append(b)}}
 function renderRoleNote(){const n=$('#curRoleNote');if(curTarget==='cursor'){n.hidden=true;return false}n.hidden=false;
   if(statusData.gui_phase==='scanning'){n.textContent=`Finding the ${ROLE_NAMES[curTarget]} in PG3D… ${statusData.gui_progress||0}%`;return false}
   if(!spritesData){n.textContent='';if(Date.now()-spritesErrAt>5000)setTimeout(loadSprites,0);return false}
@@ -1195,8 +1189,9 @@ function updateCursorPanel(){
   if(!statusData)return;
   $$('#curTargetSeg button').forEach(b=>b.classList.toggle('active',b.dataset.t===curTarget));
   if(lastGuiPhase==='scanning'&&statusData.gui_phase!=='scanning')loadSprites();lastGuiPhase=statusData.gui_phase;
-  if(curTarget!=='cursor'){const ok=renderRoleNote();renderCursorStyleControls();$('#cursorSizeValue').textContent=cursorSize+'%';
-    $('#applyCursor').disabled=statusData.game_running||!ok;$('#resetCursor').disabled=statusData.game_running||!spritesData?.roles?.[curTarget]?.applied;return}
+  const roleMode=curTarget!=='cursor';$('#curColorField').hidden=roleMode;$('#curOutlineField').hidden=roleMode;$('#importCursor').textContent=roleMode?'Install PNG':'Import PNG';
+  if(roleMode){const ok=renderRoleNote();const sel=roleSelected();$('#cursorPreviewTitle').textContent=sel?sel.name:(curTarget==='hitmarker'?'Hit marker':'Kill icon');$('#cursorSizeValue').textContent=cursorSize+'%';
+    $('#applyCursor').disabled=statusData.game_running||!ok||!sel;$('#resetCursor').disabled=statusData.game_running||!spritesData?.roles?.[curTarget]?.applied;return}
   $('#curRoleNote').hidden=true;
   const t=statusData.cursor_target;
   renderCursorStyleControls();
@@ -1221,14 +1216,14 @@ function updateCursorPanel(){
 $('#cursorSize').oninput=e=>{cursorSize=Number(e.target.value);localStorage.pg3dCursorSize=cursorSize;updateCursorPanel()};
 $('#cursorPreview').onmousemove=e=>{const r=e.currentTarget.getBoundingClientRect(),im=$('#cursorPreviewImg');im.style.left=(e.clientX-r.left)+'px';im.style.top=(e.clientY-r.top)+'px'};
 $('#cursorPreview').onmouseleave=()=>{$('#cursorPreviewImg').style.left='50%';$('#cursorPreviewImg').style.top='50%'};
-$$('#curTargetSeg button').forEach(b=>b.onclick=()=>{curTarget=b.dataset.t;localStorage.pg3dCurTarget=curTarget;if(curTarget!=='cursor'&&!spritesData)loadSprites();updateCursorPanel()});
-$('#applyCursor').onclick=async()=>{if(curTarget!=='cursor'){try{$('#applyCursor').disabled=true;await post('/api/sprites/apply',{role:curTarget,cursor:selectedCursor,size:cursorSize,color:cursorColor,outline:cursorOutlineWidth?cursorOutline:null,outline_width:cursorOutlineWidth});toast(`New ${ROLE_NAMES[curTarget]} applied.`);await loadSprites();await refreshStatus()}catch(e){toast(e.message,true);updateCursorPanel()}return}
+$$('#curTargetSeg button').forEach(b=>b.onclick=()=>{curTarget=b.dataset.t;localStorage.pg3dCurTarget=curTarget;if(curTarget!=='cursor'&&!spritesData)loadSprites();renderCursorGrid();updateCursorPanel()});
+$('#applyCursor').onclick=async()=>{if(curTarget!=='cursor'){try{$('#applyCursor').disabled=true;await post('/api/sprites/apply',{role:curTarget,id:roleSel[curTarget],size:cursorSize});toast(`New ${ROLE_NAMES[curTarget]} applied.`);await loadSprites();await refreshStatus()}catch(e){toast(e.message,true);updateCursorPanel()}return}
   try{await post('/api/cursor/apply',{cursor:selectedCursor,size:cursorSize,color:cursorColor,outline:cursorOutlineWidth?cursorOutline:null,outline_width:cursorOutlineWidth});toast('Cursor applied.');await refreshStatus()}catch(e){toast(e.message,true)}};
 $('#resetCursor').onclick=async()=>{if(curTarget!=='cursor'){try{await post('/api/sprites/reset',{role:curTarget});toast(`Original ${ROLE_NAMES[curTarget]} restored.`);await loadSprites();await refreshStatus()}catch(e){toast(e.message,true)}return}
   try{await post('/api/cursor/reset');toast('Cursor reset.');await refreshStatus()}catch(e){toast(e.message,true)}};
 $('#redetectCursor').onclick=async()=>{try{await post('/api/cursor/redetect');toast('Re-detecting cursor…');setTimeout(refreshStatus,700)}catch(e){toast(e.message,true)}};
 $('#importCursor').onclick=()=>$('#cursorFile').click();
-$('#cursorFile').onchange=e=>{const f=e.target.files?.[0];if(!f)return;if(f.type!=='image/png'){toast('Use a PNG file.',true);return}const rd=new FileReader();rd.onload=async()=>{try{await post('/api/cursor/custom',{data:rd.result});selectedCursor='custom';localStorage.pg3dCursor='custom';lastPreviewKey='';await refreshStatus();renderCursorGrid();updateCursorPanel();toast('Custom cursor imported.')}catch(err){toast(err.message,true)}};rd.readAsDataURL(f);e.target.value=''};
+$('#cursorFile').onchange=e=>{const f=e.target.files?.[0];if(!f)return;if(f.type!=='image/png'){toast('Use a PNG file.',true);return}const rd=new FileReader();const role=curTarget;rd.onload=async()=>{if(role!=='cursor'){try{const d=await post('/api/sprites/install',{role,data:rd.result,name:f.name});roleSel[role]=d.id;try{localStorage.pg3dRoleSel=JSON.stringify(roleSel)}catch{}await loadSprites();toast('Installed. Press Apply to use it in game.')}catch(err){toast(err.message,true)}return}try{await post('/api/cursor/custom',{data:rd.result});selectedCursor='custom';localStorage.pg3dCursor='custom';lastPreviewKey='';await refreshStatus();renderCursorGrid();updateCursorPanel();toast('Custom cursor imported.')}catch(err){toast(err.message,true)}};rd.readAsDataURL(f);e.target.value=''};
 
 // Accounts
 function renderSelectedAccount(){const info=statusData?.accounts,box=$('#selectedAccount');if(!info){return}const a=info.accounts?.find(x=>x.steamid64===info.selected);if(!a){box.innerHTML='<div class="accountInfo"><b>No Steam account</b></div>';return}const name=displayName(a);box.innerHTML=`<div class="avatar"></div><div class="accountInfo"><b></b><small></small></div><button class="btn ghost" id="changeAccount">Change</button>`;box.querySelector('.avatar').textContent=(name[0]||'?').toUpperCase();box.querySelector('b').textContent=name;box.querySelector('small').textContent=(a.nickname?`${a.persona_name} · ${a.account_name}`:a.account_name)+(a.credentials_saved?' · saved login':'');$('#changeAccount').onclick=()=>setTab('accounts')}
@@ -1380,16 +1375,19 @@ $('#guiPlace').onclick=openPlacement;
 async function refreshPlayerCount(){try{const d=await api('/api/steam-player-count');$('#steamPlayerCount').textContent=d.count==null?'—':Number(d.count).toLocaleString()}catch{$('#steamPlayerCount').textContent='—'}}
 
 /* ===== HUD: resize / hide PG3D's own HUD sprites ===== */
-let hudCat=null,hudSel=null,hudFilter='all',hudScale=100,hudHidden=false,hudLastPhase=null,hudLoading=false;
+let hudAutoScan=false,hudCat=null,hudSel=null,hudFilter='all',hudScale=100,hudHidden=false,hudLastPhase=null,hudLoading=false;
 async function loadHud(force=false){if(hudLoading)return;if(hudCat&&!force){renderHud();return}hudLoading=true;try{hudCat=await api('/api/gui-assets')}catch(e){toast(e.message,true)}finally{hudLoading=false}renderHud()}
 function hudOps(){const g=statusData?.mods?.gui||{};const o={};for(const[k,v]of Object.entries(g))if(!v.role)o[k]=v;return o}
 function renderHud(){const grid=$('#hudGrid');if(!grid||!statusData)return;const scanning=statusData.gui_phase==='scanning';
-  $('#hudScan').disabled=scanning;$$('#hudFilter button').forEach(b=>b.classList.toggle('active',b.dataset.f===hudFilter));
+  $$('#hudFilter button').forEach(b=>b.classList.toggle('active',b.dataset.f===hudFilter));
   const items=hudCat?.items||[];const ops=hudOps();
   if(scanning||!items.length){const sig='e'+scanning+(statusData.gui_progress||0)+(statusData.gui_error||'');if(grid.__sig===sig)return renderHudPanel();grid.__sig=sig;
     grid.innerHTML=scanning?`<div class="hudEmpty"><b>Looking through PG3D's HUD…</b><div class="xJob" style="width:240px"><div class="bar"><i style="width:${statusData.gui_progress||0}%"></i></div></div></div>`
-      :`<div class="hudEmpty"><b>Find the HUD pieces in your PG3D</b><span>Takes about a minute, only once per game update.</span>${statusData.gui_error?`<span style="color:var(--bad)">${esc(statusData.gui_error)}</span>`:''}<button class="btn primary" id="hudScanFirst">Scan PG3D</button></div>`;
-    const b=$('#hudScanFirst');if(b)b.onclick=startHudScan;return renderHudPanel()}
+      :!statusData.app_found?`<div class="hudEmpty"><b>Pixel Gun 3D wasn't found</b><span>Install it through Steam, then come back.</span></div>`
+      :statusData.gui_error?`<div class="hudEmpty"><b>Couldn't read PG3D's HUD</b><span style="color:var(--bad)">${esc(statusData.gui_error)}</span><span>Try again from Settings › Rescan game files.</span></div>`
+      :`<div class="hudEmpty"><b>Looking through PG3D's HUD…</b></div>`;
+    if(!scanning&&!items.length&&hudCat&&statusData.app_found&&!statusData.gui_error&&!hudAutoScan){hudAutoScan=true;startHudScan()}
+    return renderHudPanel()}
   const q=($('#hudSearch').value||'').toLowerCase().trim();
   const list=items.filter(x=>(hudFilter!=='changed'||ops[x.key])&&(!q||(x.name||'').toLowerCase().includes(q)));
   const sig=JSON.stringify([hudCat.generated,q,hudFilter,Object.keys(ops).sort(),hudSel?.key]);if(grid.__sig===sig)return renderHudPanel();grid.__sig=sig;
@@ -1407,7 +1405,6 @@ function renderHudPanel(){const has=!!hudSel,ops=hudOps(),op=has&&ops[hudSel.key
   $('#hudHide').classList.toggle('on',hudHidden);$('#hudHide').disabled=!has;
   $('#hudApply').disabled=!has||busy;$('#hudReset').disabled=!has||!op||busy;$('#hudResetAll').hidden=!Object.keys(ops).length;$('#hudResetAll').disabled=busy}
 async function startHudScan(){try{await post('/api/gui/scan',{});await refreshStatus();renderHud()}catch(e){toast(e.message,true)}}
-$('#hudScan').onclick=startHudScan;
 $('#hudSearch').oninput=()=>renderHud();
 $$('#hudFilter button').forEach(b=>b.onclick=()=>{hudFilter=b.dataset.f;renderHud()});
 $('#hudScale').oninput=e=>{hudScale=Number(e.target.value);renderHudPanel()};
@@ -1642,7 +1639,7 @@ function renderJob(){const j=statusData?.job;if(!j)return;
   for(const [id,kinds] of [['#thJob',['theme','scan','font']],['#skJob',['sky','scan']]]){const box=$(id);if(!box)continue;
     const mine=kinds.includes(j.kind)&&(j.phase==='running'||j.phase==='error');box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
     box.querySelector('.msg').textContent=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');box.querySelector('.bar i').style.width=(j.phase==='error'?0:j.progress||0)+'%'}
-  const busy=j.phase==='running';$$('.fnChip').forEach(b=>b.disabled=busy||statusData.game_running);['#thApply','#thReset','#thRescan','#skApply','#skReset','#skRescan'].forEach(s=>{const b=$(s);if(b)b.disabled=busy||statusData.game_running});
+  const busy=j.phase==='running';$$('.fnChip').forEach(b=>b.disabled=busy||statusData.game_running);['#thApply','#thReset','#skApply','#skReset'].forEach(s=>{const b=$(s);if(b)b.disabled=busy||statusData.game_running});
   if(lastJobPhase==='running'&&j.phase!=='running'){if(j.phase==='done')toast(j.message||'Done.');else if(j.phase==='error')toast(j.error||'Failed.',true);loadTheme();loadSky()}
   lastJobPhase=j.phase}
 
@@ -1737,7 +1734,6 @@ function renderTheme(){const d=themeData;if(!d)return;const host=$('#thPresets')
   const selName=opts.find(p=>p.id===themePreset)?.name||'theme',orig=themePreset==='original';
   $('#thApply').textContent=orig?'Restore original':`Apply ${selName}`;
   $('#thReset').hidden=!d.active||orig;
-  const n=d.scan.textures||0;$('#thScanInfo').textContent=d.scan.generated?`${fmtNum(n)} GUI ${n===1?'texture':'textures'} found${d.scan.fresh?'':' · game updated, will rescan on apply'}.`:'';
   renderThemePreview();renderFonts()}
 function renderThemePreview(){const d=themeData;if(!d)return;const orig=themePreset==='original',name=orig?'Original':(d.presets.find(p=>p.id===themePreset)?.name||'');
   const a=$('#thShotOrig'),b=$('#thShotNew');if(!a.dataset.set){a.dataset.set='1';a.src='/api/theme/shot.jpg?preset=original'}
@@ -1749,7 +1745,7 @@ function renderThemePreview(){const d=themeData;if(!d)return;const orig=themePre
 $('#thStrength').oninput=e=>{e.target.dataset.touched='1';$('#thStrengthVal').textContent=e.target.value+'%';clearTimeout(e.target._t);e.target._t=setTimeout(renderThemePreview,180)};
 $('#thApply').onclick=async()=>{try{if(themePreset==='original')await post('/api/theme/reset');else await post('/api/theme/apply',{preset:themePreset,strength:$('#thStrength').value/100});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
 $('#thReset').onclick=async()=>{try{await post('/api/theme/reset');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
-$('#thRescan').onclick=async()=>{try{await post('/api/customize/scan');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
+$('#rescanGame').onclick=async()=>{const b=$('#rescanGame');b.disabled=true;try{await post('/api/gui/scan',{deep:false});try{await post('/api/customize/scan')}catch(e){if(!/running/.test(e.message))throw e}toast('Rescanning PG3D. This takes about a minute.');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}finally{setTimeout(()=>b.disabled=false,3000)}};
 
 // Sky
 let skyData=null,skySel=null,skyTargetsOff=new Set(),skMode=localStorage.pg3dSkMode==='loading'?'loading':'sky';
@@ -1773,7 +1769,7 @@ function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.inne
   if(ld){$('#skReset').hidden=!act;$('#skApply').disabled=!skySel||statusData?.game_running||statusData?.job?.phase==='running'||(d.scan.generated&&!lt.length);return}
   $('#skYawVal').textContent=$('#skYaw').value+'°';renderSkyCross();
   const tg=$('#skTargets');tg.innerHTML='';
-  if(!d.targets.length){tg.append(el('div','xEmpty',d.scan.generated?'No sky textures were found in this PG3D build.':'Not scanned yet. Apply scans the game first, or press Rescan.'))}
+  if(!d.targets.length){tg.append(el('div','xEmpty',d.scan.generated?'No sky textures were found in this PG3D build.':'Found the first time you apply a sky.'))}
   for(const t of d.targets){const row=el('label','skTarget');const cb=el('input');cb.type='checkbox';cb.checked=!skyTargetsOff.has(t.id);cb.onchange=()=>{cb.checked?skyTargetsOff.delete(t.id):skyTargetsOff.add(t.id);renderSky()};const im=el('img');if(t.preview)im.src=t.preview;const txt=el('div');txt.append(el('b',null,t.name||`#${t.path_id}`),el('small',null,`${t.relative_file} · ${t.width}×${t.height}${t.type==='Cubemap'?' · cubemap (experimental)':''}`));row.append(cb,im,txt,el('span','skFace',t.face));tg.append(row)}
   $('#skReset').hidden=!d.active;$('#skApply').disabled=!skySel||statusData?.game_running||statusData?.job?.phase==='running';const on=d.targets.filter(t=>!skyTargetsOff.has(t.id)).length;$('#skTargetsSum').textContent=d.targets.length?`Replaces ${on} of ${d.targets.length} sky textures`:'Sky textures (found on first apply)'}
 function renderSkyCross(){const c=$('#skCross');if(!skySel){c.style.backgroundImage='';return}const q=`id=${skySel}&yaw=${$('#skYaw').value}&swap=${$('#skSwap').classList.contains('on')?1:0}`;if(c._q===q)return;c._q=q;c.style.backgroundImage=`url("/api/sky/cross.png?${q}")`}
@@ -1791,7 +1787,6 @@ $$('#skMode button').forEach(b=>b.onclick=()=>{skMode=b.dataset.m;try{localStora
 $('#skApply').onclick=async()=>{if(!skySel)return $('#skFile').click();if(skMode==='loading'){try{await post('/api/loading/apply',{id:skySel});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}return}const ids=(skyData?.targets||[]).filter(t=>!skyTargetsOff.has(t.id)).map(t=>t.id);if(skyData?.targets?.length&&!ids.length)return toast('Pick at least one sky texture.',true);
   try{await post('/api/sky/apply',{id:skySel,targets:skyData?.targets?.length?ids:null,yaw:Number($('#skYaw').value),swap_lr:$('#skSwap').classList.contains('on'),flip:$('#skFlip').classList.contains('on')});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
 $('#skReset').onclick=async()=>{try{await post(skMode==='loading'?'/api/loading/reset':'/api/sky/reset');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
-$('#skRescan').onclick=async()=>{try{await post('/api/customize/scan');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
 
 setInterval(()=>{if(document.visibilityState==='visible'&&$('#page-rank').classList.contains('active'))loadRank()},10000);
 // Player lookup
@@ -1832,7 +1827,7 @@ function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekl
   $('#lkResult').hidden=false;drawSkinHead(p.skin);$('#lkName').textContent=p.name||'Unknown';
   const badges=$('#lkBadges');badges.innerHTML='';const lv=P.level??F.level;if(lv!=null)badges.append(el('span','lkBadge',`Lv ${lv}`));
   if(F.banned!=null)badges.append(el('span','lkBadge '+(F.banned?'bad':'good'),F.banned?'Banned':'Clean'));
-  if(p.clan){const cb=el('button','lkBadge clanLink',(p.clan_tag?`[${p.clan_tag}] ${p.clan}`:p.clan)+' ›');cb.type='button';cb.title='Show clan members';cb.onclick=()=>openClan(clanKeyOf(p));badges.append(cb)}
+  if(p.clan)badges.append(el('span','lkBadge',p.clan_tag?`[${p.clan_tag}] ${p.clan}`:p.clan));
   for(const k of Object.keys(F.platforms||{}))badges.append(el('span','lkBadge',k));
   const dt=t=>t?new Date(Number(t)*1000).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):null;
   $('#lkMeta').textContent=[`ID ${p.player_id}`,P.registered?`Joined ${dt(P.registered)}`:null,P.last_seen?`Last active ${Date.now()/1000-P.last_seen<86400?ago(P.last_seen):dt(P.last_seen)}`:null].filter(Boolean).join(' · ');
@@ -1881,23 +1876,6 @@ function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekl
   for(const [k,v] of Object.entries(panes)){const b=el('button',null,v.label);b.type='button';b.dataset.k=k;b.onclick=()=>show(k);tabs.append(b)}
   show(panes[lkTab]?lkTab:'profile')}
 $('#lkForm').onsubmit=e=>{e.preventDefault();runLookup($('#lkId').value)};
-
-// Clan roster: built from players you look up (Ember has no public member list)
-let clanData=null;
-const clanKeyOf=p=>`${(p.clan_tag||'').trim().toLowerCase()}|${(p.clan||'').trim().toLowerCase()}`;
-async function openClan(key){try{clanData=await api('/api/clan?key='+encodeURIComponent(key));renderClan();$('#clanCard').hidden=false;$('#clanCard').scrollIntoView({behavior:'smooth',block:'start'})}catch(e){toast(e.message,true)}}
-function renderClan(){const c=clanData;if(!c)return;$('#clanTitle').textContent=(c.tag?`[${c.tag}] `:'')+c.name;
-  const t=c.totals||{},kd=t.deaths?(t.kills/t.deaths).toFixed(2):'—';
-  $('#clanTotals').innerHTML=`<div><b>${fmtNum(c.members.length)}</b>Known members</div><div><b>${fmtNum(t.wins)}</b>Total wins</div><div><b>${fmtNum(t.wins_week)}</b>Wins this week</div><div><b>${kd}</b>Weekly K/D</div>`;
-  const list=$('#clanList');list.innerHTML='';
-  c.members.forEach((m,i)=>{const r=el('div','clanRow');r.tabIndex=0;const kdm=m.deaths?(m.kills/m.deaths).toFixed(2):(m.kills?'∞':'—');
-    r.innerHTML=`<span class="n">${i+1}</span><div><b>${esc(m.name||'Unknown')}</b><small>${m.level!=null?`Lv ${m.level} · `:''}ID ${esc(m.player_id)}</small></div><div class="v">${fmtNum(m.wins_total)}<small>wins</small></div><div class="v hideS">${kdm}<small>K/D week</small></div><div class="v hideS"><small>${m.last_seen?ago(m.last_seen):'—'}</small></div><button class="x" title="Remove from this list">×</button>`;
-    r.onclick=e=>{if(e.target.closest('.x'))return;runLookup(m.player_id);window.scrollTo({top:0,behavior:'smooth'})};
-    r.querySelector('.x').onclick=async e=>{e.stopPropagation();try{clanData=await post('/api/clan/remove',{key:c.key,id:m.player_id});renderClan()}catch(err){toast(err.message,true)}};list.append(r)});
-  if(c.members.length<2)list.append(el('div','sub','Members show up here as you look them up, or add them by ID below.'))}
-$('#clanClose').onclick=()=>{$('#clanCard').hidden=true};
-$('#clanRefresh').onclick=async()=>{if(!clanData)return;const b=$('#clanRefresh');b.disabled=true;b.textContent='Refreshing…';try{clanData=await post('/api/clan/refresh',{key:clanData.key});renderClan()}catch(e){toast(e.message,true)}finally{b.disabled=false;b.textContent='Refresh'}};
-$('#clanAdd').onsubmit=async e=>{e.preventDefault();const id=$('#clanAddId').value.trim();if(!id||!clanData)return;try{clanData=await post('/api/clan/add',{key:clanData.key,id});$('#clanAddId').value='';renderClan();toast('Member added.')}catch(err){toast(err.message,true)}};
 
 // Client appearance (Settings > Appearance)
 const UI_THEMES=[

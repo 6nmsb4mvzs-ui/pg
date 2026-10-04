@@ -92,8 +92,8 @@ volume). A saved Steam login is now used when an account has no remembered
 Steam token or the token stops working.
 
 New in 1.32
-Cursor    Crosshair / Hit marker / Kill icon switch: put any crosshair design
-          on PG3D's hit marker and kill icon (when the game has one).
+Cursor    Crosshair / Hit marker / Kill icon switch. Install your own hit
+          marker or kill icon PNG and apply it (when the game has one).
 HUD       New tab: shrink or hide PG3D's own HUD pieces. Scans the game once.
 Theme     Game font: swap PG3D's text font (Russo One, Bangers, Bebas Neue,
           Press Start, or import your own .ttf/.otf). Text drawn with
@@ -104,6 +104,5 @@ Overlay   Rank widget: your tier and progress bar in game.
 Clips     Game sound: records PG3D's own audio only (macOS 13+), no music
           or other apps. "Copy after saving" and a Copy button put clips
           straight on the clipboard for Discord or Messages.
-Lookup    Click a player's clan to see the clan's members you've looked up,
-          with wins and weekly K/D. Add members by ID.
+Settings  Rescan game files lives under Troubleshooting.
 Play      Last session: time played, XP, wins and clips after you close PG3D.
