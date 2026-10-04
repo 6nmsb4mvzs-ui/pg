@@ -1,4 +1,4 @@
-PG3D Mac Client 1.35.0
+PG3D Mac Client 1.36.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -126,3 +126,9 @@ Rank up   Smoother rank-up animation, a much fuller and louder sound (rising
           whoosh, impact and chord), and a trophy road when you climb two or
           more ranks at once: the camera glides along every rank you passed,
           each one lighting up with its own note, before the new rank lands.
+
+New in 1.36
+Rank up   Cinematic rank-up sound: an accelerating taiko roll while the
+          emblem charges, then a deep brass "BRAAAM" with sub boom and crash,
+          resolving into a big choir and brass chord in a long hall reverb.
+          Trophy road steps hit with a drum and a rising brass stab.

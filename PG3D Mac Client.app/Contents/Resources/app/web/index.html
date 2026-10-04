@@ -1804,29 +1804,66 @@ function maybePlayRankUp(){const p=statusData?.rank?.pending;if(!p||ruPlaying||p
 window.addEventListener('focus',()=>setTimeout(maybePlayRankUp,400));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(maybePlayRankUp,400)});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-// Rank-up sounds: synthesized, routed through a compressor so they stay full and loud on small speakers.
-function ruBus(ac){const comp=ac.createDynamicsCompressor();comp.threshold.value=-18;comp.knee.value=8;comp.ratio.value=4;comp.attack.value=.003;comp.release.value=.25;
-  const out=ac.createGain(),lim=ac.createDynamicsCompressor();out.gain.value=1.6*(SND.volume/100);lim.threshold.value=-3;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.1;comp.connect(out);out.connect(lim);lim.connect(ac.destination);return comp}
+// Rank-up sounds: cinematic and synthesized (no samples). Low brass stacks, taiko drums, sub boom,
+// a choir-like swell and a long hall reverb, glued by a compressor and a limiter.
+function ruBus(ac){
+  if(ac.__ruBus)return ac.__ruBus;
+  const comp=ac.createDynamicsCompressor();comp.threshold.value=-20;comp.knee.value=10;comp.ratio.value=4;comp.attack.value=.004;comp.release.value=.3;
+  const out=ac.createGain(),lim=ac.createDynamicsCompressor();out.gain.value=1.5*(SND.volume/100);lim.threshold.value=-2.5;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.12;
+  comp.connect(out);out.connect(lim);lim.connect(ac.destination);
+  // hall reverb from a synthetic stereo impulse response
+  const len=Math.floor(ac.sampleRate*3.8),ir=ac.createBuffer(2,len,ac.sampleRate);
+  for(let c=0;c<2;c++){const d=ir.getChannelData(c);for(let i=0;i<len;i++){const x=i/len;d[i]=(Math.random()*2-1)*Math.pow(1-x,3.2)*(i<ac.sampleRate*.012?i/(ac.sampleRate*.012):1)}}
+  const verb=ac.createConvolver();verb.buffer=ir;const wet=ac.createGain();wet.gain.value=.55;const pre=ac.createBiquadFilter();pre.type='highpass';pre.frequency.value=180;
+  pre.connect(verb);verb.connect(wet);wet.connect(comp);
+  const bus={dry:comp,verb:pre};
+  try{Object.defineProperty(ac,'__ruBus',{value:bus,configurable:true})}catch{}
+  return bus}
 function ruNoise(ac,dur){const len=Math.ceil(ac.sampleRate*dur),buf=ac.createBuffer(1,len,ac.sampleRate),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;const src=ac.createBufferSource();src.buffer=buf;return src}
-function ruEnv(ac,g,t,peak,a,hold,rel){g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+a);g.gain.setValueAtTime(peak,t+a+hold);g.gain.exponentialRampToValueAtTime(.0001,t+a+hold+rel)}
-function ruVoice(ac,bus,f,t,{type='triangle',peak=.3,a=.008,hold=.05,rel=.9,detune=0}={}){const o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.setValueAtTime(f,t);o.detune.value=detune;ruEnv(ac,g,t,peak,a,hold,rel);o.connect(g);g.connect(bus);o.start(t);o.stop(t+a+hold+rel+.05)}
-// Rising whoosh while the emblem charges up.
+function ruSend(ac,node,bus,dry=1,wet=.5){if(dry){const g=ac.createGain();g.gain.value=dry;node.connect(g);g.connect(bus.dry)}if(wet){const g=ac.createGain();g.gain.value=wet;node.connect(g);g.connect(bus.verb)}}
+// Taiko / timpani hit: pitched body that drops fast + a felt-mallet thump.
+function ruDrum(ac,bus,t,{f=70,peak=1,len=.9,wet=.6}={}){
+  const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.setValueAtTime(f*2.4,t);o.frequency.exponentialRampToValueAtTime(f,t+.06);o.frequency.exponentialRampToValueAtTime(f*.82,t+len);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+len);o.connect(g);ruSend(ac,g,bus,1,wet);o.start(t);o.stop(t+len+.05);
+  const n=ruNoise(ac,.25),lp=ac.createBiquadFilter(),ng=ac.createGain();lp.type='lowpass';lp.frequency.setValueAtTime(1800,t);lp.frequency.exponentialRampToValueAtTime(200,t+.18);
+  ng.gain.setValueAtTime(.0001,t);ng.gain.exponentialRampToValueAtTime(peak*.55,t+.003);ng.gain.exponentialRampToValueAtTime(.0001,t+.22);n.connect(lp);lp.connect(ng);ruSend(ac,ng,bus,1,wet*.8);n.start(t);n.stop(t+.25)}
+// Brass-like stack: detuned saws through a low-pass that swells open ("BRAAAM").
+function ruBrass(ac,bus,freqs,t,{dur=2.6,peak=.22,att=.04,open=1600,close=420,wet=.6,voices=5}={}){
+  const lp=ac.createBiquadFilter(),g=ac.createGain();lp.type='lowpass';lp.Q.value=1.2;lp.frequency.setValueAtTime(close*.6,t);lp.frequency.exponentialRampToValueAtTime(open,t+att+.12);lp.frequency.exponentialRampToValueAtTime(close,t+dur*.8);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+att);g.gain.setValueAtTime(peak,t+att+.15);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  lp.connect(g);ruSend(ac,g,bus,1,wet);
+  for(const f of freqs)for(let v=0;v<voices;v++){const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;o.detune.value=(v-(voices-1)/2)*7;o.connect(lp);o.start(t);o.stop(t+dur+.05)}}
+// Choir-ish "aah": saws through vowel formants, slow attack, long tail.
+function ruChoir(ac,bus,freqs,t,{dur=3.4,peak=.16,att=.5,wet=.9}={}){
+  const mix=ac.createGain();mix.gain.setValueAtTime(.0001,t);mix.gain.exponentialRampToValueAtTime(peak,t+att);mix.gain.setValueAtTime(peak,t+dur*.45);mix.gain.exponentialRampToValueAtTime(.0001,t+dur);ruSend(ac,mix,bus,.8,wet);
+  const src=ac.createGain();
+  for(const [ff,q,gg] of [[730,9,1],[1090,10,.55],[2440,12,.25]]){const bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=ff;bp.Q.value=q;const fg=ac.createGain();fg.gain.value=gg*3.2;src.connect(bp);bp.connect(fg);fg.connect(mix)}
+  for(const f of freqs)for(let v=0;v<4;v++){const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;o.detune.value=(v-1.5)*9;
+    const vib=ac.createOscillator(),vg=ac.createGain();vib.frequency.value=4.8+v*.3;vg.gain.value=5;vib.connect(vg);vg.connect(o.detune);o.connect(src);o.start(t);o.stop(t+dur+.05);vib.start(t);vib.stop(t+dur+.05)}}
+function ruSub(ac,bus,t,{from=90,to=32,peak=1,len=1.6}={}){const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.setValueAtTime(from,t);o.frequency.exponentialRampToValueAtTime(to,t+len*.7);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+len);o.connect(g);ruSend(ac,g,bus,1,0);o.start(t);o.stop(t+len+.05)}
+const RU_N={D1:36.71,A1:55,D2:73.42,F2:87.31,A2:110,Bb2:116.54,C3:130.81,D3:146.83,E3:164.81,F3:174.61,Fs3:185,G3:196,A3:220,D4:293.66,Fs4:369.99,A4:440};
+// Charge: accelerating taiko roll over a rising, darkening swell.
 function ruRiser(dur=1.1){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac);
-  const n=ruNoise(ac,dur+.1),bp=ac.createBiquadFilter(),g=ac.createGain();bp.type='bandpass';bp.Q.value=6;bp.frequency.setValueAtTime(300,t);bp.frequency.exponentialRampToValueAtTime(5000,t+dur);
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.5,t+dur*.95);g.gain.exponentialRampToValueAtTime(.0001,t+dur+.08);n.connect(bp);bp.connect(g);g.connect(bus);n.start(t);n.stop(t+dur+.1);
-  const o=ac.createOscillator(),og=ac.createGain();o.type='sawtooth';o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(440,t+dur);const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1200;
-  og.gain.setValueAtTime(.0001,t);og.gain.exponentialRampToValueAtTime(.12,t+dur*.9);og.gain.exponentialRampToValueAtTime(.0001,t+dur+.05);o.connect(lp);lp.connect(og);og.connect(bus);o.start(t);o.stop(t+dur+.1)}catch{}}
-// Impact + triumphant chord with a shimmering tail.
-function ruSound(){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac);
-  const sub=ac.createOscillator(),sg=ac.createGain();sub.type='sine';sub.frequency.setValueAtTime(150,t);sub.frequency.exponentialRampToValueAtTime(42,t+.45);ruEnv(ac,sg,t,.9,.004,.06,.55);sub.connect(sg);sg.connect(bus);sub.start(t);sub.stop(t+.7);
-  const n=ruNoise(ac,.5),lp=ac.createBiquadFilter(),ng=ac.createGain();lp.type='lowpass';lp.frequency.setValueAtTime(6000,t);lp.frequency.exponentialRampToValueAtTime(300,t+.4);ruEnv(ac,ng,t,.45,.002,.02,.4);n.connect(lp);lp.connect(ng);ng.connect(bus);n.start(t);n.stop(t+.5);
-  const delay=ac.createDelay(1),fb=ac.createGain(),wet=ac.createGain();delay.delayTime.value=.19;fb.gain.value=.38;wet.gain.value=.35;delay.connect(fb);fb.connect(delay);delay.connect(wet);wet.connect(bus);
-  const chord=ac.createGain();chord.connect(bus);chord.connect(delay);chord.gain.value=1;
-  [[261.63,0],[329.63,.07],[392,.14],[523.25,.21],[659.25,.3],[783.99,.3],[1046.5,.3]].forEach(([f,d],i)=>{const st=t+.04+d,last=d>=.3;
-    ruVoice(ac,chord,f,st,{type:'triangle',peak:last?.22:.28,hold:last?.25:.04,rel:last?1.6:.5});ruVoice(ac,chord,f*2,st,{type:'sine',peak:.07,hold:.02,rel:last?1.2:.3,detune:4})})}catch{}}
-// Bright step "ding" for each rank passed on the trophy road; pitch climbs with each step.
-function ruStep(i){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),base=[523.25,587.33,659.25,698.46,783.99,880,987.77,1046.5][Math.min(7,i)];
-  ruVoice(ac,bus,base,t,{type:'triangle',peak:.32,hold:.03,rel:.45});ruVoice(ac,bus,base*1.5,t+.012,{type:'sine',peak:.14,hold:.02,rel:.35});ruVoice(ac,bus,base*2,t,{type:'sine',peak:.06,hold:.01,rel:.25})}catch{}}
+  const n=ruNoise(ac,dur+.1),bp=ac.createBiquadFilter(),g=ac.createGain();bp.type='bandpass';bp.Q.value=2.5;bp.frequency.setValueAtTime(220,t);bp.frequency.exponentialRampToValueAtTime(3200,t+dur);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.28,t+dur*.96);g.gain.exponentialRampToValueAtTime(.0001,t+dur+.03);n.connect(bp);bp.connect(g);ruSend(ac,g,bus,1,.4);n.start(t);n.stop(t+dur+.1);
+  ruBrass(ac,bus,[RU_N.D2,RU_N.A2],t,{dur:dur+.05,peak:.12,att:dur*.9,open:900,close:500,wet:.3,voices:4});
+  let x=0,gap=.24;while(x<dur-.05){ruDrum(ac,bus,t+x,{f:62,peak:.35+.55*(x/dur),len:.45,wet:.35});x+=gap;gap=Math.max(.06,gap*.78)}}catch{}}
+// The landing: sub boom + taiko + crash + D minor brass "BRAAAM", then a D major choir/brass swell.
+function ruSound(){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_N;
+  ruSub(ac,bus,t,{from:95,to:30,peak:1,len:1.8});
+  ruDrum(ac,bus,t,{f:55,peak:1,len:1.4,wet:.9});ruDrum(ac,bus,t+.012,{f:82,peak:.6,len:.9,wet:.7});
+  const n=ruNoise(ac,2.2),hp=ac.createBiquadFilter(),ng=ac.createGain();hp.type='bandpass';hp.frequency.value=5200;hp.Q.value=.6;ng.gain.setValueAtTime(.0001,t);ng.gain.exponentialRampToValueAtTime(.22,t+.01);ng.gain.exponentialRampToValueAtTime(.0001,t+2.1);n.connect(hp);hp.connect(ng);ruSend(ac,ng,bus,1,.8);n.start(t);n.stop(t+2.2);
+  ruBrass(ac,bus,[N.D1,N.D2,N.A2,N.D3,N.F3],t,{dur:2.4,peak:.2,att:.03,open:1900,close:380,wet:.55});
+  const t2=t+.72;
+  ruDrum(ac,bus,t2,{f:60,peak:.8,len:1.1,wet:.9});ruSub(ac,bus,t2,{from:70,to:36,peak:.6,len:1.2});
+  ruBrass(ac,bus,[N.D2,N.A2,N.D3,N.Fs3,N.A3],t2,{dur:3.6,peak:.17,att:.18,open:2400,close:700,wet:.8});
+  ruChoir(ac,bus,[N.D3,N.Fs3,N.A3,N.D4],t2,{dur:4,peak:.16,att:.45})}catch{}}
+// Trophy road step: taiko + short brass stab, climbing D minor -> major up the road.
+function ruStep(i){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_N;
+  const roots=[[N.D2,N.A2,N.D3],[N.F2,N.C3,N.F3],[N.G3/2,N.D3,N.G3],[N.A2,N.E3,N.A3],[N.Bb2,N.F3,N.Bb2*2],[N.C3,N.G3,N.C3*2],[N.D3,N.A3,N.D4],[N.D3,N.Fs3,N.A3]][Math.min(7,i)];
+  ruDrum(ac,bus,t,{f:66+i*3,peak:.85,len:.8,wet:.6});ruSub(ac,bus,t,{from:80,to:45,peak:.45,len:.5});
+  ruBrass(ac,bus,roots,t,{dur:.85,peak:.15,att:.02,open:1700,close:450,wet:.55,voices:4})}catch{}}
 // Time-based particles drawn from cached glow sprites (smooth at any frame rate).
 function ruParticles(canvas){const ctx=canvas.getContext('2d');let parts=[],run=true,last=performance.now();const dpr=Math.min(1.5,window.devicePixelRatio||1),sprites={};
   const fit=()=>{canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr};fit();addEventListener('resize',fit);
