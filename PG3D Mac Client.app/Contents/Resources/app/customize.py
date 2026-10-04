@@ -27,21 +27,25 @@ THEMES = {
     "crimson": {
         "name": "Crimson",
         "desc": "Blood red and black with ember highlights.",
+        "strength": 0.75,
         "stops": [(0.0, "#0A0203"), (0.30, "#3D060D"), (0.58, "#A3101E"), (0.82, "#FF4A3A"), (1.0, "#FFF0EC")],
     },
     "dark_souls": {
         "name": "Dark Souls",
         "desc": "Ashen blue-green over near-black, like a bonfire gone cold.",
+        "strength": 0.85,
         "stops": [(0.0, "#040706"), (0.30, "#0E1C1C"), (0.58, "#2B4A46"), (0.82, "#86A597"), (1.0, "#E6EDE3")],
     },
     "royal": {
         "name": "Royal",
         "desc": "Deep violet and velvet with gold trim.",
+        "strength": 0.75,
         "stops": [(0.0, "#0A0517"), (0.30, "#24105A"), (0.56, "#5528A8"), (0.80, "#D4AE55"), (1.0, "#FFF6DA")],
     },
     "icy": {
         "name": "Icy",
         "desc": "Glacier blue fading to frost white.",
+        "strength": 0.8,
         "stops": [(0.0, "#020C16"), (0.30, "#0B3352"), (0.58, "#2F93CF"), (0.82, "#A6E4FF"), (1.0, "#FFFFFF")],
     },
 }

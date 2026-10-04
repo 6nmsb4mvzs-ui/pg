@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.29.1"
+APP_VERSION = "1.30.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -135,6 +135,8 @@ STATUS = {
     "launch_message": "Ready",
     "launch_error": None,
     "last_fps": None,
+    "launch_progress": None,
+    "launch_eta": None,
     "job_kind": None,
     "job_phase": "idle",
     "job_progress": 0,
@@ -1192,6 +1194,8 @@ def rebuild_sources(source_strings, state=None, progress=None):
 def _exclusive(fn):
     """Run an asset rebuild unless another one is already in progress."""
     def wrapper(*args, **kwargs):
+        if launch_busy():
+            raise RuntimeError("PG3D is starting. Change textures after it has launched and been closed again.")
         if not _MUTATE_LOCK.acquire(blocking=False):
             raise RuntimeError("Another change is still being applied to the game files. Wait for it to finish.")
         try:
@@ -2893,6 +2897,127 @@ def launch_with_fps(fps):
     return {"ok": True, "needs_login": False, **result}
 
 
+LAUNCH_BUSY = ("preparing", "switching", "launching", "starting")
+LAUNCH_DEFAULT_TIMES = {"switch": 35.0, "start_normal": 25.0, "start_fps": 15.0}
+_LAUNCH = {"stage": None}
+
+
+def launch_busy():
+    return STATUS.get("launch_phase") in LAUNCH_BUSY
+
+
+def _launch_times():
+    t = dict(LAUNCH_DEFAULT_TIMES)
+    t.update({k: float(v) for k, v in (prefs_payload().get("launch_times") or {}).items() if k in t})
+    return t
+
+
+def _learn_launch_time(key, seconds):
+    prefs = prefs_payload()
+    times = prefs.get("launch_times") or {}
+    old = float(times.get(key, LAUNCH_DEFAULT_TIMES[key]))
+    times[key] = round(old * 0.6 + float(seconds) * 0.4, 1)  # moving average
+    prefs["launch_times"] = times
+    write_json(PREFS_JSON, prefs)
+
+
+def _launch_stage(name, lo, hi, expected, message, later=0.0):
+    """Enter a launch stage; the ticker moves the % within [lo, hi] by elapsed/expected."""
+    _LAUNCH["stage"] = {"lo": lo, "hi": hi, "expected": max(0.1, expected), "start": time.time(), "later": later}
+    set_status(launch_phase=name, launch_message=message, launch_error=None)
+    _launch_tick()
+
+
+def _launch_tick():
+    st = _LAUNCH.get("stage")
+    if not st:
+        return
+    el = time.time() - st["start"]
+    frac = min(0.95, el / st["expected"])
+    eta = max(0.0, st["expected"] - el) + st["later"]
+    set_status(launch_progress=int(st["lo"] + (st["hi"] - st["lo"]) * frac), launch_eta=int(round(eta)))
+
+
+def _launch_ticker():
+    while launch_busy():
+        _launch_tick()
+        time.sleep(0.4)
+
+
+def start_launch(kind, fps=None):
+    with _LOCK:
+        if launch_busy():
+            raise RuntimeError("PG3D is already starting.")
+        if game_running():
+            raise RuntimeError("Pixel Gun 3D is already running.")
+        if kind == "fps" and not find_app():
+            raise RuntimeError("Pixel Gun 3D.app was not found.")
+        STATUS.update(launch_phase="preparing", launch_progress=0, launch_eta=None,
+                      launch_message="Getting ready…", launch_error=None)
+    threading.Thread(target=_launch_job, args=(kind, fps), daemon=True).start()
+    threading.Thread(target=_launch_ticker, daemon=True).start()
+    return {"ok": True, "started": True}
+
+
+def _launch_job(kind, fps):
+    times = _launch_times()
+    start_key = "start_fps" if kind == "fps" else "start_normal"
+    try:
+        # 1) Never start while game files are being rewritten (theme, sky, cursor).
+        _launch_stage("preparing", 0, 8, 1, "Checking game files…", later=times["switch"] + times[start_key])
+        waited = time.time()
+        while STATUS.get("job_phase") == "running" or _MUTATE_LOCK.locked():
+            set_status(launch_message="Waiting for texture changes to finish… " + (STATUS.get("job_message") or ""))
+            if time.time() - waited > 900:
+                raise RuntimeError("Texture changes are taking too long. Try again when they finish.")
+            time.sleep(0.5)
+
+        # 2) Make sure the selected Steam account is the one signed in.
+        info = steam_accounts()
+        target = next((a for a in info.get("accounts", []) if a.get("steamid64") == info.get("selected")), None)
+        needs_switch = bool(target and not target.get("active"))
+        name = (target or {}).get("display_name") or "your account"
+        _launch_stage("switching", 8, 55 if needs_switch else 12, times["switch"] if needs_switch else 0.5,
+                      f"Signing in to Steam as {name}…" if needs_switch else f"Steam is signed in as {name}.",
+                      later=times[start_key])
+        t0 = time.time()
+        account_result = switch_steam_account_if_needed()
+        if account_result.get("switched"):
+            _learn_launch_time("switch", time.time() - t0)
+        if account_result.get("needs_guard"):
+            _set_pending_guard(account_result.get("account") or {}, kind, fps)
+            _LAUNCH["stage"] = None
+            set_status(launch_phase="steam_guard", launch_message="Enter the Steam Guard code sent to your email.",
+                       launch_progress=None, launch_eta=None)
+            return
+        if account_result.get("needs_login"):
+            raise RuntimeError((account_result.get("message") or "Steam needs you to finish signing in.") + " PG3D was not launched.")
+
+        # 3) Start the game and wait until it is actually running.
+        _launch_stage("launching", 55 if needs_switch else 12, 96, times[start_key],
+                      "Starting PG3D through the FPS unlocker…" if kind == "fps" else "Starting PG3D…")
+        t0 = time.time()
+        if kind == "fps":
+            result = fps_launch(find_app(), fps if fps is not None else prefs_payload().get("fps_target", "uncapped"))
+            message = result["message"]
+            set_status(last_fps={**result, "at": datetime.now().isoformat(timespec="seconds")})
+        else:
+            subprocess.Popen(["open", f"steam://run/{STEAM_APP_ID}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            message = "PG3D is running."
+        deadline = time.time() + 120
+        while not _game_running_uncached():
+            if time.time() > deadline:
+                raise RuntimeError("Steam was asked to start PG3D, but the game didn't open within 2 minutes.")
+            time.sleep(0.5)
+        _learn_launch_time(start_key, time.time() - t0)
+        _LAUNCH["stage"] = None
+        set_status(launch_phase="idle", launch_progress=100, launch_eta=0, launch_message=message, launch_error=None)
+    except Exception as e:
+        log(traceback.format_exc())
+        _LAUNCH["stage"] = None
+        set_status(launch_phase="idle", launch_progress=None, launch_eta=None, launch_message="", launch_error=str(e))
+
+
 def default_overlay_config():
     return {
         "enabled": True,
@@ -3179,7 +3304,7 @@ def _safe_rank(account):
         r = rank_payload(account)
         return {k: r.get(k) for k in ("title", "tier", "tier_name", "division", "color", "xp", "progress",
                                       "next_name", "xp_to_next", "hours_to_next", "emblem", "last_event",
-                                      "wins", "hours", "gated", "lp")}
+                                      "wins", "hours", "gated", "lp", "pending")}
     except Exception as e:
         log(f"Rank summary failed: {e}")
         return None
@@ -3356,6 +3481,8 @@ def start_job(kind, fn):
     with _LOCK:
         if STATUS.get("job_phase") == "running":
             raise RuntimeError("Another task is still running. Wait for it to finish.")
+        if launch_busy():
+            raise RuntimeError("PG3D is starting. Try again once it is running and closed again.")
         if game_running():
             raise RuntimeError("Close Pixel Gun 3D first. Game files can't be changed while it is running.")
         STATUS.update(job_kind=kind, job_phase="running", job_progress=0,
@@ -3448,7 +3575,7 @@ def theme_payload():
     theme = mods.get("theme")
     return {
         "ok": True,
-        "presets": [{"id": k, "name": v["name"], "desc": v["desc"], "stops": v["stops"]}
+        "presets": [{"id": k, "name": v["name"], "desc": v["desc"], "stops": v["stops"], "strength": v.get("strength")}
                     for k, v in customize.THEMES.items()],
         "active": ({"preset": theme["preset"], "strength": theme.get("strength", 0.85),
                     "textures": sum(len(v) for v in theme.get("targets", {}).values()),
@@ -3460,13 +3587,11 @@ def theme_payload():
     }
 
 
-def apply_theme(preset, strength):
+def apply_theme(preset, strength=None):
     if preset not in customize.THEMES:
         raise RuntimeError("Unknown theme preset.")
-    try:
-        strength = max(0.3, min(1.0, float(strength)))
-    except Exception:
-        strength = 0.85
+    # Each preset has its own tuned strength; there is no user-facing intensity.
+    strength = float(customize.THEMES[preset].get("strength", 0.8))
     name = customize.THEMES[preset]["name"]
 
     def job(progress):
@@ -3491,6 +3616,55 @@ def reset_theme():
         mutate_state(change, "Reset theme", progress)
         return "Original PG3D colors restored."
     return start_job("theme", job)
+
+
+# Steam store screenshot of the Armory: almost entirely menus and item icons,
+# i.e. exactly what a theme recolors. Fetched once, then cached.
+THEME_SHOT_URLS = [
+    "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2524890/ss_9513357c02bd274b31bbcfa00c7b5c8b9ca652ea.1920x1080.jpg",
+]
+THEME_SHOT_BASE = SUPPORT / "theme_preview_base.jpg"
+THEME_SHOT_DIR = RUNTIME / "theme_shots"
+
+
+def _theme_shot_base():
+    if THEME_SHOT_BASE.is_file():
+        return THEME_SHOT_BASE
+    urls = list(THEME_SHOT_URLS)
+    try:
+        req = Request(f"https://store.steampowered.com/api/appdetails?appids={STEAM_APP_ID}&filters=screenshots",
+                      headers={"User-Agent": f"PG3D-Mac-Client/{APP_VERSION}"})
+        with urlopen(req, timeout=8) as r:
+            shots = json.loads(r.read().decode("utf-8"))[STEAM_APP_ID]["data"]["screenshots"]
+        urls += [x["path_full"] for x in shots]
+    except Exception as e:
+        log(f"Theme preview screenshot list failed: {e}")
+    for url in urls:
+        try:
+            with urlopen(Request(url, headers={"User-Agent": f"PG3D-Mac-Client/{APP_VERSION}"}), timeout=12) as r:
+                data = r.read(8 * 1024 * 1024)
+            im = Image.open(io.BytesIO(data)).convert("RGB")
+            im.thumbnail((1280, 720))
+            im.save(THEME_SHOT_BASE, quality=90)
+            return THEME_SHOT_BASE
+        except Exception as e:
+            log(f"Theme preview screenshot failed ({url[:60]}…): {e}")
+    return None
+
+
+def render_theme_shot(preset):
+    base = _theme_shot_base()
+    if not base:
+        raise RuntimeError("No preview screenshot available (offline?).")
+    THEME_SHOT_DIR.mkdir(parents=True, exist_ok=True)
+    key = preset if preset in customize.THEMES else "original"
+    out = THEME_SHOT_DIR / f"{key}.jpg"
+    if not out.is_file() or out.stat().st_mtime < base.stat().st_mtime:
+        im = Image.open(base).convert("RGBA")
+        if key != "original":
+            im = customize.recolor_image(im, key, customize.THEMES[key].get("strength", 0.8))
+        im.convert("RGB").save(out, quality=88)
+    return out
 
 
 def render_theme_sample(index, preset, strength):
@@ -4037,19 +4211,32 @@ def rank_payload(account, full=False):
         rs = read_json(RANK_STATE_JSON, {})
         st = rs.get(str(account))
         changed = False
-        if st is None:
-            st = {"best_step": info["step"], "history": [{"step": info["step"], "title": info["title"],
-                                                          "at": int(time.time()), "kind": "placed"}]}
+        now = int(time.time())
+        # v2 = tier-only ranks (steps 0..8). Older state used divisions, so start fresh
+        # without counting the conversion itself as a rank-up.
+        if st is None or st.get("v") != 2:
+            st = {"v": 2, "best_step": info["step"], "seen_at": now,
+                  "history": [{"step": info["step"], "title": info["title"], "at": now, "kind": "placed"}]}
             changed = True
         elif info["step"] > int(st.get("best_step", 0)):
+            st["history"] = (st.get("history", []) + [{"step": info["step"], "from_step": int(st.get("best_step", 0)),
+                                                       "title": info["title"], "at": now, "kind": "promoted"}])[-100:]
             st["best_step"] = info["step"]
-            st["history"] = (st.get("history", []) + [{"step": info["step"], "title": info["title"],
-                                                       "at": int(time.time()), "kind": "promoted"}])[-100:]
             changed = True
         if changed:
             rs[str(account)] = st
             write_json(RANK_STATE_JSON, rs)
     last = (st.get("history") or [None])[-1]
+    # Rank-ups the player hasn't watched yet (the animation plays once they look at the client).
+    unseen = [h for h in st.get("history", []) if h.get("kind") == "promoted" and h.get("at", 0) > st.get("seen_at", 0)]
+    pending = None
+    if unseen:
+        lo = min(int(h.get("from_step", h["step"] - 1)) for h in unseen)
+        hi = max(int(h["step"]) for h in unseen)
+        path = [ranks.TIERS[ranks.STEPS[i][0]] for i in range(max(0, lo), hi + 1)]
+        pending = {"at": max(h["at"] for h in unseen),
+                   "tiers": [{"tier": t[0], "name": t[1], "color": ranks.TIER_COLORS[t[0]],
+                              "emblem": f"/ranks/{t[0]}.png"} for t in path]}
 
     out = {
         **info,
@@ -4066,6 +4253,7 @@ def rank_payload(account, full=False):
         "playtime_source": "steam" if steam_min and steam_min >= tracked else "client",
         "best_step": st.get("best_step", info["step"]),
         "last_event": last,
+        "pending": pending,
         "emblem": f"/ranks/{info['tier']}.png",
     }
     if full:
@@ -4082,6 +4270,16 @@ def rank_payload(account, full=False):
             "recent_lines": list(reversed(WIN_WATCHER.recent_lines())) if WIN_WATCHER else [],
         })
     return out
+
+
+def mark_rank_seen(account, at):
+    with _LOCK:
+        rs = read_json(RANK_STATE_JSON, {})
+        st = rs.get(str(account))
+        if st:
+            st["seen_at"] = max(int(st.get("seen_at", 0)), int(at or time.time()))
+            write_json(RANK_STATE_JSON, rs)
+    return {"ok": True}
 
 
 def set_win_config(raw):
@@ -4308,6 +4506,12 @@ class Handler(BaseHTTPRequestHandler):
             if not re.fullmatch(r"\d{2}\.png", name):
                 return self.send_error(403)
             return self.send_file(THEME_SAMPLES / name)
+        if path == "/api/theme/shot.jpg":
+            try:
+                return self.send_file(render_theme_shot((query.get("preset") or [""])[0]), cache=True)
+            except Exception as e:
+                log(f"Theme screenshot preview failed: {e}")
+                return self.send_error(404)
         if path == "/api/theme/preview.png":
             try:
                 raw = render_theme_sample((query.get("i") or ["0"])[0], (query.get("preset") or [""])[0],
@@ -4430,6 +4634,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(link_ember(_playtime_account(), pid, source="detected"))
             if path == "/api/rank/ember/refresh":
                 return self.send_json({"ok": True, "ember": ember_stats(_playtime_account(), force=True)})
+            if path == "/api/rank/seen":
+                return self.send_json(mark_rank_seen(_playtime_account(), data.get("at")))
             if path == "/api/rank/config":
                 return self.send_json(set_win_config(data))
             if path == "/api/rank/test":
@@ -4495,9 +4701,9 @@ class Handler(BaseHTTPRequestHandler):
                 clips.RECORDER.screens(refresh=True)
                 return self.send_json(clips.payload())
             if path == "/api/launch/normal":
-                return self.send_json(launch_normal())
+                return self.send_json(start_launch("normal"))
             if path == "/api/launch/fps":
-                return self.send_json(launch_with_fps(data.get("fps", prefs_payload().get("fps_target", "uncapped"))))
+                return self.send_json(start_launch("fps", data.get("fps", prefs_payload().get("fps_target", "uncapped"))))
             return self.send_json({"error": "Unknown endpoint"}, 404)
         except Exception as e:
             log(traceback.format_exc())

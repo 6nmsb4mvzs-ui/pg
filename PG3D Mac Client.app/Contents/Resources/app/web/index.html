@@ -644,6 +644,59 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
 .uiPrev em{display:block;height:8px;border-radius:4px;width:70%}.uiPrev u{display:block;height:16px;border-radius:5px;width:46%}
 .uiTheme b{font-family:var(--font-head);font-size:14px}.uiTheme small{font-size:11px;color:var(--muted);line-height:1.35}
 @media(max-width:900px){.uiThemes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* v1.30 rank-up animation */
+.ruOverlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--rk) 24%,transparent),transparent 62%),rgba(4,4,6,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);opacity:0;transition:opacity .45s;overflow:hidden}
+.ruOverlay.in{opacity:1}.ruOverlay.out{opacity:0}
+.ruOverlay canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.ruRays{position:absolute;left:50%;top:42%;width:160vmax;height:160vmax;transform:translate(-50%,-50%);background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--rk) 30%,transparent) 0deg 6deg,transparent 6deg 18deg);mask-image:radial-gradient(circle,#000 0,transparent 45%);-webkit-mask-image:radial-gradient(circle,#000 0,transparent 45%);opacity:0;transition:opacity .8s;animation:ruSpin 24s linear infinite;pointer-events:none}
+.ruOverlay.charge .ruRays{opacity:.35}.ruOverlay.revealed .ruRays{opacity:.9}
+@keyframes ruSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.ruFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.ruOverlay.burst .ruFlash{animation:ruFlash .55s ease-out}
+@keyframes ruFlash{0%{opacity:.85}100%{opacity:0}}
+.ruStage{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;margin-top:-4vh}
+.ruKicker{font-family:var(--font-head);font-weight:700;font-size:15px;letter-spacing:.9em;margin-right:-.9em;color:rgba(255,255,255,.75);opacity:0;transform:translateY(10px);transition:all .6s .15s}
+.ruEmblem{position:relative;width:min(360px,46vmin);height:min(360px,46vmin);margin:6px 0 2px}
+.ruEmblem img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.ruOld{transition:transform .5s,filter .5s,opacity .35s;filter:drop-shadow(0 0 18px color-mix(in srgb,var(--rk) 60%,transparent))}
+.ruOverlay.tick .ruOld{animation:ruTick .5s ease-out}
+@keyframes ruTick{0%{transform:scale(.86);filter:brightness(2.2)}100%{transform:scale(1)}}
+.ruOverlay.charge .ruOld{animation:ruCharge 1.1s ease-in forwards}
+@keyframes ruCharge{0%{transform:scale(1) rotate(0)}20%{transform:scale(1.02) rotate(-1.5deg)}40%{transform:scale(1.04) rotate(1.5deg)}60%{transform:scale(1.07) rotate(-2.5deg);filter:brightness(1.6) drop-shadow(0 0 30px #fff)}80%{transform:scale(1.1) rotate(2.5deg);filter:brightness(2.4) drop-shadow(0 0 50px #fff)}100%{transform:scale(1.14);filter:brightness(3.5) drop-shadow(0 0 70px #fff)}}
+.ruOverlay.burst .ruOld{animation:none;opacity:0;transform:scale(1.6);filter:blur(12px) brightness(3)}
+.ruNew{opacity:0;transform:scale(.25);filter:drop-shadow(0 0 40px var(--rk)) drop-shadow(0 18px 40px rgba(0,0,0,.6))}
+.ruOverlay.revealed .ruNew{animation:ruReveal 1s cubic-bezier(.18,1.6,.4,1) forwards,ruFloat 4s ease-in-out 1s infinite}
+@keyframes ruReveal{0%{opacity:0;transform:scale(.25)}60%{opacity:1}100%{opacity:1;transform:scale(1)}}
+@keyframes ruFloat{0%,100%{opacity:1;transform:translateY(0) scale(1)}50%{opacity:1;transform:translateY(-8px) scale(1.01)}}
+.ruName{font-family:var(--font-head);font-weight:700;font-size:clamp(40px,7vmin,68px);letter-spacing:-.02em;color:var(--rk);text-shadow:0 0 30px color-mix(in srgb,var(--rk) 55%,transparent);opacity:0;transform:translateY(16px);transition:all .7s .35s}
+.ruPath{margin-top:6px;color:rgba(255,255,255,.6);font-size:13px;letter-spacing:.06em;opacity:0;transition:opacity .6s .7s}
+#ruClose{margin-top:26px;opacity:0;transition:opacity .5s 1.6s;pointer-events:none}
+.ruOverlay.revealed .ruKicker,.ruOverlay.revealed .ruName{opacity:1;transform:none}
+.ruOverlay.revealed .ruPath,.ruOverlay.revealed #ruClose{opacity:1}.ruOverlay.revealed #ruClose{pointer-events:auto}
+@media (prefers-reduced-motion:reduce){.ruRays{animation:none}.ruOverlay.revealed .ruNew{animation:none;opacity:1;transform:none}}
+/* v1.30 launch progress */
+.launchProg{margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.lpTop{display:flex;justify-content:space-between;gap:12px;font-size:13px}.lpTop b{font-weight:600}.lpTop span{font-family:var(--font-head);font-weight:700;color:var(--accent-light)}
+.lpBar{height:8px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;margin:9px 0 7px}
+.lpBar i{display:block;height:100%;width:0;background:var(--grad);border-radius:6px;transition:width .6s ease;box-shadow:0 0 12px rgba(var(--accent-rgb),.5)}
+.launchProg small{font-size:11.5px;color:var(--muted)}
+.launchProg.done .lpBar i{background:#4ece5f;box-shadow:0 0 12px rgba(76,206,95,.5)}.launchProg.done .lpTop span{color:#4ece5f}
+
+/* v1.30 clips footer, theme shot, sky gallery */
+.clipFoot{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.clipFoot .clipDot{flex:none}.clipFootText{flex:1;min-width:0}.clipFootText b{display:block;font-size:12.5px}.clipFootText span{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clipFoot #saveClipNow{height:30px;font-size:12px!important}
+.thShot{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.thShot figure,.thPreview figure{margin:0;position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:#000;aspect-ratio:16/9}
+.thShot img{width:100%;height:100%;object-fit:cover;display:block}
+.thShot figcaption{position:absolute;left:8px;top:8px;font-size:9.5px;font-weight:800;letter-spacing:.1em;background:rgba(0,0,0,.65);border-radius:6px;padding:3px 7px}
+.thPreview{margin-top:16px}
+.skGrid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))!important;gap:12px!important}
+.skItem{border-radius:12px!important}.skItem img{aspect-ratio:16/9!important}
+.skItem div{padding:9px 11px!important;font-size:13px!important}
+.skDrop{min-height:0!important;aspect-ratio:auto}
+#skSetup .skCross{max-width:640px;margin:0 auto}
 </style>
 </head>
 <body>
@@ -684,6 +737,11 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
               <button class="launchBtn launchFps" id="startFps"><b>Start with FPS Unlocker</b></button>
             </div>
           </div>
+          <div class="launchProg" id="launchProg" hidden>
+            <div class="lpTop"><b id="lpMsg">Getting ready…</b><span id="lpPct">0%</span></div>
+            <div class="lpBar"><i id="lpFill"></i></div>
+            <small id="lpEta"></small>
+          </div>
           <div class="buildBadge" id="buildBadge"></div><div class="message" id="launchMessage"></div>
         </div>
         <div class="playStats">
@@ -702,7 +760,7 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
         </div>
         <div class="card previewPanel">
           <div class="sectionHead"><h2 id="cursorPreviewTitle">Preview</h2></div>
-          <div class="previewField" id="cursorPreview"><img class="previewCursor" id="cursorPreviewImg"></div>
+          <div class="previewField" id="cursorPreview" hidden><img class="previewCursor" id="cursorPreviewImg"></div>
           <div class="curField"><div class="xLabel">Size</div><div class="rangeRow"><input type="range" id="cursorSize" min="8" max="100" value="45"><div class="rangeVal" id="cursorSizeValue">45%</div></div></div>
           <div class="curField"><div class="xLabel">Color</div><div class="curSwatches" id="curSwatches"></div></div>
           <div hidden><span id="cursorHexPreview"></span><input id="cursorHex" value="FFFFFF"><input id="cursorSpectrum" type="range" min="0" max="359" value="0"></div>
@@ -741,20 +799,18 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
 
     <section class="page" id="page-clips">
       <div class="clipsPage" id="clipsLibrary">
-        <div class="crCard clipStatus" id="clipStatus">
-          <div class="clipStatusTop">
-            <div class="clipState"><span class="clipDot" id="clipDot"></span><div><b id="clipStateTitle">Loading clips…</b><span id="clipStateText"></span></div></div>
-            <div class="toolbar" id="clipStatusActions"></div>
-            <button class="crPrimary clipSaveBtn" id="saveClipNow" data-ui-control>Save clip</button>
-          </div>
-          <div class="clipMeter" id="clipMeter" aria-hidden="true"><div class="clipMeterFill" id="clipMeterFill"></div><div class="clipMeterMark" id="clipMeterMark"></div></div>
-          <div class="clipMeterScale"><span id="clipBuffered">0:00 recorded</span><span>3:00</span></div>
-          <pre class="clipErr" id="clipErr" hidden></pre>
-        </div>
         <div class="clipsLayout">
           <div class="card pad clipLibrary">
             <div class="sectionHead"><div><h2>Your clips</h2><small class="clipCount" id="clipCount"></small></div><button class="btn" id="openClipsFolder">Open folder</button></div>
             <div class="clipGrid" id="clipGrid"></div>
+            <div class="clipFoot" id="clipStatus">
+              <span class="clipDot" id="clipDot"></span>
+              <div class="clipFootText"><b id="clipStateTitle">Loading clips…</b><span id="clipStateText"></span></div>
+              <div class="toolbar" id="clipStatusActions"></div>
+              <button class="btn primary" id="saveClipNow" data-ui-control>Save clip</button>
+            </div>
+            <pre class="clipErr" id="clipErr" hidden></pre>
+            <div hidden><div id="clipMeter"><div id="clipMeterFill"></div><div id="clipMeterMark"></div></div><span id="clipBuffered"></span></div>
           </div>
           <div class="crCard clipSettings">
             <div class="crCardHead"><h3>Settings</h3></div>
@@ -856,43 +912,12 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <div class="rkMain">
             <div class="rkTitle" id="rkTitle">—</div>
             <div class="rkBar"><i id="rkBarFill" style="width:0"></i></div>
-            <div class="rkSub" id="rkSub">Play to rank up.</div>
+            <div class="rkSub" id="rkSub" hidden></div>
             <div class="rkMeta" id="rkMeta"></div>
           </div>
         </div>
         <div class="crCard">
           <div class="rkLadder" id="rkLadder"></div>
-        </div>
-        <div class="crCard">
-          <div class="emLink" id="emLinkRow">
-            <input class="search" id="emId" inputmode="numeric" placeholder="PG3D player ID" spellcheck="false">
-            <button class="btn" id="emLinkBtn">Link</button>
-            <button class="btn primary" id="emDetectBtn">Find automatically</button>
-          </div>
-          <div class="emHead" id="emLinked" hidden>
-            <div><b id="emName">—</b><small id="emMeta"></small></div>
-            <button class="btn ghost" id="emUnlink">Unlink</button>
-          </div>
-          <div class="xNote" id="emHint">Link your player ID so wins count automatically.</div>
-          <details class="xDetails">
-            <summary>Settings</summary>
-            <div class="xStack">
-              <div class="xRow"><span class="sub" style="flex:1">Fix your win count by hand</span><button class="btn" id="rkWinMinus">−1</button><button class="btn" id="rkWinPlus">+1</button></div>
-              <button class="xSwitch" id="rkSteamToggle" role="switch"><div><b>Use Steam playtime</b><small>Include hours from before this client.</small></div><span class="pillToggle"></span></button>
-              <button class="xSwitch" id="rkAutoToggle" role="switch"><div><b>Read wins from the game log</b><small id="rkLogState">Used when no player ID is linked.</small></div><span class="pillToggle"></span></button>
-              <div>
-                <div class="xLabel">Log win patterns (one per line)</div>
-                <textarea class="xInput" id="rkPatterns" spellcheck="false"></textarea>
-                <div class="xCols" style="margin-top:8px">
-                  <div><div class="xLabel">Loss filter</div><input type="text" class="xInput" id="rkGuard" spellcheck="false"></div>
-                  <div><div class="xLabel">Seconds between wins</div><input type="number" class="xInput" id="rkCooldown" min="20" max="900"></div>
-                </div>
-                <div class="xRow" style="margin-top:10px"><button class="btn primary" id="rkSaveCfg">Save</button><button class="btn" id="rkTestCfg">Test</button><button class="btn ghost" id="rkResetCfg">Defaults</button></div>
-                <div class="rkList" id="rkTestOut"></div>
-              </div>
-              <div><div class="xLabel">Recent match lines · click to use</div><div class="rkList" id="rkRecent"></div></div>
-            </div>
-          </details>
         </div>
       </div>
     </section>
@@ -921,21 +946,16 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
         <div class="crCard">
           <div class="crCardHead"><h3>In-game theme</h3><span class="xPill" id="thActive"></span></div>
           <div class="thPresets" id="thPresets"><div class="sub">Loading…</div></div>
-          <div class="thBody">
-            <div>
-              <div class="xRow" style="justify-content:space-between"><span class="xLabel">Preview</span><div class="xRow"><button class="btn ghost xIcon" id="thPrev">‹</button><span class="sub" id="thSampleIdx"></span><button class="btn ghost xIcon" id="thNext">›</button></div></div>
-              <div class="thPreview" id="thPreview"></div>
-            </div>
-            <div class="thSide">
-              <div class="xLabel">Intensity</div>
-              <div class="xRange"><input type="range" id="thStrength" min="30" max="100" value="85"><b id="thStrengthVal">85%</b></div>
-              <div class="xJob" id="thJob"><div class="msg"></div><div class="bar"><i></i></div></div>
-              <div class="xRow"><button class="btn primary xBig" id="thApply">Apply theme</button><button class="btn" id="thReset">Restore original</button></div>
-              <p class="xNote">Close PG3D first. Recolors every menu, HUD and icon texture. Apply again after a game update.</p>
-              <p class="xNote" id="thScanInfo"></p>
-              <button class="btn ghost" id="thRescan">Rescan game files</button>
-            </div>
+          <div class="thShot" id="thShot">
+            <figure><img id="thShotOrig" alt=""><figcaption>ORIGINAL</figcaption></figure>
+            <figure><img id="thShotNew" alt=""><figcaption id="thShotCap">THEME</figcaption></figure>
           </div>
+          <div class="thPreview" id="thPreview" hidden></div>
+          <p class="xNote">Preview: the Armory from Steam, recolored. In game every menu, HUD and icon texture changes the same way; maps and characters in matches keep their colors.</p>
+          <div class="xJob" id="thJob" style="margin-top:12px"><div class="msg"></div><div class="bar"><i></i></div></div>
+          <div class="xRow" style="margin-top:14px"><button class="btn primary xBig" id="thApply">Apply theme</button><button class="btn" id="thReset">Restore original</button><span class="xSpacer"></span><button class="btn ghost" id="thRescan">Rescan game files</button></div>
+          <p class="xNote" id="thScanInfo"></p>
+          <div hidden><input type="range" id="thStrength" min="30" max="100" value="85"><b id="thStrengthVal"></b><button id="thPrev"></button><button id="thNext"></button><span id="thSampleIdx"></span></div>
         </div>
       </div>
     </section>
@@ -951,22 +971,15 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <input type="file" id="skFile" accept="image/png,image/jpeg" hidden>
         </div>
         <div class="crCard" id="skSetup">
-          <div class="crCardHead"><h3>Place it</h3></div>
-          <div class="skBody">
-            <div class="skCross" id="skCross"></div>
-            <div class="xStack">
-              <div><div class="xLabel">Rotate</div><div class="xRange"><input type="range" id="skYaw" min="0" max="359" value="0"><b id="skYawVal">0°</b></div></div>
-              <button class="xSwitch" id="skSwap" role="switch"><div><b>Swap left and right</b><small>If the sides look mirrored in game.</small></div><span class="pillToggle"></span></button>
-              <button class="xSwitch" id="skFlip" role="switch"><div><b>Flip vertically</b><small>If the sky shows upside down.</small></div><span class="pillToggle"></span></button>
-              <details class="xDetails"><summary id="skTargetsSum">Sky textures</summary>
-                <div class="xRow" style="margin:8px 0"><button class="btn ghost" id="skAll">All</button><button class="btn ghost" id="skNone">None</button><button class="btn ghost" id="skRescan">Rescan</button></div>
-                <div class="skTargets" id="skTargets"></div>
-              </details>
-              <div class="xJob" id="skJob"><div class="msg"></div><div class="bar"><i></i></div></div>
-              <div class="xRow"><button class="btn primary xBig" id="skApply">Apply sky</button><button class="btn" id="skReset">Restore original</button></div>
-              <p class="xNote">Close PG3D first.</p>
-            </div>
-          </div>
+          <div class="crCardHead"><h3>Preview</h3><div class="xRow"><button class="ovChip" id="skSwap" type="button" title="Use if the left and right sides look mirrored in game">Mirror sides</button><button class="ovChip" id="skFlip" type="button" title="Use if the sky shows upside down in game">Upside down</button></div></div>
+          <div class="skCross" id="skCross"></div>
+          <input type="range" id="skYaw" min="0" max="359" value="0" hidden><b id="skYawVal" hidden></b>
+          <details class="xDetails"><summary id="skTargetsSum">Sky textures</summary>
+            <div class="xRow" style="margin:8px 0"><button class="btn ghost" id="skAll">All</button><button class="btn ghost" id="skNone">None</button><button class="btn ghost" id="skRescan">Rescan</button></div>
+            <div class="skTargets" id="skTargets"></div>
+          </details>
+          <div class="xJob" id="skJob" style="margin-top:12px"><div class="msg"></div><div class="bar"><i></i></div></div>
+          <div class="xRow" style="margin-top:14px"><button class="btn primary xBig" id="skApply">Apply sky</button><button class="btn" id="skReset">Restore original</button><span class="sub">Close PG3D first.</span></div>
         </div>
       </div>
     </section>
@@ -984,7 +997,17 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
   <div class="sub" style="margin-top:9px">Used once. The code is not saved.</div>
   <div class="modalActions"><button class="btn" id="guardCancel">Cancel</button><button class="btn primary" id="guardSubmit">Verify & Launch</button></div>
 </div></div>
-<div class="rkPromo" id="rkPromo"><div class="box"><h2>PROMOTED</h2><img src="/ranks/iron.png" alt=""><h1></h1><button class="btn">Continue</button></div></div>
+<div class="ruOverlay" id="rankUp" hidden>
+  <canvas id="ruCanvas"></canvas>
+  <div class="ruRays"></div><div class="ruFlash"></div>
+  <div class="ruStage">
+    <div class="ruKicker">RANK UP</div>
+    <div class="ruEmblem"><img class="ruOld" id="ruOld" alt=""><img class="ruNew" id="ruNew" alt=""></div>
+    <div class="ruName" id="ruName"></div>
+    <div class="ruPath" id="ruPath"></div>
+    <button class="btn primary" id="ruClose">Continue</button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1030,12 +1053,12 @@ function setState(id,text,kind=''){const e=$(id);if(!e)return;e.textContent=text
 function renderStatus(){if(!statusData)return;
   $('#launchMessage').textContent=statusData.launch_error||'';
   $('#startNormal').disabled=statusData.game_running;$('#startFps').disabled=statusData.game_running||!statusData.fps_bundle_present;
-  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderJob();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t)}
+  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t)}
   if(statusData.overlay && (!overlayConfig || !overlayDirty)){overlayConfig=structuredClone(statusData.overlay.config);renderOverlayEditor()}
 }
 function renderBuildBadge(){const b=$('#buildBadge');if(!b||!statusData)return;const m=statusData.fps_build_match,build=statusData.game_build;if(m===false){b.className='buildBadge show warn';b.textContent=`PG3D build ${build} is newer than the FPS unlocker supports (${(statusData.fps_supported_builds||[]).join(', ')}). Start Normal will still work.`}else if(m===true){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build} · FPS unlocker compatible`}else{b.className='buildBadge'}}
 function renderPlaytime(){const el=$('#playtime'),p=statusData?.playtime;if(!el||!p)return;const cells=[];if(p.live)cells.push(['live','This session',p.live]);cells.push(['','Today',p.today],['','Last 7 days',p.week],['','All time',p.total]);const sig=JSON.stringify(cells);if(sig===el.__sig)return;el.__sig=sig;el.innerHTML='';for(const[c,l,v]of cells){const d=document.createElement('div');d.className=c;const b=document.createElement('b');b.textContent=v;d.append(b,document.createTextNode(l));el.appendChild(d)}}
-function scheduleStatus(){clearTimeout(statusTimer);if(document.visibilityState==='hidden')return;const busy=statusData&&(['launching','switching','steam_guard'].includes(statusData.launch_phase)||statusData.pending_guard||statusData.cursor_phase==='scanning'||statusData.job?.phase==='running');statusTimer=setTimeout(async()=>{await refreshStatus();scheduleStatus()},busy?1000:3500)}
+function scheduleStatus(){clearTimeout(statusTimer);if(document.visibilityState==='hidden')return;const busy=statusData&&(['launching','switching','steam_guard','preparing','starting'].includes(statusData.launch_phase)||statusData.pending_guard||statusData.cursor_phase==='scanning'||statusData.job?.phase==='running');statusTimer=setTimeout(async()=>{await refreshStatus();scheduleStatus()},busy?700:3500)}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshStatus().then(scheduleStatus)}else clearTimeout(statusTimer)});
 async function refreshStatus(){try{statusData=await api('/api/status');cursorCatalog=statusData.cursor_catalog||[];renderStatus();if(!$('#cursorGrid').children.length)renderCursorGrid();if(statusData.pending_guard&&!$('#guardModal').classList.contains('show'))openGuard()}catch(e){console.error(e)}}
 
@@ -1060,7 +1083,14 @@ $('#guardSubmit').onclick=async()=>{
     closeGuard();toast(d.message||'Steam authorized. PG3D launch requested.');await refreshStatus();
   }catch(e){toast(e.message,true)}finally{b.disabled=false;b.textContent=old}
 };
-async function launch(kind){const btn=kind==='fps'?$('#startFps'):$('#startNormal');const old=btn.innerHTML;btn.disabled=true;btn.innerHTML='<b>Launching…</b>';try{const d=await post(kind==='fps'?'/api/launch/fps':'/api/launch/normal',{fps:$('#fpsSelect').value});if(d.needs_guard){openGuard()}else{toast(d.message||'Launch requested.')}await refreshStatus()}catch(e){toast(e.message,true)}finally{btn.innerHTML=old;await refreshStatus()}}
+async function launch(kind){try{await post(kind==='fps'?'/api/launch/fps':'/api/launch/normal',{fps:$('#fpsSelect').value});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}}
+const LAUNCH_BUSY=['preparing','switching','launching','starting'];let lpWasBusy=false;
+function renderLaunch(){const s=statusData;if(!s)return;const busy=LAUNCH_BUSY.includes(s.launch_phase),box=$('#launchProg');
+  $('#startNormal').disabled=busy||s.game_running;$('#startFps').disabled=busy||s.game_running||!s.fps_bundle_present;
+  if(busy){box.hidden=false;box.classList.remove('done');const pct=Math.max(1,Math.min(99,s.launch_progress||0));$('#lpFill').style.width=pct+'%';$('#lpPct').textContent=pct+'%';$('#lpMsg').textContent=s.launch_message||'Starting…';
+    const eta=s.launch_eta;$('#lpEta').textContent=eta==null?'':eta<=1?'Almost there…':`About ${eta<60?eta+' s':Math.round(eta/60)+' min'} left`}
+  else if(lpWasBusy){if(!s.launch_error&&s.launch_progress===100){box.hidden=false;box.classList.add('done');$('#lpFill').style.width='100%';$('#lpPct').textContent='100%';$('#lpMsg').textContent=s.launch_message||'PG3D is running.';$('#lpEta').textContent='Have fun!';setTimeout(()=>{if(!LAUNCH_BUSY.includes(statusData?.launch_phase))$('#launchProg').hidden=true},5000)}else box.hidden=true}
+  lpWasBusy=busy}
 $('#startNormal').onclick=()=>launch('normal');$('#startFps').onclick=()=>launch('fps');
 
 // Cursor
@@ -1475,47 +1505,70 @@ function renderJob(){const j=statusData?.job;if(!j)return;
 
 // Rank chip on the Play page + promotion splash
 function renderRankChip(){const r=statusData?.rank;const host=$('#rankChip');if(!host||!r)return;
-  host.style.setProperty('--rk',r.color);host.querySelector('img').src=r.emblem;host.querySelector('b').textContent=r.title+(r.lp?` · ${fmtNum(r.lp)} LP`:'');
-  host.querySelector('small').textContent=r.gated?`${fmtNum(r.gated.wins_missing)} more wins for ${r.gated.tier}`:r.next_name?`${fmtNum(r.xp_to_next)} XP to ${r.next_name}`:'Top of the ladder';host.querySelector('.mini i').style.width=Math.round((r.progress||0)*100)+'%';
-  const ev=r.last_event;if(ev&&ev.kind==='promoted'){let seen=0;try{seen=Number(localStorage.pg3dRankSeen||0)}catch{}if(ev.at>seen){try{localStorage.pg3dRankSeen=String(ev.at)}catch{}showPromotion(r)}}}
-function showPromotion(r){const p=$('#rkPromo');p.style.setProperty('--rk',r.color);p.querySelector('img').src=r.emblem;p.querySelector('h1').textContent=r.title;p.classList.add('show');uiSound('primary')}
+  host.style.setProperty('--rk',r.color);host.querySelector('img').src=r.emblem;host.querySelector('b').textContent=r.tier_name;
+  host.querySelector('small').textContent=r.gated?`${fmtNum(r.gated.wins_missing)} more wins for ${r.gated.tier}`:r.next_name?`Next: ${r.next_name}`:'Top rank';host.querySelector('.mini i').style.width=Math.round((r.progress||0)*100)+'%';
+  maybePlayRankUp()}
 
+// Rank-up animation: waits until the client is actually in front (visible and focused)
+let ruPlaying=false,ruDoneAt=0;
+function clientInFront(){return document.visibilityState==='visible'&&document.hasFocus()}
+function maybePlayRankUp(){const p=statusData?.rank?.pending;if(!p||ruPlaying||p.at<=ruDoneAt||!clientInFront())return;playRankUp(p)}
+window.addEventListener('focus',()=>setTimeout(maybePlayRankUp,400));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(maybePlayRankUp,400)});
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function ruSound(){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;const ac=__uiAudio||(__uiAudio=new AC());if(ac.state==='suspended')ac.resume();const t=ac.currentTime;
+  [523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=i<4?'triangle':'sine';o.frequency.value=f;g.gain.setValueAtTime(.0001,t+i*.09);g.gain.exponentialRampToValueAtTime(.06,t+i*.09+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.09+(i===4?1.4:.5));o.connect(g);g.connect(ac.destination);o.start(t+i*.09);o.stop(t+i*.09+1.5)})}catch{}}
+function ruParticles(canvas){const ctx=canvas.getContext('2d');let parts=[],run=true;const dpr=window.devicePixelRatio||1;
+  const fit=()=>{canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr};fit();addEventListener('resize',fit);
+  const api={burst(color,n=160,speed=9){const cx=canvas.width/2,cy=canvas.height*0.42;for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=(Math.random()*speed+2)*dpr;parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:1,decay:.008+Math.random()*.014,size:(Math.random()*3+1.2)*dpr,color})}},
+    rise(color){const n=2;for(let i=0;i<n;i++)parts.push({x:canvas.width*(.3+Math.random()*.4),y:canvas.height*(.62+Math.random()*.1),vx:(Math.random()-.5)*.6*dpr,vy:-(Math.random()*1.6+.6)*dpr,life:1,decay:.006+Math.random()*.006,size:(Math.random()*2+1)*dpr,color})},
+    stop(){run=false;removeEventListener('resize',fit);ctx.clearRect(0,0,canvas.width,canvas.height)},ambient:null};
+  (function frame(){if(!run)return;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.globalCompositeOperation='lighter';
+    if(api.ambient)api.rise(api.ambient);
+    parts=parts.filter(p=>p.life>0);for(const p of parts){p.x+=p.vx;p.y+=p.vy;p.vx*=.985;p.vy=p.vy*.985+.04*dpr;p.life-=p.decay;ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill()}
+    ctx.globalAlpha=1;requestAnimationFrame(frame)})();return api}
+async function playRankUp(p){ruPlaying=true;const tiers=p.tiers||[];if(tiers.length<2){ruPlaying=false;ruDoneAt=p.at;return}
+  const ov=$('#rankUp'),oldI=$('#ruOld'),newI=$('#ruNew'),from=tiers[0],to=tiers[tiers.length-1],reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  ov.className='ruOverlay';ov.hidden=false;ov.style.setProperty('--rk',from.color);oldI.src=from.emblem;newI.src=to.emblem;
+  $('#ruName').textContent=to.name;$('#ruPath').textContent=tiers.map(t=>t.name).join('  →  ');
+  const fx=ruParticles($('#ruCanvas'));let done=false;
+  const finish=async()=>{if(done)return;done=true;ov.classList.add('out');await sleep(450);fx.stop();ov.hidden=true;ov.className='ruOverlay';ruPlaying=false;ruDoneAt=p.at;try{await post('/api/rank/seen',{at:p.at})}catch{}};
+  $('#ruClose').onclick=finish;ov.onclick=e=>{if(e.target===ov&&ov.classList.contains('revealed'))finish()};
+  const esc=e=>{if(e.key==='Escape'){removeEventListener('keydown',esc);finish()}};addEventListener('keydown',esc);
+  await sleep(30);ov.classList.add('in');await sleep(reduce?200:700);
+  for(const t of tiers.slice(1,-1)){ov.style.setProperty('--rk',t.color);oldI.src=t.emblem;ov.classList.remove('tick');void ov.offsetWidth;ov.classList.add('tick');fx.burst(t.color,40,5);await sleep(reduce?150:520)}
+  ov.classList.add('charge');await sleep(reduce?100:1100);
+  ov.style.setProperty('--rk',to.color);ov.classList.add('burst');fx.burst(to.color,220,11);fx.burst('#ffffff',60,7);ruSound();await sleep(160);
+  ov.classList.add('revealed');fx.ambient=to.color;}
 let rankData=null;
 async function loadRank(){try{rankData=await api('/api/rank');renderRank()}catch(e){console.error(e)}}
 function renderRank(){const r=rankData;if(!r)return;
   $('#rkHero').style.setProperty('--rk',r.color);$('#rkEmblem').src=r.emblem;
-  const t=$('#rkTitle');t.textContent=r.tier_name+' ';t.append(el('span',null,r.division||(r.lp!=null?`${fmtNum(r.lp)} LP`:'')));
+  $('#rkTitle').textContent=r.tier_name;
   $('#rkBarFill').style.width=Math.round(r.progress*100)+'%';
-  $('#rkSub').textContent=r.gated?`${fmtNum(r.gated.wins_missing)} more wins to reach ${r.gated.tier}`
-    :r.next_name?`About ${r.hours_to_next} h of play to ${r.next_name}`:'Top rank reached';
-  $('#rkMeta').textContent=`${fmtNum(r.hours)} h played · ${fmtNum(r.wins)} wins`;
+  const sub=$('#rkSub');sub.hidden=!r.gated;sub.textContent=r.gated?`${fmtNum(r.gated.wins_missing)} more wins to reach ${r.gated.tier}`:'';
+  $('#rkMeta').textContent=`${fmtNum(r.hours)} h played · ${fmtNum(r.wins)} wins`+(r.next_name?` · next: ${r.next_name}`:' · top rank');
   const lad=$('#rkLadder');lad.innerHTML='';const curIdx=(r.ladder||[]).findIndex(x=>x.tier===r.tier);
   (r.ladder||[]).forEach((x,i)=>{const d=el('div','rkStep'+(i<curIdx?' done':'')+(i===curIdx?' current':''));d.style.setProperty('--rk',x.color);const im=el('img');im.src=TIER_IMG(x.tier);im.alt='';
-    d.title=x.hours?`About ${x.hours} hours${x.wins?` and ${fmtNum(x.wins)} wins`:''}`:'Starting rank';d.append(im,el('b',null,x.name));lad.append(d)});
-  renderEmber(r);
-  setSwitch('#rkAutoToggle',r.config.auto);setSwitch('#rkSteamToggle',r.config.steam_playtime);
-  $('#rkLogState').textContent=r.ember?.player_id?'Off while a player ID is linked.':(r.player_log?'Game log found.':'Game log appears after PG3D runs once.');
-  if(!document.activeElement||!document.activeElement.closest?.('.xDetails')){$('#rkPatterns').value=(r.config.patterns||[]).join('\n');$('#rkGuard').value=r.config.loss_guard||'';$('#rkCooldown').value=r.config.cooldown||90}
-  const rc=$('#rkRecent');rc.innerHTML='';const lines=r.recent_lines||[];if(!lines.length)rc.append(el('div','xEmpty','Nothing yet. Play a match first.'));
-  for(const l of lines.slice(0,25)){const it=el('div','rkItem rkLine');it.append(el('code',null,l.line),el('time',null,ago(l.at)));it.onclick=()=>{const esc=l.line.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\d+/g,'\\d+');const ta=$('#rkPatterns');ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+esc;toast('Added. Press Save to use it.')};rc.append(it)}}
-function renderEmber(r){const e=r.ember,linked=!!(e&&e.player_id);$('#emLinkRow').hidden=linked;$('#emHint').hidden=linked&&!e.error;$('#emLinked').hidden=!linked;
+    d.title=x.hours?`About ${x.hours} hours${x.wins?` and ${fmtNum(x.wins)} wins`:''}`:'Starting rank';d.append(im,el('b',null,x.name));lad.append(d)})}
+function renderEmber(r){if(!$('#emLinkRow'))return;const e=r.ember,linked=!!(e&&e.player_id);$('#emLinkRow').hidden=linked;$('#emHint').hidden=linked&&!e.error;$('#emLinked').hidden=!linked;
   if(!linked){$('#emHint').textContent='Start PG3D once and your player ID is picked up automatically. Or enter it yourself.';return}
   $('#emName').textContent=e.name||`Player ${e.player_id}`;$('#emMeta').textContent=(e.source==='detected'?'Synced from PG3D':'Linked by ID')+(statusData?.game_running?' · live':'');
   $('#emHint').textContent=e.error?'Couldn’t reach Ember. Using your last known wins.':''}
-$('#emLinkBtn').onclick=async()=>{const id=$('#emId').value.trim();if(!id)return toast('Enter your PG3D player ID.',true);$('#emLinkBtn').disabled=true;
+if(document.querySelector('#emLinkBtn'))$('#emLinkBtn').onclick=async()=>{const id=$('#emId').value.trim();if(!id)return toast('Enter your PG3D player ID.',true);$('#emLinkBtn').disabled=true;
   try{const d=await post('/api/rank/ember',{player_id:id});toast(`Linked ${d.ember.name||id}`);await loadRank();refreshStatus()}catch(e){toast(e.message,true)}finally{$('#emLinkBtn').disabled=false}};
-$('#emDetectBtn').onclick=async()=>{$('#emDetectBtn').disabled=true;try{const d=await post('/api/rank/ember/detect');toast(`Found ${d.ember.name||d.ember.player_id}`);await loadRank();refreshStatus()}catch(e){toast(e.message,true)}finally{$('#emDetectBtn').disabled=false}};
-$('#emId').addEventListener('keydown',e=>{if(e.key==='Enter')$('#emLinkBtn').click()});
-$('#emUnlink').onclick=async()=>{try{await post('/api/rank/ember',{player_id:''});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
-$('#rkWinPlus').onclick=async()=>{try{await post('/api/rank/win',{delta:1});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
-$('#rkWinMinus').onclick=async()=>{try{await post('/api/rank/win',{delta:-1});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
-$('#rkAutoToggle').onclick=async()=>{try{await post('/api/rank/config',{auto:!rankData?.config?.auto});await loadRank()}catch(e){toast(e.message,true)}};
-$('#rkSteamToggle').onclick=async()=>{try{await post('/api/rank/config',{steam_playtime:!rankData?.config?.steam_playtime});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
+if(document.querySelector('#emDetectBtn'))$('#emDetectBtn').onclick=async()=>{$('#emDetectBtn').disabled=true;try{const d=await post('/api/rank/ember/detect');toast(`Found ${d.ember.name||d.ember.player_id}`);await loadRank();refreshStatus()}catch(e){toast(e.message,true)}finally{$('#emDetectBtn').disabled=false}};
+if(document.querySelector('#emId'))$('#emId').addEventListener('keydown',e=>{if(e.key==='Enter')$('#emLinkBtn').click()});
+if(document.querySelector('#emUnlink'))$('#emUnlink').onclick=async()=>{try{await post('/api/rank/ember',{player_id:''});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
+if(document.querySelector('#rkWinPlus'))$('#rkWinPlus').onclick=async()=>{try{await post('/api/rank/win',{delta:1});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
+if(document.querySelector('#rkWinMinus'))$('#rkWinMinus').onclick=async()=>{try{await post('/api/rank/win',{delta:-1});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
+if(document.querySelector('#rkAutoToggle'))$('#rkAutoToggle').onclick=async()=>{try{await post('/api/rank/config',{auto:!rankData?.config?.auto});await loadRank()}catch(e){toast(e.message,true)}};
+if(document.querySelector('#rkSteamToggle'))$('#rkSteamToggle').onclick=async()=>{try{await post('/api/rank/config',{steam_playtime:!rankData?.config?.steam_playtime});await loadRank();refreshStatus()}catch(e){toast(e.message,true)}};
 function rkCfg(){return{patterns:$('#rkPatterns').value.split('\n').map(s=>s.trim()).filter(Boolean),loss_guard:$('#rkGuard').value.trim(),cooldown:Number($('#rkCooldown').value||90)}}
-$('#rkSaveCfg').onclick=async()=>{try{await post('/api/rank/config',rkCfg());toast('Win detection saved.');$('#rkSaveCfg').blur();await loadRank()}catch(e){toast(e.message,true)}};
-$('#rkResetCfg').onclick=async()=>{try{await post('/api/rank/config',{reset_defaults:true});$('#rkResetCfg').blur();await loadRank();toast('Defaults restored.')}catch(e){toast(e.message,true)}};
-$('#rkTestCfg').onclick=async()=>{const out=$('#rkTestOut');try{const c=rkCfg();const d=await post('/api/rank/test',c);out.innerHTML='';out.append(el('div','sub',`${d.hits.length} of ${d.checked} recent lines would count as a win.`));for(const h of d.hits){const it=el('div','rkItem');it.append(el('code',null,h));out.append(it)}}catch(e){toast(e.message,true)}};
-$('#rkPromo').onclick=()=>$('#rkPromo').classList.remove('show');
+if(document.querySelector('#rkSaveCfg'))$('#rkSaveCfg').onclick=async()=>{try{await post('/api/rank/config',rkCfg());toast('Win detection saved.');$('#rkSaveCfg').blur();await loadRank()}catch(e){toast(e.message,true)}};
+if(document.querySelector('#rkResetCfg'))$('#rkResetCfg').onclick=async()=>{try{await post('/api/rank/config',{reset_defaults:true});$('#rkResetCfg').blur();await loadRank();toast('Defaults restored.')}catch(e){toast(e.message,true)}};
+if(document.querySelector('#rkTestCfg'))$('#rkTestCfg').onclick=async()=>{const out=$('#rkTestOut');try{const c=rkCfg();const d=await post('/api/rank/test',c);out.innerHTML='';out.append(el('div','sub',`${d.hits.length} of ${d.checked} recent lines would count as a win.`));for(const h of d.hits){const it=el('div','rkItem');it.append(el('code',null,h));out.append(it)}}catch(e){toast(e.message,true)}};
+if(document.querySelector('#rkPromo'))$('#rkPromo').onclick=()=>$('#rkPromo').classList.remove('show');
 
 // Theme
 let themeData=null,themePreset=null,themeSample=0;
@@ -1529,14 +1582,16 @@ function renderTheme(){const d=themeData;if(!d)return;const host=$('#thPresets')
   $('#thStrengthVal').textContent=$('#thStrength').value+'%';
   const selName=opts.find(p=>p.id===themePreset)?.name||'theme',orig=themePreset==='original';
   $('#thApply').textContent=orig?'Restore original':`Apply ${selName}`;
-  $('#thReset').hidden=!d.active||orig;$('#thStrength').disabled=orig;$('#thStrength').closest('.xRange').style.opacity=orig?.4:1;
+  $('#thReset').hidden=!d.active||orig;
   const n=d.scan.textures||0;$('#thScanInfo').textContent=d.scan.generated?`${fmtNum(n)} GUI ${n===1?'texture':'textures'} found${d.scan.fresh?'':' · game updated, will rescan on apply'}.`:'';
   renderThemePreview()}
-function renderThemePreview(){const d=themeData,host=$('#thPreview');host.innerHTML='';const n=d?.samples?.length||0;
-  if(!n){const e=el('div','xEmpty','A preview appears after the first scan (Apply or Rescan).');e.style.gridColumn='1/-1';host.append(e);$('#thSampleIdx').textContent='';return}
-  themeSample=(themeSample+n)%n;$('#thSampleIdx').textContent=`${themeSample+1} / ${n}`;const strength=$('#thStrength').value/100;
-  for(const [cap,preset] of [['ORIGINAL',''],[themePreset==='original'?'ORIGINAL':(d.presets.find(p=>p.id===themePreset)?.name||'').toUpperCase(),themePreset==='original'?'':themePreset]]){const f=el('figure');const im=el('img');im.src=`/api/theme/preview.png?i=${themeSample}&preset=${preset}&strength=${strength}`;f.append(im,el('figcaption',null,cap));host.append(f)}}
-$('#thPrev').onclick=()=>{themeSample--;renderThemePreview()};$('#thNext').onclick=()=>{themeSample++;renderThemePreview()};
+function renderThemePreview(){const d=themeData;if(!d)return;const orig=themePreset==='original',name=orig?'Original':(d.presets.find(p=>p.id===themePreset)?.name||'');
+  const a=$('#thShotOrig'),b=$('#thShotNew');if(!a.dataset.set){a.dataset.set='1';a.src='/api/theme/shot.jpg?preset=original'}
+  b.src=`/api/theme/shot.jpg?preset=${orig?'original':themePreset}`;$('#thShotCap').textContent=name.toUpperCase();
+  a.onerror=b.onerror=()=>{$('#thShot').hidden=true;const host=$('#thPreview');host.hidden=false;host.innerHTML='';const n=d.samples?.length||0;
+    if(!n){host.append(el('div','xEmpty','Preview needs an internet connection or one scan of the game files.'));return}
+    for(const [cap,pr] of [['ORIGINAL',''],[name.toUpperCase(),orig?'':themePreset]]){const f=el('figure');const im=el('img');im.src=`/api/theme/preview.png?i=0&preset=${pr}&strength=${(d.presets.find(p=>p.id===pr)||{}).strength||0.8}`;f.append(im,el('figcaption',null,cap));host.append(f)}}}
+
 $('#thStrength').oninput=e=>{e.target.dataset.touched='1';$('#thStrengthVal').textContent=e.target.value+'%';clearTimeout(e.target._t);e.target._t=setTimeout(renderThemePreview,180)};
 $('#thApply').onclick=async()=>{try{if(themePreset==='original')await post('/api/theme/reset');else await post('/api/theme/apply',{preset:themePreset,strength:$('#thStrength').value/100});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
 $('#thReset').onclick=async()=>{try{await post('/api/theme/reset');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
@@ -1544,7 +1599,7 @@ $('#thRescan').onclick=async()=>{try{await post('/api/customize/scan');await ref
 
 // Sky
 let skyData=null,skySel=null,skyTargetsOff=new Set();
-async function loadSky(){try{skyData=await api('/api/sky');const act=skyData.active;if(!skySel)skySel=act?.id||skyData.library[0]?.id||null;if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=Math.round(act.yaw||0);setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip);
+async function loadSky(){try{skyData=await api('/api/sky');const act=skyData.active;if(!skySel)skySel=act?.id||skyData.library[0]?.id||null;if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=0;setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip);
     const keys=new Set(act.target_keys||[]);skyTargetsOff=new Set(skyData.targets.filter(t=>!keys.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id))}renderSky()}catch(e){console.error(e)}}
 function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.innerHTML='';
   if(!d.library.find(s=>s.id===skySel))skySel=d.library[0]?.id||null;
@@ -1558,7 +1613,7 @@ function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.inne
   for(const t of d.targets){const row=el('label','skTarget');const cb=el('input');cb.type='checkbox';cb.checked=!skyTargetsOff.has(t.id);cb.onchange=()=>{cb.checked?skyTargetsOff.delete(t.id):skyTargetsOff.add(t.id);renderSky()};const im=el('img');if(t.preview)im.src=t.preview;const txt=el('div');txt.append(el('b',null,t.name||`#${t.path_id}`),el('small',null,`${t.relative_file} · ${t.width}×${t.height}${t.type==='Cubemap'?' · cubemap (experimental)':''}`));row.append(cb,im,txt,el('span','skFace',t.face));tg.append(row)}
   $('#skReset').hidden=!d.active;$('#skApply').disabled=!skySel||statusData?.game_running||statusData?.job?.phase==='running';const on=d.targets.filter(t=>!skyTargetsOff.has(t.id)).length;$('#skTargetsSum').textContent=d.targets.length?`Replaces ${on} of ${d.targets.length} sky textures`:'Sky textures (found on first apply)'}
 function renderSkyCross(){const c=$('#skCross');if(!skySel){c.style.backgroundImage='';return}const q=`id=${skySel}&yaw=${$('#skYaw').value}&swap=${$('#skSwap').classList.contains('on')?1:0}`;if(c._q===q)return;c._q=q;c.style.backgroundImage=`url("/api/sky/cross.png?${q}")`}
-$('#skYaw').oninput=e=>{e.target.dataset.touched='1';$('#skYawVal').textContent=e.target.value+'°';clearTimeout(e.target._t);e.target._t=setTimeout(renderSkyCross,200)};
+
 $('#skSwap').onclick=()=>{$('#skYaw').dataset.touched='1';setSwitch('#skSwap',!$('#skSwap').classList.contains('on'));renderSkyCross()};
 $('#skFlip').onclick=()=>{$('#skYaw').dataset.touched='1';setSwitch('#skFlip',!$('#skFlip').classList.contains('on'))};
 $('#skAll').onclick=()=>{skyTargetsOff.clear();renderSky()};$('#skNone').onclick=()=>{skyTargetsOff=new Set((skyData?.targets||[]).map(t=>t.id));renderSky()};

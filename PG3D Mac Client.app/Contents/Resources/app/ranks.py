@@ -17,14 +17,14 @@ XP_PER_MINUTE = 60
 XP_PER_WIN = 250
 TYPICAL_XP_PER_HOUR = XP_PER_MINUTE * 60 + 4 * XP_PER_WIN  # 4,600
 
-# id, name, typical hours to reach, divisions, wins required to enter
+# id, name, typical hours to reach, divisions (1 = tier only), wins required to enter
 TIERS = [
-    ("iron", "Iron", 0, 4, 0),
-    ("bronze", "Bronze", 5, 4, 0),
-    ("silver", "Silver", 15, 4, 0),
-    ("gold", "Gold", 35, 4, 50),
-    ("platinum", "Platinum", 70, 4, 150),
-    ("diamond", "Diamond", 130, 4, 300),
+    ("iron", "Iron", 0, 1, 0),
+    ("bronze", "Bronze", 5, 1, 0),
+    ("silver", "Silver", 15, 1, 0),
+    ("gold", "Gold", 35, 1, 50),
+    ("platinum", "Platinum", 70, 1, 150),
+    ("diamond", "Diamond", 130, 1, 300),
     ("master", "Master", 250, 1, 800),
     ("grandmaster", "Grandmaster", 450, 1, 1600),
     ("challenger", "Challenger", 750, 1, 3000),

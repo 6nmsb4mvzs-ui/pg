@@ -1,4 +1,4 @@
-PG3D Mac Client 1.29.1
+PG3D Mac Client 1.30.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -76,3 +76,10 @@ Settings > Appearance recolors the client itself with the same presets as
 the in-game Theme tab: Ember (default), Crimson, Dark Souls, Royal, Icy.
 Theme and Sky tabs tidied: Restore original only shows when something is
 applied, and the apply button names the preset.
+
+New in 1.30
+Ranks are tiers only (Iron to Challenger) with a rank-up animation that
+plays the next time the client is in front. Start shows progress and a time
+estimate, waits for texture changes, and checks the Steam account first.
+Theme previews on a game screenshot with one tuned look per preset. Sky
+drops rotation; Clips and Cursor are simpler.
