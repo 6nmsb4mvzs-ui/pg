@@ -1,4 +1,4 @@
-PG3D Mac Client 1.32.0
+PG3D Mac Client 1.33.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -106,3 +106,10 @@ Clips     Game sound: records PG3D's own audio only (macOS 13+), no music
           straight on the clipboard for Discord or Messages.
 Settings  Rescan game files lives under Troubleshooting.
 Play      Last session: time played, XP, wins and clips after you close PG3D.
+
+New in 1.33
+Updates   New versions are published as releases of the private GitHub repo.
+          In Settings › Updates, paste a read-only GitHub token once and the
+          client downloads and installs new versions by itself (checks every
+          30 minutes, never mid-game). Dropping a zip into Downloads still
+          works too.

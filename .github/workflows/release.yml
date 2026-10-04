@@ -1,0 +1,38 @@
+# Publishes every client version as a GitHub release. Bump the version in
+# Info.plist, push to main, and the release (with the zip the client's updater
+# downloads) appears by itself. Versions that already have a release are skipped.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: ["PG3D Mac Client.app/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version
+        id: v
+        run: |
+          v=$(grep -A1 'CFBundleShortVersionString' "PG3D Mac Client.app/Contents/Info.plist" | grep -o '[0-9][0-9.]*' | head -1)
+          [ -n "$v" ] || { echo "No version in Info.plist"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.v.outputs.version }}
+        run: |
+          if gh release view "v$V" >/dev/null 2>&1; then
+            echo "v$V is already released."; exit 0
+          fi
+          zip="PG3D_Mac_Client_v$V.zip"
+          # git archive keeps the launcher's executable bits.
+          git archive --format=zip -o "$zip" HEAD "PG3D Mac Client.app"
+          notes=$(awk -v hdr="New in ${V%.*}" '$0==hdr{f=1;next} f&&/^New in /{exit} f' "PG3D Mac Client.app/Contents/Resources/README.txt")
+          gh release create "v$V" "$zip" --title "PG3D Mac Client $V" --notes "${notes:-Version $V}"

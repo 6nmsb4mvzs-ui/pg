@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.32.0"
+APP_VERSION = "1.33.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5156,6 +5156,22 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(clips.RECORDER.trim(data.get("name"), data.get("start", 0),
                                                           data.get("end", 0), "replace" if data.get("mode") == "replace" else "new"))
             if path == "/api/update/check":
+                updater.UPDATER.check_github(force=True)
+                updater.UPDATER.scan()
+                return self.send_json(settings_payload())
+            if path == "/api/update/github":
+                updater.set_github_token(data.get("token"))
+                if data.get("token"):
+                    rel = updater.UPDATER.check_github(force=True)
+                    err = updater.UPDATER.github.get("error")
+                    if err:
+                        updater.set_github_token("")
+                        updater.UPDATER.check_github(force=True)
+                        raise RuntimeError(err)
+                    if rel is None:
+                        log("GitHub connected; no release published yet")
+                else:
+                    updater.UPDATER.check_github(force=True)
                 updater.UPDATER.scan()
                 return self.send_json(settings_payload())
             if path == "/api/update/install":

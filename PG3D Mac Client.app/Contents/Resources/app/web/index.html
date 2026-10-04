@@ -351,6 +351,9 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .fnChip:disabled{opacity:.45;cursor:not-allowed}.fnChip.add{color:var(--muted);font-size:13px}.fnChip.pixel{font-size:10px;line-height:19px}
 .skModeSeg{margin-right:auto}.skLoadPrev{aspect-ratio:16/9;border-radius:12px;border:1px solid var(--border);background:#000 center/cover no-repeat;width:min(100%,560px)}
 .cursorGrid>.empty{grid-column:1/-1}.roleCard{position:relative}.roleDel{position:absolute;top:6px;right:8px;opacity:0;color:var(--muted);font-size:15px;line-height:1;padding:2px 4px;border-radius:5px}.roleCard:hover .roleDel{opacity:1}.roleDel:hover{color:var(--text);background:hsl(var(--nh) var(--ns) 14%)}
+.ghRow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:hsl(var(--nh) var(--ns) 5%);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin:10px 0}
+.ghInfo{flex:1;min-width:160px}.ghInfo b{display:block;font-size:13px}.ghInfo small{color:var(--muted);font-size:11.5px}.ghInfo.bad small{color:var(--bad)}
+.ghForm{display:flex;gap:8px;flex:1.4;min-width:220px}.ghForm .search{flex:1;min-width:0}
 .curRoleNote{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;min-height:20px}
 #curRoleNote img{width:26px!important;height:26px!important;max-width:26px;flex:none;object-fit:contain;background:hsl(var(--nh) var(--ns) 3%);border:1px solid var(--border);border-radius:6px;padding:2px}
 .curSeg button.active{background:linear-gradient(135deg,var(--ember),var(--accent-deep));color:#f5f5ff}
@@ -923,7 +926,8 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
           <div class="crCardHead"><h3>Updates</h3><span id="setVersion"></span></div>
           <div class="setState" id="updState"></div>
           <div class="setToggles" id="updToggles"></div>
-          <div class="setActions"><button class="btn" id="updCheck">Check Downloads now</button></div>
+          <div class="ghRow" id="ghRow"></div>
+          <div class="setActions"><button class="btn" id="updCheck">Check for updates</button></div>
           <div class="setNote" id="updCleaned"></div>
         </div>
         <div class="crCard setCard">
@@ -1600,10 +1604,11 @@ function renderSettings(){
   if(u.phase==='installing'||u.phase==='restarting')setStateBox(box,'saving',u.message,'The client will reopen by itself.');
   else if(u.phase==='error')setStateBox(box,'warn','Update failed',u.message,clipAction('Try again',installUpdate,true));
   else if(u.phase==='no_access')setStateBox(box,'warn',"Can't check Downloads",'Allow PG3D Mac Client in System Settings › Privacy & Security › Files and Folders.');
-  else if(u.available)setStateBox(box,'rec',`Version ${u.available.version} is ready`,u.message||'Found in your Downloads folder.',clipAction('Install and restart',installUpdate,true));
-  else setStateBox(box,'',"You're up to date",'Download a new version into your Downloads folder and the client installs it by itself.');
+  else if(u.available)setStateBox(box,'rec',`Version ${u.available.version} is ready`,u.message||(/update-downloads/.test(u.available.path||'')?'Downloaded from GitHub.':'Found in your Downloads folder.'),clipAction('Install and restart',installUpdate,true));
+  else setStateBox(box,'',"You're up to date",u.github?.connected?'New versions arrive from GitHub by themselves.':'Connect GitHub below, or drop a new version into Downloads.');
+  renderGithubRow(u.github||{});
   const tg=$('#updToggles');tg.innerHTML='';const pr=u.prefs||{};
-  tg.append(toggleRow('Install updates automatically','New versions in Downloads install and restart the client, never mid-game',pr.auto_install,async()=>{settingsData=await post('/api/settings/updates',{auto_install:!pr.auto_install});renderSettings()}));
+  tg.append(toggleRow('Install updates automatically','New versions install and restart the client, never mid-game',pr.auto_install,async()=>{settingsData=await post('/api/settings/updates',{auto_install:!pr.auto_install});renderSettings()}));
   tg.append(toggleRow('Clean up downloads','Moves downloaded installers and old versions to the Trash',pr.auto_clean,async()=>{settingsData=await post('/api/settings/updates',{auto_clean:!pr.auto_clean});renderSettings()}));
   $('#updCleaned').textContent=(u.cleaned||[]).length?`Recently moved to the Trash: ${u.cleaned.slice(0,3).join(', ')}${u.cleaned.length>3?` and ${u.cleaned.length-3} more`:''}.`:'';
   const s=d.setup||{},rows=$('#setupRows');rows.innerHTML='';
@@ -1618,7 +1623,12 @@ function renderSettings(){
   sr.append(setRow('App data',clipBytes(st.support_bytes||0),'',smallBtn('Show',()=>post('/api/settings/reveal',{what:'support'}))));
   sr.append(setRow('Cache',clipBytes(st.cache_bytes||0),'',smallBtn('Clear',async()=>{await post('/api/settings/clear-cache');toast('Cache cleared.');refreshSettings()})));
 }
-$('#updCheck').onclick=async()=>{try{settingsData=await post('/api/update/check');renderSettings();toast(settingsData.update?.available?`Found version ${settingsData.update.available.version}.`:'No newer version in Downloads.')}catch(e){toast(e.message,true)}};
+function renderGithubRow(g){const row=$('#ghRow');if(!row)return;const sig=JSON.stringify([g.connected,g.error,g.latest,row.dataset.edit]);if(row.__sig===sig)return;row.__sig=sig;row.innerHTML='';
+  if(g.connected&&!row.dataset.edit){const t=el('div','ghInfo');t.append(el('b',null,'GitHub'),el('small',null,g.error?g.error:g.latest?`Connected · latest release ${g.latest}`:'Connected · no release yet'));if(g.error)t.classList.add('bad');
+    const x=smallBtn('Disconnect',async()=>{try{settingsData=await post('/api/update/github',{token:''});renderSettings()}catch(e){toast(e.message,true)}});row.append(t,x);return}
+  const t=el('div','ghInfo');t.append(el('b',null,'GitHub'),el('small',null,'Paste a read-only token for the private repo'));const f=el('form','ghForm');const inp=el('input','search');inp.type='password';inp.placeholder='github_pat_…';inp.autocomplete='off';inp.spellcheck=false;
+  const b=el('button','btn','Connect');b.type='submit';f.append(inp,b);f.onsubmit=async e=>{e.preventDefault();if(!inp.value.trim())return;b.disabled=true;b.textContent='Checking…';try{settingsData=await post('/api/update/github',{token:inp.value.trim()});delete row.dataset.edit;renderSettings();toast('GitHub connected.')}catch(err){toast(err.message,true);b.disabled=false;b.textContent='Connect'}};row.append(t,f)}
+$('#updCheck').onclick=async()=>{const b=$('#updCheck');b.disabled=true;b.textContent='Checking…';try{settingsData=await post('/api/update/check');renderSettings();toast(settingsData.update?.available?`Found version ${settingsData.update.available.version}.`:"You're up to date.")}catch(e){toast(e.message,true)}finally{b.disabled=false;b.textContent='Check for updates'}};
 $('#diagCopy').onclick=async()=>{try{await post('/api/settings/diagnostics');toast('Diagnostic report copied. Paste it into your message.')}catch(e){toast(e.message,true)}};
 $('#diagLogs').onclick=()=>post('/api/settings/reveal',{what:'logs'}).catch(e=>toast(e.message,true));
 function renderUpdateBanner(){const u=statusData?.update,b=$('#updBanner');if(!b)return;$('#sideVersion').textContent=statusData?.version?`Version ${statusData.version}`:'';
