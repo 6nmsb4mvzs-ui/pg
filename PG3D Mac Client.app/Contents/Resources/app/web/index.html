@@ -670,35 +670,65 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
 @media(max-width:900px){.uiThemes{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* v1.30 rank-up animation */
-.ruOverlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--rk) 24%,transparent),transparent 62%),rgba(4,4,6,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);opacity:0;transition:opacity .45s;overflow:hidden}
+.ruOverlay{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--rk) 22%,transparent),transparent 62%),#040406;opacity:0;transition:opacity .45s ease,background .6s ease;overflow:hidden}
 .ruOverlay.in{opacity:1}.ruOverlay.out{opacity:0}
 .ruOverlay canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.ruRays{position:absolute;left:50%;top:42%;width:160vmax;height:160vmax;transform:translate(-50%,-50%);background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--rk) 30%,transparent) 0deg 6deg,transparent 6deg 18deg);mask-image:radial-gradient(circle,#000 0,transparent 45%);-webkit-mask-image:radial-gradient(circle,#000 0,transparent 45%);opacity:0;transition:opacity .8s;animation:ruSpin 24s linear infinite;pointer-events:none}
-.ruOverlay.charge .ruRays{opacity:.35}.ruOverlay.revealed .ruRays{opacity:.9}
+.ruRays{position:absolute;left:50%;top:42%;width:160vmax;height:160vmax;transform:translate(-50%,-50%);background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--rk) 30%,transparent) 0deg 6deg,transparent 6deg 18deg);mask-image:radial-gradient(circle,#000 0,transparent 45%);-webkit-mask-image:radial-gradient(circle,#000 0,transparent 45%);opacity:0;transition:opacity .8s;animation:ruSpin 30s linear infinite;pointer-events:none;will-change:transform,opacity}
+.ruOverlay.charge .ruRays{opacity:.35}.ruOverlay.revealed .ruRays{opacity:.85}
 @keyframes ruSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
-.ruFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
-.ruOverlay.burst .ruFlash{animation:ruFlash .55s ease-out}
-@keyframes ruFlash{0%{opacity:.85}100%{opacity:0}}
+.ruFlash{position:absolute;inset:0;background:radial-gradient(circle at 50% 42%,#fff,color-mix(in srgb,var(--rk) 60%,#fff) 30%,transparent 70%);opacity:0;pointer-events:none;will-change:opacity}
+.ruOverlay.burst .ruFlash{animation:ruFlash .7s cubic-bezier(.1,.6,.3,1)}
+@keyframes ruFlash{0%{opacity:.95}100%{opacity:0}}
 .ruStage{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;margin-top:-4vh}
-.ruKicker{font-family:var(--font-head);font-weight:700;font-size:15px;letter-spacing:.9em;margin-right:-.9em;color:rgba(255,255,255,.75);opacity:0;transform:translateY(10px);transition:all .6s .15s}
+.ruKicker{font-family:var(--font-head);font-weight:700;font-size:15px;letter-spacing:.9em;margin-right:-.9em;color:rgba(255,255,255,.75);opacity:0;transform:translateY(10px);transition:opacity .6s .15s,transform .6s .15s}
 .ruEmblem{position:relative;width:min(360px,46vmin);height:min(360px,46vmin);margin:6px 0 2px}
-.ruEmblem img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.ruOld{transition:transform .5s,filter .5s,opacity .35s;filter:drop-shadow(0 0 18px color-mix(in srgb,var(--rk) 60%,transparent))}
-.ruOverlay.tick .ruOld{animation:ruTick .5s ease-out}
-@keyframes ruTick{0%{transform:scale(.86);filter:brightness(2.2)}100%{transform:scale(1)}}
-.ruOverlay.charge .ruOld{animation:ruCharge 1.1s ease-in forwards}
-@keyframes ruCharge{0%{transform:scale(1) rotate(0)}20%{transform:scale(1.02) rotate(-1.5deg)}40%{transform:scale(1.04) rotate(1.5deg)}60%{transform:scale(1.07) rotate(-2.5deg);filter:brightness(1.6) drop-shadow(0 0 30px #fff)}80%{transform:scale(1.1) rotate(2.5deg);filter:brightness(2.4) drop-shadow(0 0 50px #fff)}100%{transform:scale(1.14);filter:brightness(3.5) drop-shadow(0 0 70px #fff)}}
-.ruOverlay.burst .ruOld{animation:none;opacity:0;transform:scale(1.6);filter:blur(12px) brightness(3)}
-.ruNew{opacity:0;transform:scale(.25);filter:drop-shadow(0 0 40px var(--rk)) drop-shadow(0 18px 40px rgba(0,0,0,.6))}
-.ruOverlay.revealed .ruNew{animation:ruReveal 1s cubic-bezier(.18,1.6,.4,1) forwards,ruFloat 4s ease-in-out 1s infinite}
-@keyframes ruReveal{0%{opacity:0;transform:scale(.25)}60%{opacity:1}100%{opacity:1;transform:scale(1)}}
-@keyframes ruFloat{0%,100%{opacity:1;transform:translateY(0) scale(1)}50%{opacity:1;transform:translateY(-8px) scale(1.01)}}
-.ruName{font-family:var(--font-head);font-weight:700;font-size:clamp(40px,7vmin,68px);letter-spacing:-.02em;color:var(--rk);text-shadow:0 0 30px color-mix(in srgb,var(--rk) 55%,transparent);opacity:0;transform:translateY(16px);transition:all .7s .35s}
+.ruEmblem img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;will-change:transform,opacity}
+/* glow is its own layer: only its opacity/scale animate, never a filter */
+.ruGlow{position:absolute;inset:-18%;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--rk) 70%,#fff) 0,color-mix(in srgb,var(--rk) 45%,transparent) 28%,transparent 62%);opacity:.35;transform:scale(.8);transition:opacity .5s,transform .5s,background .5s;will-change:transform,opacity;pointer-events:none}
+.ruOverlay.charge .ruGlow{animation:ruGlowCharge 1.1s cubic-bezier(.5,0,.9,.4) forwards}
+@keyframes ruGlowCharge{to{opacity:1;transform:scale(1.35)}}
+.ruOverlay.revealed .ruGlow{opacity:.7;transform:scale(1.1);animation:ruGlowPulse 3s ease-in-out infinite}
+@keyframes ruGlowPulse{50%{opacity:.45;transform:scale(1.02)}}
+.ruOld{filter:drop-shadow(0 0 18px color-mix(in srgb,var(--rk) 55%,transparent));transition:opacity .3s}
+.ruOverlay.tick .ruOld{animation:ruTick .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes ruTick{0%{transform:scale(.86)}100%{transform:scale(1)}}
+.ruOverlay.charge .ruOld{animation:ruCharge 1.1s cubic-bezier(.5,0,.9,.5) forwards}
+@keyframes ruCharge{0%{transform:scale(1) rotate(0)}25%{transform:scale(1.02) rotate(-1.2deg)}50%{transform:scale(1.05) rotate(1.6deg)}75%{transform:scale(1.09) rotate(-2.2deg)}100%{transform:scale(1.14) rotate(0)}}
+.ruOverlay.burst .ruOld{animation:ruOut .35s ease-out forwards}
+@keyframes ruOut{to{opacity:0;transform:scale(1.7)}}
+.ruNew{opacity:0;transform:scale(.25);filter:drop-shadow(0 0 34px color-mix(in srgb,var(--rk) 70%,transparent))}
+.ruOverlay.revealed .ruNew{animation:ruReveal .9s cubic-bezier(.18,1.5,.4,1) forwards,ruFloat 4s ease-in-out .9s infinite}
+@keyframes ruReveal{0%{opacity:0;transform:scale(.25)}50%{opacity:1}100%{opacity:1;transform:scale(1)}}
+@keyframes ruFloat{0%,100%{opacity:1;transform:translateY(0)}50%{opacity:1;transform:translateY(-8px)}}
+.ruName{font-family:var(--font-head);font-weight:700;font-size:clamp(40px,7vmin,68px);letter-spacing:-.02em;color:var(--rk);text-shadow:0 0 30px color-mix(in srgb,var(--rk) 55%,transparent);opacity:0;transform:translateY(16px);transition:opacity .7s .3s,transform .7s .3s}
 .ruPath{margin-top:6px;color:rgba(255,255,255,.6);font-size:13px;letter-spacing:.06em;opacity:0;transition:opacity .6s .7s}
-#ruClose{margin-top:26px;opacity:0;transition:opacity .5s 1.6s;pointer-events:none}
+#ruClose{margin-top:26px;opacity:0;transition:opacity .5s 1.4s;pointer-events:none}
 .ruOverlay.revealed .ruKicker,.ruOverlay.revealed .ruName{opacity:1;transform:none}
 .ruOverlay.revealed .ruPath,.ruOverlay.revealed #ruClose{opacity:1}.ruOverlay.revealed #ruClose{pointer-events:auto}
-@media (prefers-reduced-motion:reduce){.ruRays{animation:none}.ruOverlay.revealed .ruNew{animation:none;opacity:1;transform:none}}
+/* trophy road: two or more ranks at once */
+.ruRoad{position:absolute;left:0;right:0;top:50%;height:290px;transform:translateY(-58%);opacity:0;transition:opacity .5s,transform .7s cubic-bezier(.4,0,.2,1);pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
+.ruOverlay.road .ruRoad{opacity:1}
+.ruOverlay.road .ruEmblem,.ruOverlay.road .ruName,.ruOverlay.road .ruPath{visibility:hidden}
+.ruRoadTitle{position:absolute;left:0;right:0;top:0;text-align:center;font-family:var(--font-head);font-weight:700;font-size:15px;letter-spacing:.9em;margin-right:-.9em;color:rgba(255,255,255,.8)}
+.ruRoadTitle b{color:var(--rk);letter-spacing:.2em;transition:color .4s}
+.ruOverlay.roadDone .ruRoad{opacity:0;transform:translateY(-20%) scale(.96)}
+.ruOverlay.roadDone .ruKicker{transform:none}
+.ruTrack{position:absolute;top:60px;bottom:0;left:50%;will-change:transform;transition:transform .62s cubic-bezier(.65,0,.25,1)}
+.ruLine,.ruFill{position:absolute;top:84px;height:4px;border-radius:2px}
+.ruLine{background:rgba(255,255,255,.1)}
+.ruFill{background:linear-gradient(90deg,var(--c0),var(--c1));box-shadow:0 0 14px var(--c1);width:0;transition:width .62s cubic-bezier(.65,0,.25,1),--c1 .3s}
+.ruNode{position:absolute;top:0;width:150px;margin-left:-75px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.ruNode i{width:150px;height:170px;display:grid;place-items:center;position:relative}
+.ruNode i::before{content:"";position:absolute;inset:8%;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--nc) 60%,transparent),transparent 65%);opacity:0;transform:scale(.6);transition:opacity .4s,transform .5s cubic-bezier(.2,1.6,.4,1)}
+.ruNode img{width:118px;height:118px;object-fit:contain;opacity:.28;transform:scale(.78);filter:grayscale(1) brightness(.7);transition:opacity .35s,transform .5s cubic-bezier(.2,1.7,.4,1),filter .35s;position:relative}
+.ruNode b{font-family:var(--font-head);font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.3);transition:color .35s}
+.ruNode.lit img{opacity:1;transform:scale(1);filter:none}
+.ruNode.lit i::before{opacity:.9;transform:scale(1)}
+.ruNode.lit b{color:var(--nc)}
+.ruNode.hit img{animation:ruHit .55s cubic-bezier(.2,1.7,.4,1)}
+@keyframes ruHit{0%{transform:scale(.6)}100%{transform:scale(1)}}
+.ruNode.final img{transform:scale(1.18)}
+@media (prefers-reduced-motion:reduce){.ruRays{animation:none}.ruOverlay.revealed .ruNew{animation:none;opacity:1;transform:none}.ruTrack,.ruFill{transition-duration:.01s}}
 /* v1.30 launch progress */
 .launchProg{margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
 .lpTop{display:flex;justify-content:space-between;gap:12px;font-size:13px}.lpTop b{font-weight:600}.lpTop span{font-family:var(--font-head);font-weight:700;color:var(--accent-light)}
@@ -1171,10 +1201,10 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 </div></div>
 <div class="ruOverlay" id="rankUp" hidden>
   <canvas id="ruCanvas"></canvas>
-  <div class="ruRays"></div><div class="ruFlash"></div>
+  <div class="ruRays"></div><div class="ruRoad"><div class="ruRoadTitle" id="ruRoadTitle"></div><div class="ruTrack" id="ruTrack"></div></div><div class="ruFlash"></div>
   <div class="ruStage">
     <div class="ruKicker">RANK UP</div>
-    <div class="ruEmblem"><img class="ruOld" id="ruOld" alt=""><img class="ruNew" id="ruNew" alt=""></div>
+    <div class="ruEmblem"><div class="ruGlow"></div><img class="ruOld" id="ruOld" alt=""><img class="ruNew" id="ruNew" alt=""></div>
     <div class="ruName" id="ruName"></div>
     <div class="ruPath" id="ruPath"></div>
     <button class="btn primary" id="ruClose">Continue</button>
@@ -1774,30 +1804,71 @@ function maybePlayRankUp(){const p=statusData?.rank?.pending;if(!p||ruPlaying||p
 window.addEventListener('focus',()=>setTimeout(maybePlayRankUp,400));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(maybePlayRankUp,400)});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-function ruSound(){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,vol=SND.volume/100;
-  [523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=i<4?'triangle':'sine';o.frequency.value=f;g.gain.setValueAtTime(.0001,t+i*.09);g.gain.exponentialRampToValueAtTime(Math.max(.0002,.06*vol),t+i*.09+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.09+(i===4?1.4:.5));o.connect(g);g.connect(ac.destination);o.start(t+i*.09);o.stop(t+i*.09+1.5)})}catch{}}
-function ruParticles(canvas){const ctx=canvas.getContext('2d');let parts=[],run=true;const dpr=window.devicePixelRatio||1;
+// Rank-up sounds: synthesized, routed through a compressor so they stay full and loud on small speakers.
+function ruBus(ac){const comp=ac.createDynamicsCompressor();comp.threshold.value=-18;comp.knee.value=8;comp.ratio.value=4;comp.attack.value=.003;comp.release.value=.25;
+  const out=ac.createGain(),lim=ac.createDynamicsCompressor();out.gain.value=1.6*(SND.volume/100);lim.threshold.value=-3;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.1;comp.connect(out);out.connect(lim);lim.connect(ac.destination);return comp}
+function ruNoise(ac,dur){const len=Math.ceil(ac.sampleRate*dur),buf=ac.createBuffer(1,len,ac.sampleRate),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;const src=ac.createBufferSource();src.buffer=buf;return src}
+function ruEnv(ac,g,t,peak,a,hold,rel){g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+a);g.gain.setValueAtTime(peak,t+a+hold);g.gain.exponentialRampToValueAtTime(.0001,t+a+hold+rel)}
+function ruVoice(ac,bus,f,t,{type='triangle',peak=.3,a=.008,hold=.05,rel=.9,detune=0}={}){const o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.setValueAtTime(f,t);o.detune.value=detune;ruEnv(ac,g,t,peak,a,hold,rel);o.connect(g);g.connect(bus);o.start(t);o.stop(t+a+hold+rel+.05)}
+// Rising whoosh while the emblem charges up.
+function ruRiser(dur=1.1){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac);
+  const n=ruNoise(ac,dur+.1),bp=ac.createBiquadFilter(),g=ac.createGain();bp.type='bandpass';bp.Q.value=6;bp.frequency.setValueAtTime(300,t);bp.frequency.exponentialRampToValueAtTime(5000,t+dur);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.5,t+dur*.95);g.gain.exponentialRampToValueAtTime(.0001,t+dur+.08);n.connect(bp);bp.connect(g);g.connect(bus);n.start(t);n.stop(t+dur+.1);
+  const o=ac.createOscillator(),og=ac.createGain();o.type='sawtooth';o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(440,t+dur);const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1200;
+  og.gain.setValueAtTime(.0001,t);og.gain.exponentialRampToValueAtTime(.12,t+dur*.9);og.gain.exponentialRampToValueAtTime(.0001,t+dur+.05);o.connect(lp);lp.connect(og);og.connect(bus);o.start(t);o.stop(t+dur+.1)}catch{}}
+// Impact + triumphant chord with a shimmering tail.
+function ruSound(){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac);
+  const sub=ac.createOscillator(),sg=ac.createGain();sub.type='sine';sub.frequency.setValueAtTime(150,t);sub.frequency.exponentialRampToValueAtTime(42,t+.45);ruEnv(ac,sg,t,.9,.004,.06,.55);sub.connect(sg);sg.connect(bus);sub.start(t);sub.stop(t+.7);
+  const n=ruNoise(ac,.5),lp=ac.createBiquadFilter(),ng=ac.createGain();lp.type='lowpass';lp.frequency.setValueAtTime(6000,t);lp.frequency.exponentialRampToValueAtTime(300,t+.4);ruEnv(ac,ng,t,.45,.002,.02,.4);n.connect(lp);lp.connect(ng);ng.connect(bus);n.start(t);n.stop(t+.5);
+  const delay=ac.createDelay(1),fb=ac.createGain(),wet=ac.createGain();delay.delayTime.value=.19;fb.gain.value=.38;wet.gain.value=.35;delay.connect(fb);fb.connect(delay);delay.connect(wet);wet.connect(bus);
+  const chord=ac.createGain();chord.connect(bus);chord.connect(delay);chord.gain.value=1;
+  [[261.63,0],[329.63,.07],[392,.14],[523.25,.21],[659.25,.3],[783.99,.3],[1046.5,.3]].forEach(([f,d],i)=>{const st=t+.04+d,last=d>=.3;
+    ruVoice(ac,chord,f,st,{type:'triangle',peak:last?.22:.28,hold:last?.25:.04,rel:last?1.6:.5});ruVoice(ac,chord,f*2,st,{type:'sine',peak:.07,hold:.02,rel:last?1.2:.3,detune:4})})}catch{}}
+// Bright step "ding" for each rank passed on the trophy road; pitch climbs with each step.
+function ruStep(i){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),base=[523.25,587.33,659.25,698.46,783.99,880,987.77,1046.5][Math.min(7,i)];
+  ruVoice(ac,bus,base,t,{type:'triangle',peak:.32,hold:.03,rel:.45});ruVoice(ac,bus,base*1.5,t+.012,{type:'sine',peak:.14,hold:.02,rel:.35});ruVoice(ac,bus,base*2,t,{type:'sine',peak:.06,hold:.01,rel:.25})}catch{}}
+// Time-based particles drawn from cached glow sprites (smooth at any frame rate).
+function ruParticles(canvas){const ctx=canvas.getContext('2d');let parts=[],run=true,last=performance.now();const dpr=Math.min(1.5,window.devicePixelRatio||1),sprites={};
   const fit=()=>{canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr};fit();addEventListener('resize',fit);
-  const api={burst(color,n=160,speed=9){const cx=canvas.width/2,cy=canvas.height*0.42;for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=(Math.random()*speed+2)*dpr;parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:1,decay:.008+Math.random()*.014,size:(Math.random()*3+1.2)*dpr,color})}},
-    rise(color){const n=2;for(let i=0;i<n;i++)parts.push({x:canvas.width*(.3+Math.random()*.4),y:canvas.height*(.62+Math.random()*.1),vx:(Math.random()-.5)*.6*dpr,vy:-(Math.random()*1.6+.6)*dpr,life:1,decay:.006+Math.random()*.006,size:(Math.random()*2+1)*dpr,color})},
+  const sprite=c=>{if(sprites[c])return sprites[c];const s=document.createElement('canvas');s.width=s.height=32;const g=s.getContext('2d'),gr=g.createRadialGradient(16,16,0,16,16,16);gr.addColorStop(0,'#fff');gr.addColorStop(.25,c);gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,32,32);return sprites[c]=s};
+  const api={burst(color,n=120,speed=9,cxf=.5,cyf=.42,fade=1){const cx=canvas.width*cxf,cy=canvas.height*cyf;for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=(Math.random()*speed+2)*dpr*60;parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:1,decay:(.5+Math.random()*.9)*fade,size:(Math.random()*7+4)*dpr,s:sprite(color)})}},
     stop(){run=false;removeEventListener('resize',fit);ctx.clearRect(0,0,canvas.width,canvas.height)},ambient:null};
-  (function frame(){if(!run)return;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.globalCompositeOperation='lighter';
-    if(api.ambient)api.rise(api.ambient);
-    parts=parts.filter(p=>p.life>0);for(const p of parts){p.x+=p.vx;p.y+=p.vy;p.vx*=.985;p.vy=p.vy*.985+.04*dpr;p.life-=p.decay;ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill()}
+  let acc=0;
+  (function frame(now){if(!run)return;const dt=Math.min(.05,((now||performance.now())-last)/1000)/(window.__ruTimeScale||1);last=now||performance.now();
+    ctx.clearRect(0,0,canvas.width,canvas.height);ctx.globalCompositeOperation='lighter';
+    if(api.ambient){acc+=dt*40;while(acc>1){acc--;parts.push({x:canvas.width*(.3+Math.random()*.4),y:canvas.height*(.64+Math.random()*.1),vx:(Math.random()-.5)*30*dpr,vy:-(Math.random()*80+40)*dpr,life:1,decay:.35+Math.random()*.35,size:(Math.random()*5+3)*dpr,s:sprite(api.ambient)})}}
+    const drag=Math.pow(.4,dt);parts=parts.filter(p=>p.life>0);
+    for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=drag;p.vy=p.vy*drag+140*dpr*dt;p.life-=p.decay*dt;ctx.globalAlpha=Math.max(0,p.life);const s=p.size*(.6+.4*p.life);ctx.drawImage(p.s,p.x-s,p.y-s,s*2,s*2)}
     ctx.globalAlpha=1;requestAnimationFrame(frame)})();return api}
+const ruSleep=ms=>sleep(ms*(window.__ruTimeScale||1));
 async function playRankUp(p){ruPlaying=true;const tiers=p.tiers||[];uiSound('tab');if(tiers.length<2){ruPlaying=false;ruDoneAt=p.at;return}
-  const ov=$('#rankUp'),oldI=$('#ruOld'),newI=$('#ruNew'),from=tiers[0],to=tiers[tiers.length-1],reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ov=$('#rankUp'),oldI=$('#ruOld'),newI=$('#ruNew'),from=tiers[0],to=tiers[tiers.length-1],reduce=matchMedia('(prefers-reduced-motion: reduce)').matches,road=tiers.length>=3;
   ov.className='ruOverlay';ov.hidden=false;ov.style.setProperty('--rk',from.color);oldI.src=from.emblem;newI.src=to.emblem;
   $('#ruName').textContent=to.name;$('#ruPath').textContent=tiers.map(t=>t.name).join('  →  ');
+  const kick=$('#rankUp .ruKicker');kick.textContent=road?`RANK UP ×${tiers.length-1}`:'RANK UP';
   const fx=ruParticles($('#ruCanvas'));let done=false;
-  const finish=async()=>{if(done)return;done=true;ov.classList.add('out');await sleep(450);fx.stop();ov.hidden=true;ov.className='ruOverlay';ruPlaying=false;ruDoneAt=p.at;try{await post('/api/rank/seen',{at:p.at})}catch{}};
+  const finish=async()=>{if(done)return;done=true;ov.classList.add('out');await sleep(450);fx.stop();ov.hidden=true;ov.className='ruOverlay';$('#ruTrack').innerHTML='';ruPlaying=false;ruDoneAt=p.at;try{await post('/api/rank/seen',{at:p.at})}catch{}};
   $('#ruClose').onclick=finish;ov.onclick=e=>{if(e.target===ov&&ov.classList.contains('revealed'))finish()};
   const esc=e=>{if(e.key==='Escape'){removeEventListener('keydown',esc);finish()}};addEventListener('keydown',esc);
-  await sleep(30);ov.classList.add('in');await sleep(reduce?200:700);
-  for(const t of tiers.slice(1,-1)){ov.style.setProperty('--rk',t.color);oldI.src=t.emblem;ov.classList.remove('tick');void ov.offsetWidth;ov.classList.add('tick');fx.burst(t.color,40,5);await sleep(reduce?150:520)}
-  ov.classList.add('charge');await sleep(reduce?100:1100);
-  ov.style.setProperty('--rk',to.color);ov.classList.add('burst');fx.burst(to.color,220,11);fx.burst('#ffffff',60,7);ruSound();await sleep(160);
-  ov.classList.add('revealed');fx.ambient=to.color;}
+  if(road){
+    // Trophy road: every rank passed sits on a track; the camera glides right, lighting each one.
+    const SP=200,track=$('#ruTrack');track.innerHTML='';track.style.transition='none';
+    const line=el('div','ruLine'),fill=el('div','ruFill');line.style.left='0';line.style.width=(SP*(tiers.length-1))+'px';fill.style.left='0';fill.style.setProperty('--c0',from.color);fill.style.setProperty('--c1',from.color);track.append(line,fill);
+    const nodes=tiers.map((t,i)=>{const n=el('div','ruNode');n.style.left=(i*SP)+'px';n.style.setProperty('--nc',t.color);const ic=el('i');const im=el('img');im.src=t.emblem;im.alt='';ic.append(im);n.append(ic,el('b',null,t.name));track.append(n);return n});
+    const center=i=>{track.style.transform=`translateX(${-i*SP}px)`};center(0);void track.offsetWidth;track.style.transition='';
+    ov.classList.add('road');nodes[0].classList.add('lit');await sleep(30);ov.classList.add('in');await ruSleep(reduce?200:850);
+    const steps=tiers.length-1,stepMs=reduce?160:Math.max(420,Math.min(780,2600/steps));
+    track.style.transitionDuration=fill.style.transitionDuration=(stepMs*.6)+'ms';$('#ruRoadTitle').innerHTML=`RANK UP <b>×${steps}</b>`;
+    for(let i=1;i<tiers.length;i++){const t=tiers[i];center(i);fill.style.width=(i*SP)+'px';fill.style.setProperty('--c1',t.color);ov.style.setProperty('--rk',t.color);
+      await ruSleep(stepMs*.62);nodes[i].classList.add('lit','hit');ruStep(i-1);if(i<steps)fx.burst(t.color,26,2.6,.5,.4,3.2);await ruSleep(stepMs*.38)}
+    nodes[steps].classList.add('final');ruRiser(.9);ov.classList.add('charge');await ruSleep(reduce?100:900);
+    ov.classList.add('roadDone');oldI.style.opacity=0;
+  }else{
+    await sleep(30);ov.classList.add('in');await ruSleep(reduce?200:750);
+    ruRiser(1.1);ov.classList.add('charge');await ruSleep(reduce?100:1100);
+  }
+  ov.style.setProperty('--rk',to.color);ov.classList.add('burst');fx.burst(to.color,160,11);fx.burst('#ffffff',50,7);ruSound();await ruSleep(140);
+  ov.classList.remove('road');ov.classList.add('revealed');oldI.style.opacity='';fx.ambient=to.color;}
 let rankData=null;
 async function loadRank(){try{rankData=await api('/api/rank');renderRank()}catch(e){console.error(e)}}
 function renderRank(){const r=rankData;if(!r)return;
@@ -2026,7 +2097,7 @@ $('#sndAll').onclick=()=>saveSound({enabled:!SND.enabled});
 $('#sndRank').onclick=()=>saveSound({rankup:!SND.rankup});
 $('#sndVol').oninput=e=>{SND.volume=Number(e.target.value);$('#sndVolVal').textContent=SND.volume+'%';saveSound({volume:SND.volume})};
 $('#sndTest').onclick=()=>setTimeout(()=>uiSound('primary'),80);
-$('#sndTestRank').onclick=()=>ruSound();
+$('#sndTestRank').onclick=()=>{ruRiser(1.1);setTimeout(ruSound,1100)};
 $$('#setTabs button').forEach(b=>b.onclick=()=>showSettingsPane(b.dataset.p));
 let _uiThemeSynced=false;
 

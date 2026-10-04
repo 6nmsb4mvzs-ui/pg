@@ -1,4 +1,4 @@
-PG3D Mac Client 1.34.0
+PG3D Mac Client 1.35.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -120,3 +120,9 @@ Style     Settings › Appearance › Style: "Noble" gives the client gold
           of Legends client. "Modern" is the look you know.
 Motion    Smoother hover effects, button presses and page transitions in
           both styles. Turn them off with the Animations switch.
+
+New in 1.35
+Rank up   Smoother rank-up animation, a much fuller and louder sound (rising
+          whoosh, impact and chord), and a trophy road when you climb two or
+          more ranks at once: the camera glides along every rank you passed,
+          each one lighting up with its own note, before the new rank lands.
