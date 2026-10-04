@@ -355,6 +355,8 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .ghInfo{flex:1;min-width:160px}.ghInfo b{display:block;font-size:13px}.ghInfo small{color:var(--muted);font-size:11.5px}.ghInfo.bad small{color:var(--bad)}
 .ghForm{display:flex;gap:8px;flex:1.4;min-width:220px}.ghForm .search{flex:1;min-width:0}
 .sndCustom{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:hsl(var(--nh) var(--ns) 5%);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.gameUpd{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid rgba(var(--accent-rgb),.35);border-radius:12px;padding:12px 16px;margin-bottom:12px}
+.gameUpd .guText{flex:1;min-width:0;display:grid;gap:3px}.gameUpd b{font-size:14px}.gameUpd small{color:var(--muted);font-size:12px}.gameUpd .lpBar{margin-top:6px}
 .curRoleNote{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;min-height:20px}
 #curRoleNote img{width:26px!important;height:26px!important;max-width:26px;flex:none;object-fit:contain;background:hsl(var(--nh) var(--ns) 3%);border:1px solid var(--border);border-radius:6px;padding:2px}
 .curSeg button.active{background:linear-gradient(135deg,var(--ember),var(--accent-deep));color:#f5f5ff}
@@ -886,6 +888,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <div class="top"><h1 id="pageTitle">Play</h1></div>
 
     <section class="page active" id="page-play">
+      <div class="gameUpd" id="gameUpd" hidden><div class="guText"><b id="guTitle"></b><small id="guSub"></small><div class="lpBar" id="guBar" hidden><i id="guFill"></i></div></div><button class="btn primary" id="guBtn">Install update</button></div>
       <div class="updBanner" id="updBanner" hidden><span id="updBannerText"></span><button class="btn primary" id="updBannerBtn">Install and restart</button></div>
       <div class="xPage">
         <div class="crCard playHero">
@@ -1265,7 +1268,7 @@ function setState(id,text,kind=''){const e=$(id);if(!e)return;e.textContent=text
 function renderStatus(){if(!statusData)return;
   $('#launchMessage').textContent=statusData.launch_error||'';
   $('#startNormal').disabled=statusData.game_running;$('#startFps').disabled=statusData.game_running||!statusData.fps_bundle_present;
-  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderLastSession();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
+  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderLastSession();renderGameUpdate();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
   if(statusData.overlay && (!overlayConfig || !overlayDirty)){overlayConfig=structuredClone(statusData.overlay.config);renderOverlayEditor()}
 }
 function renderBuildBadge(){const b=$('#buildBadge');if(!b||!statusData)return;const m=statusData.fps_build_match,build=statusData.game_build;if(m===false){b.className='buildBadge show warn';b.textContent=`PG3D build ${build} is newer than the FPS unlocker supports (${(statusData.fps_supported_builds||[]).join(', ')}). Start Normal will still work.`}else if(m===true){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build} · FPS unlocker compatible`}else{b.className='buildBadge'}}
@@ -1274,7 +1277,15 @@ function renderLastSession(){const box=$('#lastSession'),r=statusData?.last_sess
   const sig=JSON.stringify(r);if(box.__sig===sig)return;box.__sig=sig;const n=v=>Number(v||0).toLocaleString();
   let up='';if(r.promoted&&r.before&&r.after)up=`<div class="lsUp"><img src="/ranks/${r.before.tier}.png" alt="">›<img src="/ranks/${r.after.tier}.png" alt=""><span style="color:${r.after.color}">${esc(r.after.name)}</span></div>`;
   box.innerHTML=`<div class="xLabel">Last session</div><div class="lsVals"><span><b>${esc(r.duration)}</b>played</span><span><b>+${n(r.xp)}</b>XP</span><span><b>${n(r.wins)}</b>${r.wins===1?'win':'wins'}</span>${r.clips?`<span><b>${n(r.clips)}</b>${r.clips===1?'clip':'clips'}</span>`:''}</div>${up}`}
-function scheduleStatus(){clearTimeout(statusTimer);if(document.visibilityState==='hidden')return;const busy=statusData&&(['launching','switching','steam_guard','preparing','starting'].includes(statusData.launch_phase)||statusData.pending_guard||statusData.cursor_phase==='scanning'||statusData.gui_phase==='scanning'||statusData.job?.phase==='running');statusTimer=setTimeout(async()=>{await refreshStatus();scheduleStatus()},busy?700:3500)}
+function renderGameUpdate(){const box=$('#gameUpd'),s=statusData;if(!box||!s)return;const u=s.game_update||{},j=s.job||{};
+  const reapplying=j.kind==='reapply'&&j.phase==='running',launching=LAUNCH_BUSY.includes(s.launch_phase);
+  const show=!launching&&(reapplying||u.updating||u.available);box.hidden=!show;if(!show)return;
+  const btn=$('#guBtn'),bar=$('#guBar');
+  if(reapplying){$('#guTitle').textContent='Re-applying your mods…';$('#guSub').textContent=j.message||'';bar.hidden=false;$('#guFill').style.width=(j.progress||0)+'%';btn.hidden=true}
+  else if(u.updating){$('#guTitle').textContent='Steam is updating Pixel Gun 3D'+(u.progress!=null?` · ${u.progress}%`:'…');$('#guSub').textContent=s.reapply_mods?'Your mods go back on by themselves when it finishes.':'';bar.hidden=u.progress==null;$('#guFill').style.width=(u.progress||0)+'%';btn.hidden=true}
+  else{$('#guTitle').textContent='Pixel Gun 3D update available';$('#guSub').textContent=(u.size?`${clipBytes(u.size)} · `:'')+(s.reapply_mods?'Your mods are re-applied afterwards.':'Mods have to be applied again afterwards.');bar.hidden=true;btn.hidden=false;btn.disabled=s.game_running;btn.title=s.game_running?'Close Pixel Gun 3D first.':''}}
+$('#guBtn').onclick=async()=>{const b=$('#guBtn');b.disabled=true;try{await post('/api/game-update/install',{});toast('Steam is installing the update.');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true);b.disabled=false}};
+function scheduleStatus(){clearTimeout(statusTimer);if(document.visibilityState==='hidden')return;const busy=statusData&&(['launching','switching','updating','steam_guard','preparing','starting'].includes(statusData.launch_phase)||statusData.game_update?.updating||statusData.pending_guard||statusData.cursor_phase==='scanning'||statusData.gui_phase==='scanning'||statusData.job?.phase==='running');statusTimer=setTimeout(async()=>{await refreshStatus();scheduleStatus()},busy?700:3500)}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshStatus().then(scheduleStatus)}else clearTimeout(statusTimer)});
 async function refreshStatus(){try{statusData=await api('/api/status');cursorCatalog=statusData.cursor_catalog||[];renderStatus();if(!$('#cursorGrid').children.length)renderCursorGrid();if(statusData.pending_guard&&!$('#guardModal').classList.contains('show'))openGuard()}catch(e){console.error(e)}}
 
@@ -1300,7 +1311,7 @@ $('#guardSubmit').onclick=async()=>{
   }catch(e){toast(e.message,true)}finally{b.disabled=false;b.textContent=old}
 };
 async function launch(kind){try{await post(kind==='fps'?'/api/launch/fps':'/api/launch/normal',{fps:$('#fpsSelect').value});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}}
-const LAUNCH_BUSY=['preparing','switching','launching','starting'];let lpWasBusy=false;
+const LAUNCH_BUSY=['preparing','switching','updating','launching','starting'];let lpWasBusy=false;
 function renderLaunch(){const s=statusData;if(!s)return;const busy=LAUNCH_BUSY.includes(s.launch_phase),box=$('#launchProg');
   $('#startNormal').disabled=busy||s.game_running;$('#startFps').disabled=busy||s.game_running||!s.fps_bundle_present;
   if(busy){box.hidden=false;box.classList.remove('done');const pct=Math.max(1,Math.min(99,s.launch_progress||0));$('#lpFill').style.width=pct+'%';$('#lpPct').textContent=pct+'%';$('#lpMsg').textContent=s.launch_message||'Starting…';
@@ -1750,6 +1761,7 @@ function renderSettings(){
   renderGithubRow(u.github||{});
   const tg=$('#updToggles');tg.innerHTML='';const pr=u.prefs||{};
   tg.append(toggleRow('Install updates automatically','New versions install and restart the client, never mid-game',pr.auto_install,async()=>{settingsData=await post('/api/settings/updates',{auto_install:!pr.auto_install});renderSettings()}));
+  tg.append(toggleRow('Re-apply mods after PG3D updates','Puts your cursor, HUD, theme, sky and font back by themselves',statusData?.reapply_mods!==false,async()=>{try{await post('/api/prefs/reapply',{on:statusData?.reapply_mods===false});await refreshStatus();renderSettings()}catch(e){toast(e.message,true)}}));
   tg.append(toggleRow('Clean up downloads','Moves downloaded installers and old versions to the Trash',pr.auto_clean,async()=>{settingsData=await post('/api/settings/updates',{auto_clean:!pr.auto_clean});renderSettings()}));
   $('#updCleaned').textContent=(u.cleaned||[]).length?`Recently moved to the Trash: ${u.cleaned.slice(0,3).join(', ')}${u.cleaned.length>3?` and ${u.cleaned.length-3} more`:''}.`:'';
   const s=d.setup||{},rows=$('#setupRows');rows.innerHTML='';

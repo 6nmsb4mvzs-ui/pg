@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.38.0"
+APP_VERSION = "1.39.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -336,6 +336,13 @@ def plist_value(plist: Path, key: str, default="unknown"):
 
 
 def _plist_value_uncached(plist: Path, key: str, default="unknown"):
+    try:
+        with open(plist, "rb") as f:
+            val = plistlib.load(f).get(key)
+        if val not in (None, ""):
+            return str(val)
+    except Exception:
+        pass
     try:
         r = subprocess.run(
             ["/usr/libexec/PlistBuddy", "-c", f"Print :{key}", str(plist)],
@@ -1269,10 +1276,67 @@ def rebuild_sources(source_strings, state=None, progress=None):
             raise
 
         manifest["last_mod_sha256"] = sha256_file(source)
+        manifest["last_mod_stat"] = _file_sig(source)
         manifest["modified"] = datetime.now().isoformat(timespec="seconds")
         write_manifest(source, manifest)
+    _record_mods_build()
     if progress:
         progress(1.0, "Done.")
+
+
+def _file_sig(path: Path):
+    st = path.stat()
+    return [st.st_size, int(st.st_mtime)]
+
+
+def _game_build():
+    app = find_app()
+    return plist_value(app / "Contents/Info.plist", "CFBundleVersion") if app else None
+
+
+def _record_mods_build():
+    try:
+        prefs = prefs_payload()
+        build = _plist_value_uncached(find_app() / "Contents/Info.plist", "CFBundleVersion")
+        if build and build != "unknown":
+            prefs["mods_build"] = build
+            write_json(PREFS_JSON, prefs)
+    except Exception:
+        pass
+
+
+def mods_need_reapply(state=None):
+    """Why the client's mods are missing from the game files, or None.
+
+    "update"   PG3D was updated (new build, or a modded file disappeared).
+    "restored" Steam put back original files (e.g. a file check) on the same build.
+    """
+    state = state or load_mods()
+    srcs = sources_for_state(state)
+    if not srcs:
+        return None
+    app = find_app()
+    if not app:
+        return None
+    build = _plist_value_uncached(app / "Contents/Info.plist", "CFBundleVersion")
+    recorded = prefs_payload().get("mods_build")
+    if recorded and build not in (None, "unknown") and recorded != build:
+        return "update"
+    for src in srcs:
+        path = Path(src)
+        if not path.exists():
+            return "update"
+        m = load_manifest(path)
+        if not m or not m.get("last_mod_sha256"):
+            continue
+        sig = _file_sig(path)
+        if m.get("last_mod_stat") == sig:
+            continue
+        if sha256_file(path) != m["last_mod_sha256"]:
+            return "restored"
+        m["last_mod_stat"] = sig
+        write_manifest(path, m)
+    return None
 
 
 def _exclusive(fn):
@@ -3098,7 +3162,7 @@ def launch_with_fps(fps):
     return {"ok": True, "needs_login": False, **result}
 
 
-LAUNCH_BUSY = ("preparing", "switching", "launching", "starting")
+LAUNCH_BUSY = ("preparing", "switching", "updating", "launching", "starting")
 LAUNCH_DEFAULT_TIMES = {"switch": 35.0, "start_normal": 25.0, "start_fps": 15.0}
 _LAUNCH = {"stage": None}
 
@@ -3194,7 +3258,31 @@ def _launch_job(kind, fps):
         if account_result.get("needs_login"):
             raise RuntimeError((account_result.get("message") or "Steam needs you to finish signing in.") + " PG3D was not launched.")
 
-        # 3) Start the game and wait until it is actually running.
+        # 3) A pending PG3D update installs first, then the client's mods go back on.
+        upd = game_update_info()
+        if upd.get("available"):
+            _launch_stage("updating", 12, 40, 120, "Steam is updating Pixel Gun 3D…", later=times[start_key])
+            if not upd.get("updating"):
+                subprocess.Popen(["/usr/bin/open", f"steam://validate/{STEAM_APP_ID}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            began = time.time()
+            while True:
+                time.sleep(2)
+                invalidate("game_update")
+                u = game_update_info()
+                if u.get("progress") is not None:
+                    set_status(launch_message=f"Steam is updating Pixel Gun 3D… {u['progress']}%")
+                if not u.get("available") and not u.get("updating") and time.time() - began > 6:
+                    break
+                if time.time() - began > 45 * 60:
+                    raise RuntimeError("The PG3D update is taking very long. Check Steam's Downloads page.")
+        if reapply_enabled():
+            reason = mods_need_reapply()
+            if reason:
+                _launch_stage("updating", 40, 52, 25, "Re-applying your mods…", later=times[start_key])
+                with _MUTATE_LOCK:
+                    _reapply_work(lambda f, m: set_status(launch_message=m), reason)
+
+        # 4) Start the game and wait until it is actually running.
         _launch_stage("launching", 55 if needs_switch else 12, 96, times[start_key],
                       "Starting PG3D through the FPS unlocker…" if kind == "fps" else "Starting PG3D…")
         t0 = time.time()
@@ -3584,6 +3672,8 @@ def status_payload():
         "playtime": playtime_summary(account_info.get("current") or account_info.get("selected") or "unknown"),
         "rank": _safe_rank(account_info.get("current") or account_info.get("selected") or "unknown"),
         "last_session": last_session_payload(),
+        "game_update": game_update_info(),
+        "reapply_mods": reapply_enabled(),
         "job": {k[4:]: s.get(k) for k in ("job_kind", "job_phase", "job_progress", "job_message", "job_error")},
         "overlay": {"config": overlay_config(), "runtime": overlay_runtime()},
     })
@@ -3950,6 +4040,19 @@ def theme_payload():
     }
 
 
+def theme_targets(cat):
+    # Sky textures are never themed: a custom sky keeps its picture, the stock sky its colors.
+    sky_ids = {(t["source_file"], int(t["path_id"])) for t in cat.get("sky", [])}
+    targets = {}
+    for src, items in cat.get("gui", {}).items():
+        if not Path(src).exists():
+            continue
+        ids = sorted({int(t["path_id"]) for t in items} - {pid for (f, pid) in sky_ids if f == src})
+        if ids:
+            targets[src] = ids
+    return targets
+
+
 def apply_theme(preset, strength=None):
     if preset not in customize.THEMES:
         raise RuntimeError("Unknown theme preset.")
@@ -3959,15 +4062,7 @@ def apply_theme(preset, strength=None):
 
     def job(progress):
         cat = ensure_catalog(_sub_progress(progress, 0, 0.4))
-        # Sky textures are never themed: a custom sky keeps its picture, the stock sky its colors.
-        sky_ids = {(t["source_file"], int(t["path_id"])) for t in cat.get("sky", [])}
-        targets = {}
-        for src, items in cat.get("gui", {}).items():
-            if not Path(src).exists():
-                continue
-            ids = sorted({int(t["path_id"]) for t in items} - {pid for (f, pid) in sky_ids if f == src})
-            if ids:
-                targets[src] = ids
+        targets = theme_targets(cat)
         if not targets:
             raise RuntimeError("No GUI textures were found to recolour.")
 
@@ -4319,6 +4414,166 @@ def rescan_customize():
         return (f"Found {sum(len(v) for v in cat['gui'].values())} GUI textures and "
                 f"{len(cat['sky'])} sky textures.")
     return start_job("scan", job)
+
+
+# ------------------------------------------------- PG3D updates + mod re-apply
+GAME_UPDATING_FLAGS = 256 | 1024 | 131072 | 262144 | 524288 | 1048576 | 2097152 | 4194304
+
+
+def steam_app_manifest():
+    app = find_app()
+    if not app:
+        return None
+    for parent in app.parents:
+        if parent.name == "steamapps":
+            p = parent / f"appmanifest_{STEAM_APP_ID}.acf"
+            return p if p.exists() else None
+    return None
+
+
+def game_update_info():
+    """What Steam knows about a pending PG3D update (read from its app manifest)."""
+    def read():
+        p = steam_app_manifest()
+        if not p:
+            return {"known": False, "available": False, "updating": False}
+        st = ci_get(load_vdf(p, {}), "AppState", {}) or {}
+        def num(k):
+            v = str(ci_get(st, k, "0") or "0").strip()
+            return int(v) if v.isdigit() else 0
+        flags = num("StateFlags")
+        build, target = str(ci_get(st, "buildid", "") or ""), str(ci_get(st, "TargetBuildID", "") or "")
+        to_dl, done = num("BytesToDownload"), num("BytesDownloaded")
+        updating = bool(flags & GAME_UPDATING_FLAGS)
+        available = bool(flags & 2) or (target not in ("", "0") and target != build)
+        return {"known": True, "available": available or updating, "updating": updating, "build": build, "target": target,
+                "progress": round(done / to_dl * 100) if to_dl else None, "size": to_dl or None}
+    try:
+        return cached("game_update", 4, read)
+    except Exception as e:
+        log(f"Reading Steam's app manifest failed: {e}")
+        return {"known": False, "available": False, "updating": False}
+
+
+def install_game_update():
+    if game_running():
+        raise RuntimeError("Close Pixel Gun 3D first.")
+    if launch_busy():
+        raise RuntimeError("PG3D is starting.")
+    # Steam's file check downloads the pending update and verifies every file; the client
+    # re-applies its mods by itself once Steam is done.
+    subprocess.Popen(["/usr/bin/open", f"steam://validate/{STEAM_APP_ID}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    set_status(game_update_requested=time.time())
+    invalidate("game_update")
+    log("Asked Steam to install the PG3D update")
+    return {"ok": True}
+
+
+def _match_item(old, items):
+    """Find the same sprite/texture again in a fresh scan after a game update."""
+    def key(x, rel=True):
+        return ((x.get("relative_file") if rel else None), x.get("name"), int(x.get("width", 0)), int(x.get("height", 0)))
+    for rel in (True, False):
+        hits = [x for x in items if key(x, rel) == key(old, rel)]
+        if len(hits) == 1 or (hits and rel):
+            return hits[0]
+    return None
+
+
+def _remap_state(state, progress):
+    """Point every saved change at the matching asset in the updated game files."""
+    new = copy.deepcopy(state)
+    lost = []
+    if new.get("cursor"):
+        progress(.05, "Finding the cursor in the updated game…")
+        new["cursor"]["target"] = scan_cursor_target(force=True)
+    if new.get("gui") or new.get("hud_set"):
+        progress(.1, "Finding your HUD changes in the updated game…")
+        items = scan_gui_assets(deep=False)["items"]
+        for field in ("gui", "hud_set"):
+            remapped = {}
+            for op in (new.get(field) or {}).values():
+                hit = _match_item(op, items)
+                if not hit:
+                    lost.append(op.get("name") or "sprite")
+                    continue
+                op.update(source_file=hit["source_file"], relative_file=hit["relative_file"], path_id=int(hit["path_id"]),
+                          key=hit["key"], asset_id=int(hit["id"]), pivot_x=float(hit.get("pivot_x", .5)),
+                          pivot_y=float(hit.get("pivot_y", .5)))
+                remapped[hit["key"]] = op
+            new[field] = remapped
+    if new.get("theme") or new.get("skybox") or new.get("loading") or new.get("font"):
+        cat = scan_customize(_sub_progress(progress, .35, .7))
+        if new.get("theme"):
+            new["theme"]["targets"] = theme_targets(cat)
+        if new.get("skybox"):
+            old = new["skybox"].get("targets", [])
+            picked = [t for t in cat.get("sky", []) if any(_match_item(o, [t]) for o in old)] or cat.get("sky", [])
+            new["skybox"]["targets"] = [{k: t[k] for k in ("source_file", "relative_file", "path_id", "name", "type", "face", "width", "height")} for t in picked]
+            if not picked:
+                new["skybox"] = None
+                lost.append("sky")
+        for key, fields in (("loading", ("source_file", "relative_file", "path_id", "name", "width", "height")),
+                            ("font", ("source_file", "relative_file", "path_id", "name"))):
+            if new.get(key):
+                found = cat.get("loading" if key == "loading" else "fonts", [])
+                new[key]["targets"] = [{k: t[k] for k in fields} for t in found]
+                if not found:
+                    new[key] = None
+                    lost.append("loading screen" if key == "loading" else "font")
+    return new, lost
+
+
+def _reapply_work(progress, reason):
+    before = load_mods()
+    state, lost = (_remap_state(before, progress) if reason == "update" else (before, []))
+    rebuild_sources(sources_for_state(state) | {s for s in sources_for_state(before) if Path(s).exists()}, state,
+                    _sub_progress(progress, .7, 1.0))
+    save_mods(state)
+    invalidate("game_update")
+    msg = "Your mods were re-applied after the PG3D update." if reason == "update" else "Your mods were re-applied."
+    if lost:
+        msg += f" Not found in the new version: {', '.join(sorted(set(lost))[:4])}."
+    set_status(mods_reapplied={"at": int(time.time()), "reason": reason, "message": msg})
+    log(f"Mods re-applied ({reason}); lost: {lost}")
+    return msg
+
+
+@_exclusive
+def _reapply_locked(progress, reason):
+    return _reapply_work(progress, reason)
+
+
+def start_reapply(reason):
+    return start_job("reapply", lambda progress: _reapply_locked(progress, reason))
+
+
+def reapply_enabled():
+    return prefs_payload().get("reapply_mods", True) is not False
+
+
+def set_reapply_pref(on):
+    prefs = prefs_payload()
+    prefs["reapply_mods"] = bool(on)
+    write_json(PREFS_JSON, prefs)
+    return {"ok": True, "reapply_mods": bool(on)}
+
+
+def mods_reapply_watch():
+    """Put the client's mods back by themselves after Steam updates or repairs PG3D."""
+    while True:
+        time.sleep(20)
+        try:
+            if not reapply_enabled() or game_running() or launch_busy() or STATUS.get("job_phase") == "running":
+                continue
+            if _MUTATE_LOCK.locked() or game_update_info().get("updating"):
+                continue
+            reason = mods_need_reapply()
+            if reason:
+                log(f"Mods missing from game files ({reason}); re-applying")
+                start_reapply(reason)
+        except Exception as e:
+            log(f"Mod re-apply check failed: {e}")
 
 
 # ----------------------------------------------------------------------- rank
@@ -5201,6 +5456,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(set_rankup_sound(data.get("data"), data.get("name")))
             if path == "/api/sound/rankup/reset":
                 return self.send_json(reset_rankup_sound())
+            if path == "/api/game-update/install":
+                return self.send_json(install_game_update())
+            if path == "/api/prefs/reapply":
+                return self.send_json(set_reapply_pref(data.get("on", True)))
+            if path == "/api/mods/reapply":
+                reason = mods_need_reapply() or "restored"
+                return self.send_json(start_reapply(reason))
             if path == "/api/prefs/ui-style":
                 return self.send_json(set_ui_style_pref(data))
             if path == "/api/prefs/fps":
@@ -5313,6 +5575,7 @@ def main():
     threading.Thread(target=idle_watch, args=(server,), daemon=True).start()
     threading.Thread(target=playtime_watch, daemon=True).start()
     threading.Thread(target=ember_sync_watch, daemon=True).start()
+    threading.Thread(target=mods_reapply_watch, daemon=True).start()
     global WIN_WATCHER
     WIN_WATCHER = ranks.WinWatcher(win_config, _on_auto_win, game_running, log)
     WIN_WATCHER.start()

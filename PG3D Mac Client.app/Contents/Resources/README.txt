@@ -1,4 +1,4 @@
-PG3D Mac Client 1.38.0
+PG3D Mac Client 1.39.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -144,3 +144,12 @@ New in 1.38
 Rank up   Deeper, warmer rank-up sound: a reverse swell rushing into the hit,
           a soft deep boom with a short metallic shing, and a warm string and
           low choir chord in a dark hall. No more high music-box notes.
+
+New in 1.39
+PG3D updates  When Steam has a Pixel Gun 3D update waiting, the Play tab
+          says so and "Install update" installs it through Steam. Pressing
+          Start with an update pending installs it first.
+Mods      After a PG3D update (or Steam putting back original files), your
+          cursor, hit marker, HUD, theme, font, sky and loading screen are
+          re-applied by themselves, and the client re-finds each change in
+          the new game files. Turn off in Settings › Updates.
