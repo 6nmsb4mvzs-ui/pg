@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.36.0"
+APP_VERSION = "1.37.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3441,6 +3441,51 @@ def set_sound_prefs(raw):
     return {"ok": True, "sound": snd}
 
 
+SOUNDS_DIR = SUPPORT / "sounds"
+_AUDIO_SIGS = ((b"ID3", ".mp3"), (b"\xff\xfb", ".mp3"), (b"\xff\xf3", ".mp3"), (b"\xff\xf2", ".mp3"),
+               (b"RIFF", ".wav"), (b"OggS", ".ogg"), (b"fLaC", ".flac"))
+
+
+def _rankup_file():
+    return next(iter(sorted(SOUNDS_DIR.glob("rankup.*"))), None) if SOUNDS_DIR.exists() else None
+
+
+def set_rankup_sound(data_url, name):
+    if "," not in str(data_url):
+        raise RuntimeError("Invalid sound upload.")
+    raw = base64.b64decode(str(data_url).split(",", 1)[1])
+    if len(raw) > 10 * 1024 * 1024:
+        raise RuntimeError("Sound files must be smaller than 10 MB.")
+    ext = next((e for sig, e in _AUDIO_SIGS if raw.startswith(sig)), None)
+    if ext is None and raw[4:8] == b"ftyp":
+        ext = ".m4a"
+    if ext is None:
+        raise RuntimeError("Use an MP3, WAV, M4A, OGG or FLAC file.")
+    SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
+    for old in SOUNDS_DIR.glob("rankup.*"):
+        old.unlink(missing_ok=True)
+    (SOUNDS_DIR / f"rankup{ext}").write_bytes(raw)
+    snd = sound_prefs()
+    snd["custom_rankup"] = hashlib.sha256(raw).hexdigest()[:12]
+    snd["custom_rankup_name"] = Path(str(name or "sound")).name[:60]
+    prefs = prefs_payload()
+    prefs["sound"] = snd
+    write_json(PREFS_JSON, prefs)
+    return {"ok": True, "sound": snd}
+
+
+def reset_rankup_sound():
+    for old in SOUNDS_DIR.glob("rankup.*") if SOUNDS_DIR.exists() else []:
+        old.unlink(missing_ok=True)
+    snd = sound_prefs()
+    snd.pop("custom_rankup", None)
+    snd.pop("custom_rankup_name", None)
+    prefs = prefs_payload()
+    prefs["sound"] = snd
+    write_json(PREFS_JSON, prefs)
+    return {"ok": True, "sound": snd}
+
+
 def clip_sound_volume():
     snd = sound_prefs()
     return snd["volume"] / 100.0 if snd["enabled"] else 0.0
@@ -4916,6 +4961,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(steam_player_count())
         if path == "/api/gui-assets":
             return self.send_json(gui_catalog())
+        if path == "/api/sound/rankup":
+            f = _rankup_file()
+            return self.send_file(f, cache=True) if f else self.send_error(404)
         if path == "/api/sprites":
             return self.send_json(sprite_roles_payload())
         if path.startswith("/api/sprites/file/"):
@@ -5149,6 +5197,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(set_sound_prefs(data))
             if path == "/api/prefs/ui-theme":
                 return self.send_json(set_ui_theme_pref(str(data.get("theme", ""))))
+            if path == "/api/sound/rankup":
+                return self.send_json(set_rankup_sound(data.get("data"), data.get("name")))
+            if path == "/api/sound/rankup/reset":
+                return self.send_json(reset_rankup_sound())
             if path == "/api/prefs/ui-style":
                 return self.send_json(set_ui_style_pref(data))
             if path == "/api/prefs/fps":

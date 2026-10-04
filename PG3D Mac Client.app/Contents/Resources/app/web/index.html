@@ -354,6 +354,7 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .ghRow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:hsl(var(--nh) var(--ns) 5%);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin:10px 0}
 .ghInfo{flex:1;min-width:160px}.ghInfo b{display:block;font-size:13px}.ghInfo small{color:var(--muted);font-size:11.5px}.ghInfo.bad small{color:var(--bad)}
 .ghForm{display:flex;gap:8px;flex:1.4;min-width:220px}.ghForm .search{flex:1;min-width:0}
+.sndCustom{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:hsl(var(--nh) var(--ns) 5%);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
 .curRoleNote{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;min-height:20px}
 #curRoleNote img{width:26px!important;height:26px!important;max-width:26px;flex:none;object-fit:contain;background:hsl(var(--nh) var(--ns) 3%);border:1px solid var(--border);border-radius:6px;padding:2px}
 .curSeg button.active{background:linear-gradient(135deg,var(--ember),var(--accent-deep));color:#f5f5ff}
@@ -1055,7 +1056,9 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
             <button class="xSwitch" id="sndAll" role="switch"><div><b>Sounds</b><small>Turn off to mute everything in the client.</small></div><span class="pillToggle"></span></button>
             <button class="xSwitch" id="sndRank" role="switch"><div><b>Rank-up sound</b><small>Plays with the rank-up animation.</small></div><span class="pillToggle"></span></button>
             <div><div class="xLabel">Volume</div><div class="xRange"><input type="range" id="sndVol" min="1" max="100" value="70"><b id="sndVolVal">70%</b></div></div>
+            <div class="sndCustom" id="sndCustom"></div>
             <div class="xRow"><button class="btn" id="sndTest">Play test sound</button><button class="btn" id="sndTestRank">Play rank-up sound</button></div>
+            <input type="file" id="sndFile" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg" hidden>
           </div>
         </div>
       </div>
@@ -1262,7 +1265,7 @@ function setState(id,text,kind=''){const e=$(id);if(!e)return;e.textContent=text
 function renderStatus(){if(!statusData)return;
   $('#launchMessage').textContent=statusData.launch_error||'';
   $('#startNormal').disabled=statusData.game_running;$('#startFps').disabled=statusData.game_running||!statusData.fps_bundle_present;
-  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderLastSession();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
+  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderLastSession();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
   if(statusData.overlay && (!overlayConfig || !overlayDirty)){overlayConfig=structuredClone(statusData.overlay.config);renderOverlayEditor()}
 }
 function renderBuildBadge(){const b=$('#buildBadge');if(!b||!statusData)return;const m=statusData.fps_build_match,build=statusData.game_build;if(m===false){b.className='buildBadge show warn';b.textContent=`PG3D build ${build} is newer than the FPS unlocker supports (${(statusData.fps_supported_builds||[]).join(', ')}). Start Normal will still work.`}else if(m===true){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build} · FPS unlocker compatible`}else{b.className='buildBadge'}}
@@ -1804,66 +1807,65 @@ function maybePlayRankUp(){const p=statusData?.rank?.pending;if(!p||ruPlaying||p
 window.addEventListener('focus',()=>setTimeout(maybePlayRankUp,400));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(maybePlayRankUp,400)});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-// Rank-up sounds: cinematic and synthesized (no samples). Low brass stacks, taiko drums, sub boom,
-// a choir-like swell and a long hall reverb, glued by a compressor and a limiter.
+// Rank-up sounds, League-style: glassy FM bells, a crystal sparkle arpeggio, an airy choir pad and a
+// soft deep swell in a bright hall. All synthesized. A custom sound file (Settings > Sounds) replaces it.
 function ruBus(ac){
   if(ac.__ruBus)return ac.__ruBus;
-  const comp=ac.createDynamicsCompressor();comp.threshold.value=-20;comp.knee.value=10;comp.ratio.value=4;comp.attack.value=.004;comp.release.value=.3;
-  const out=ac.createGain(),lim=ac.createDynamicsCompressor();out.gain.value=1.5*(SND.volume/100);lim.threshold.value=-2.5;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.12;
+  const comp=ac.createDynamicsCompressor();comp.threshold.value=-22;comp.knee.value=12;comp.ratio.value=3;comp.attack.value=.006;comp.release.value=.35;
+  const out=ac.createGain(),lim=ac.createDynamicsCompressor();out.gain.value=1.7*(SND.volume/100);lim.threshold.value=-2.5;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.15;
   comp.connect(out);out.connect(lim);lim.connect(ac.destination);
-  // hall reverb from a synthetic stereo impulse response
-  const len=Math.floor(ac.sampleRate*3.8),ir=ac.createBuffer(2,len,ac.sampleRate);
-  for(let c=0;c<2;c++){const d=ir.getChannelData(c);for(let i=0;i<len;i++){const x=i/len;d[i]=(Math.random()*2-1)*Math.pow(1-x,3.2)*(i<ac.sampleRate*.012?i/(ac.sampleRate*.012):1)}}
-  const verb=ac.createConvolver();verb.buffer=ir;const wet=ac.createGain();wet.gain.value=.55;const pre=ac.createBiquadFilter();pre.type='highpass';pre.frequency.value=180;
-  pre.connect(verb);verb.connect(wet);wet.connect(comp);
-  const bus={dry:comp,verb:pre};
-  try{Object.defineProperty(ac,'__ruBus',{value:bus,configurable:true})}catch{}
-  return bus}
+  const len=Math.floor(ac.sampleRate*4.5),ir=ac.createBuffer(2,len,ac.sampleRate);
+  for(let c=0;c<2;c++){const d=ir.getChannelData(c);let lp=0;for(let i=0;i<len;i++){const x=i/len;lp=lp*.55+(Math.random()*2-1)*.45;d[i]=lp*Math.pow(1-x,2.4)*(i<ac.sampleRate*.02?i/(ac.sampleRate*.02):1)}}
+  const verb=ac.createConvolver();verb.buffer=ir;const wet=ac.createGain();wet.gain.value=.8;const pre=ac.createBiquadFilter();pre.type='highpass';pre.frequency.value=250;
+  const predelay=ac.createDelay(.2);predelay.delayTime.value=.03;pre.connect(predelay);predelay.connect(verb);verb.connect(wet);wet.connect(comp);
+  const bus={dry:comp,verb:pre};try{Object.defineProperty(ac,'__ruBus',{value:bus,configurable:true})}catch{}return bus}
 function ruNoise(ac,dur){const len=Math.ceil(ac.sampleRate*dur),buf=ac.createBuffer(1,len,ac.sampleRate),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;const src=ac.createBufferSource();src.buffer=buf;return src}
-function ruSend(ac,node,bus,dry=1,wet=.5){if(dry){const g=ac.createGain();g.gain.value=dry;node.connect(g);g.connect(bus.dry)}if(wet){const g=ac.createGain();g.gain.value=wet;node.connect(g);g.connect(bus.verb)}}
-// Taiko / timpani hit: pitched body that drops fast + a felt-mallet thump.
-function ruDrum(ac,bus,t,{f=70,peak=1,len=.9,wet=.6}={}){
-  const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.setValueAtTime(f*2.4,t);o.frequency.exponentialRampToValueAtTime(f,t+.06);o.frequency.exponentialRampToValueAtTime(f*.82,t+len);
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+len);o.connect(g);ruSend(ac,g,bus,1,wet);o.start(t);o.stop(t+len+.05);
-  const n=ruNoise(ac,.25),lp=ac.createBiquadFilter(),ng=ac.createGain();lp.type='lowpass';lp.frequency.setValueAtTime(1800,t);lp.frequency.exponentialRampToValueAtTime(200,t+.18);
-  ng.gain.setValueAtTime(.0001,t);ng.gain.exponentialRampToValueAtTime(peak*.55,t+.003);ng.gain.exponentialRampToValueAtTime(.0001,t+.22);n.connect(lp);lp.connect(ng);ruSend(ac,ng,bus,1,wet*.8);n.start(t);n.stop(t+.25)}
-// Brass-like stack: detuned saws through a low-pass that swells open ("BRAAAM").
-function ruBrass(ac,bus,freqs,t,{dur=2.6,peak=.22,att=.04,open=1600,close=420,wet=.6,voices=5}={}){
-  const lp=ac.createBiquadFilter(),g=ac.createGain();lp.type='lowpass';lp.Q.value=1.2;lp.frequency.setValueAtTime(close*.6,t);lp.frequency.exponentialRampToValueAtTime(open,t+att+.12);lp.frequency.exponentialRampToValueAtTime(close,t+dur*.8);
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+att);g.gain.setValueAtTime(peak,t+att+.15);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
-  lp.connect(g);ruSend(ac,g,bus,1,wet);
-  for(const f of freqs)for(let v=0;v<voices;v++){const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;o.detune.value=(v-(voices-1)/2)*7;o.connect(lp);o.start(t);o.stop(t+dur+.05)}}
-// Choir-ish "aah": saws through vowel formants, slow attack, long tail.
-function ruChoir(ac,bus,freqs,t,{dur=3.4,peak=.16,att=.5,wet=.9}={}){
-  const mix=ac.createGain();mix.gain.setValueAtTime(.0001,t);mix.gain.exponentialRampToValueAtTime(peak,t+att);mix.gain.setValueAtTime(peak,t+dur*.45);mix.gain.exponentialRampToValueAtTime(.0001,t+dur);ruSend(ac,mix,bus,.8,wet);
-  const src=ac.createGain();
-  for(const [ff,q,gg] of [[730,9,1],[1090,10,.55],[2440,12,.25]]){const bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=ff;bp.Q.value=q;const fg=ac.createGain();fg.gain.value=gg*3.2;src.connect(bp);bp.connect(fg);fg.connect(mix)}
-  for(const f of freqs)for(let v=0;v<4;v++){const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;o.detune.value=(v-1.5)*9;
-    const vib=ac.createOscillator(),vg=ac.createGain();vib.frequency.value=4.8+v*.3;vg.gain.value=5;vib.connect(vg);vg.connect(o.detune);o.connect(src);o.start(t);o.stop(t+dur+.05);vib.start(t);vib.stop(t+dur+.05)}}
-function ruSub(ac,bus,t,{from=90,to=32,peak=1,len=1.6}={}){const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.setValueAtTime(from,t);o.frequency.exponentialRampToValueAtTime(to,t+len*.7);
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+len);o.connect(g);ruSend(ac,g,bus,1,0);o.start(t);o.stop(t+len+.05)}
-const RU_N={D1:36.71,A1:55,D2:73.42,F2:87.31,A2:110,Bb2:116.54,C3:130.81,D3:146.83,E3:164.81,F3:174.61,Fs3:185,G3:196,A3:220,D4:293.66,Fs4:369.99,A4:440};
-// Charge: accelerating taiko roll over a rising, darkening swell.
-function ruRiser(dur=1.1){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac);
-  const n=ruNoise(ac,dur+.1),bp=ac.createBiquadFilter(),g=ac.createGain();bp.type='bandpass';bp.Q.value=2.5;bp.frequency.setValueAtTime(220,t);bp.frequency.exponentialRampToValueAtTime(3200,t+dur);
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.28,t+dur*.96);g.gain.exponentialRampToValueAtTime(.0001,t+dur+.03);n.connect(bp);bp.connect(g);ruSend(ac,g,bus,1,.4);n.start(t);n.stop(t+dur+.1);
-  ruBrass(ac,bus,[RU_N.D2,RU_N.A2],t,{dur:dur+.05,peak:.12,att:dur*.9,open:900,close:500,wet:.3,voices:4});
-  let x=0,gap=.24;while(x<dur-.05){ruDrum(ac,bus,t+x,{f:62,peak:.35+.55*(x/dur),len:.45,wet:.35});x+=gap;gap=Math.max(.06,gap*.78)}}catch{}}
-// The landing: sub boom + taiko + crash + D minor brass "BRAAAM", then a D major choir/brass swell.
-function ruSound(){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_N;
-  ruSub(ac,bus,t,{from:95,to:30,peak:1,len:1.8});
-  ruDrum(ac,bus,t,{f:55,peak:1,len:1.4,wet:.9});ruDrum(ac,bus,t+.012,{f:82,peak:.6,len:.9,wet:.7});
-  const n=ruNoise(ac,2.2),hp=ac.createBiquadFilter(),ng=ac.createGain();hp.type='bandpass';hp.frequency.value=5200;hp.Q.value=.6;ng.gain.setValueAtTime(.0001,t);ng.gain.exponentialRampToValueAtTime(.22,t+.01);ng.gain.exponentialRampToValueAtTime(.0001,t+2.1);n.connect(hp);hp.connect(ng);ruSend(ac,ng,bus,1,.8);n.start(t);n.stop(t+2.2);
-  ruBrass(ac,bus,[N.D1,N.D2,N.A2,N.D3,N.F3],t,{dur:2.4,peak:.2,att:.03,open:1900,close:380,wet:.55});
-  const t2=t+.72;
-  ruDrum(ac,bus,t2,{f:60,peak:.8,len:1.1,wet:.9});ruSub(ac,bus,t2,{from:70,to:36,peak:.6,len:1.2});
-  ruBrass(ac,bus,[N.D2,N.A2,N.D3,N.Fs3,N.A3],t2,{dur:3.6,peak:.17,att:.18,open:2400,close:700,wet:.8});
-  ruChoir(ac,bus,[N.D3,N.Fs3,N.A3,N.D4],t2,{dur:4,peak:.16,att:.45})}catch{}}
-// Trophy road step: taiko + short brass stab, climbing D minor -> major up the road.
-function ruStep(i){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_N;
-  const roots=[[N.D2,N.A2,N.D3],[N.F2,N.C3,N.F3],[N.G3/2,N.D3,N.G3],[N.A2,N.E3,N.A3],[N.Bb2,N.F3,N.Bb2*2],[N.C3,N.G3,N.C3*2],[N.D3,N.A3,N.D4],[N.D3,N.Fs3,N.A3]][Math.min(7,i)];
-  ruDrum(ac,bus,t,{f:66+i*3,peak:.85,len:.8,wet:.6});ruSub(ac,bus,t,{from:80,to:45,peak:.45,len:.5});
-  ruBrass(ac,bus,roots,t,{dur:.85,peak:.15,att:.02,open:1700,close:450,wet:.55,voices:4})}catch{}}
+function ruOut(ac,node,bus,{dry=1,wet=.6,pan=0}={}){let n=node;if(pan&&ac.createStereoPanner){const p=ac.createStereoPanner();p.pan.value=pan;node.connect(p);n=p}
+  if(dry){const g=ac.createGain();g.gain.value=dry;n.connect(g);g.connect(bus.dry)}if(wet){const g=ac.createGain();g.gain.value=wet;n.connect(g);g.connect(bus.verb)}}
+// FM bell: bright metallic strike that mellows as the modulation index decays.
+function ruBell(ac,bus,f,t,{peak=.2,len=2.6,ratio=3.5,index=4,dry=.8,wet=.8,pan=0}={}){
+  const car=ac.createOscillator(),mod=ac.createOscillator(),mg=ac.createGain(),g=ac.createGain();car.type='sine';mod.type='sine';car.frequency.value=f;mod.frequency.value=f*ratio;
+  mg.gain.setValueAtTime(f*index,t);mg.gain.exponentialRampToValueAtTime(f*.05,t+len*.6);mod.connect(mg);mg.connect(car.frequency);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+.004);g.gain.exponentialRampToValueAtTime(peak*.35,t+.25);g.gain.exponentialRampToValueAtTime(.0001,t+len);
+  car.connect(g);ruOut(ac,g,bus,{dry,wet,pan});car.start(t);mod.start(t);car.stop(t+len+.05);mod.stop(t+len+.05)}
+// Airy choir pad: soft detuned triangles, slow attack, gentle low-pass.
+function ruPad(ac,bus,freqs,t,{peak=.1,att=.6,hold=1,rel=2.6,cut=2600}={}){
+  const lp=ac.createBiquadFilter(),g=ac.createGain();lp.type='lowpass';lp.frequency.value=cut;lp.Q.value=.5;
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+att);g.gain.setValueAtTime(peak,t+att+hold);g.gain.exponentialRampToValueAtTime(.0001,t+att+hold+rel);lp.connect(g);ruOut(ac,g,bus,{dry:.6,wet:1});
+  freqs.forEach((f,k)=>{for(let v=0;v<3;v++){const o=ac.createOscillator();o.type=v===1?'sine':'triangle';o.frequency.value=f;o.detune.value=(v-1)*8+(k%2?3:-3);
+    const lfo=ac.createOscillator(),lg=ac.createGain();lfo.frequency.value=.25+v*.11+k*.05;lg.gain.value=6;lfo.connect(lg);lg.connect(o.detune);o.connect(lp);const end=t+att+hold+rel+.05;o.start(t);o.stop(end);lfo.start(t);lfo.stop(end)}})}
+// Soft deep "whoom": warm sine swell, no harsh click.
+function ruWhoom(ac,bus,t,{from=110,to=48,peak=.7,len=1.4}={}){const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.setValueAtTime(from,t);o.frequency.exponentialRampToValueAtTime(to,t+len*.6);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+.025);g.gain.exponentialRampToValueAtTime(.0001,t+len);o.connect(g);ruOut(ac,g,bus,{dry:1,wet:.15});o.start(t);o.stop(t+len+.05)}
+function ruAir(ac,bus,t,{dur=1,from=800,to=7000,peak=.12,rise=true}={}){const n=ruNoise(ac,dur+.1),f=ac.createBiquadFilter(),g=ac.createGain();f.type='bandpass';f.Q.value=1.4;
+  f.frequency.setValueAtTime(from,t);f.frequency.exponentialRampToValueAtTime(to,t+dur);g.gain.setValueAtTime(.0001,t);
+  if(rise){g.gain.exponentialRampToValueAtTime(peak,t+dur*.95);g.gain.exponentialRampToValueAtTime(.0001,t+dur+.05)}else{g.gain.exponentialRampToValueAtTime(peak,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+dur)}
+  n.connect(f);f.connect(g);ruOut(ac,g,bus,{dry:.7,wet:.7});n.start(t);n.stop(t+dur+.1)}
+const RU_E={E2:82.41,B2:123.47,E3:164.81,Gs3:207.65,B3:246.94,Cs4:277.18,E4:329.63,Fs4:369.99,Gs4:415.3,B4:493.88,Cs5:554.37,E5:659.25,Fs5:739.99,Gs5:830.61,B5:987.77,E6:1318.51,Gs6:1661.22,B6:1975.53};
+// Charge: magic gathering. Shimmering bell tremolo climbing over an airy rising rush and a low swell.
+function ruRiser(dur=1.1){if(!SND.enabled||!SND.rankup||ruCustomSound())return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_E;
+  ruAir(ac,bus,t,{dur,from:600,to:6500,peak:.16});
+  ruPad(ac,bus,[N.E2,N.B2],t,{peak:.09,att:dur*.9,hold:.05,rel:.25,cut:900});
+  const notes=[N.B4,N.E5,N.Gs5,N.B5,N.E6,N.Gs6];let x=0,k=0;while(x<dur-.04){ruBell(ac,bus,notes[k%notes.length]*(1+Math.floor(k/notes.length)*0),t+x,{peak:.04+.06*(x/dur),len:.6,ratio:2.01,index:2.5,dry:.5,wet:.9,pan:k%2?.45:-.45});x+=Math.max(.045,.13*(1-x/dur)+.04);k++}}catch{}}
+// Landing: soft whoom + a big glassy bell chord, a crystal sparkle arpeggio, then a warm choir pad.
+function ruSound(){const cs=ruCustomSound();if(cs){ruPlayCustom(cs);return}if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_E;
+  ruWhoom(ac,bus,t,{from:120,to:46,peak:.75,len:1.6});
+  ruAir(ac,bus,t,{dur:1.6,from:9000,to:2500,peak:.1,rise:false});
+  ruBell(ac,bus,N.E3,t,{peak:.2,len:4,ratio:1.4,index:3,dry:.9,wet:.9});
+  ruBell(ac,bus,N.B3,t+.005,{peak:.12,len:3.6,ratio:3.5,index:2.5,pan:-.2});
+  ruBell(ac,bus,N.E4,t+.01,{peak:.13,len:3.4,ratio:3.5,index:3,pan:.2});
+  ruBell(ac,bus,N.Gs4,t+.015,{peak:.08,len:3,ratio:2.01,index:2});
+  [N.E5,N.Gs5,N.B5,N.E6,N.Gs6,N.B6].forEach((f,i)=>ruBell(ac,bus,f,t+.16+i*.075,{peak:.075-i*.006,len:1.8,ratio:2.01,index:1.8,dry:.55,wet:1,pan:(i%2?.55:-.55)*(1-i*.08)}));
+  ruPad(ac,bus,[N.E3,N.Gs3,N.B3,N.E4],t+.2,{peak:.11,att:.7,hold:1.1,rel:2.8,cut:3000});
+  ruPad(ac,bus,[N.E2,N.B2],t+.1,{peak:.07,att:.4,hold:1.2,rel:2.2,cut:600})}catch{}}
+// Trophy road step: glassy bell "ting" with a soft whoom, climbing an E major scale.
+function ruStep(i){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_E;
+  const sc=[N.E4,N.Fs4,N.Gs4,N.B4,N.Cs5,N.E5,N.Fs5,N.Gs5][Math.min(7,i)];
+  ruBell(ac,bus,sc,t,{peak:.16,len:1.6,ratio:3.5,index:2.6,pan:0});ruBell(ac,bus,sc*2,t+.01,{peak:.05,len:1,ratio:2.01,index:1.5,dry:.4,wet:1});
+  ruWhoom(ac,bus,t,{from:140,to:70,peak:.35,len:.5});ruAir(ac,bus,t,{dur:.35,from:5000,to:1500,peak:.05,rise:false})}catch{}}
+// Custom rank-up sound file chosen in Settings > Sounds.
+function ruCustomSound(){return SND.custom_rankup?`/api/sound/rankup?v=${encodeURIComponent(SND.custom_rankup)}`:null}
+function ruPlayCustom(url){if(!SND.enabled||!SND.rankup)return;try{const a=new Audio(url);a.volume=Math.max(0,Math.min(1,SND.volume/100));a.play().catch(()=>{})}catch{}}
 // Time-based particles drawn from cached glow sprites (smooth at any frame rate).
 function ruParticles(canvas){const ctx=canvas.getContext('2d');let parts=[],run=true,last=performance.now();const dpr=Math.min(1.5,window.devicePixelRatio||1),sprites={};
   const fit=()=>{canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr};fit();addEventListener('resize',fit);
@@ -2128,13 +2130,20 @@ function renderUiStyles(){const box=$('#uiStyles');if(!box)return;box.innerHTML=
   const th=$('#uiThemes');if(th){th.classList.toggle('locked',cur==='noble');th.title=cur==='noble'?'Noble uses its own gold and navy colors.':''}}
 $('#animSwitch').onclick=()=>setUiPrefs({animations:document.documentElement.dataset.anim==='off'});
 function showSettingsPane(k){$$('#setTabs button').forEach(b=>b.classList.toggle('on',b.dataset.p===k));$('#setGeneral').hidden=k!=='general';$('#setAppearance').hidden=k!=='appearance';$('#setSounds').hidden=k!=='sounds';if(k==='appearance'){renderUiThemes();renderUiStyles()}if(k==='sounds')renderSounds()}
-function renderSounds(){setSwitch('#sndAll',SND.enabled);setSwitch('#sndRank',SND.rankup);$('#sndRank').style.opacity=SND.enabled?1:.45;$('#sndVol').value=SND.volume;$('#sndVolVal').textContent=SND.volume+'%'}
+function renderSndCustom(){const box=$('#sndCustom');if(!box)return;box.innerHTML='';const has=!!SND.custom_rankup;
+  const t=el('div','ghInfo');t.append(el('b',null,'Rank-up sound file'),el('small',null,has?`Using your file: ${SND.custom_rankup_name||'custom sound'}`:'Built-in. Choose an audio file to use your own.'));
+  const pick=smallBtn(has?'Change':'Choose file',()=>$('#sndFile').click());box.append(t,pick);
+  if(has)box.append(smallBtn('Use built-in',async()=>{try{const d=await post('/api/sound/rankup/reset');delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,d.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}renderSounds()}catch(e){toast(e.message,true)}}))}
+$('#sndFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;if(f.size>10*1024*1024)return toast('Sound files must be smaller than 10 MB.',true);
+  const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
+  try{const d=await post('/api/sound/rankup',{data,name:f.name});Object.assign(SND,d.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}renderSounds();toast('Rank-up sound set.')}catch(err){toast(err.message,true)}};
+function renderSounds(){renderSndCustom();setSwitch('#sndAll',SND.enabled);setSwitch('#sndRank',SND.rankup);$('#sndRank').style.opacity=SND.enabled?1:.45;$('#sndVol').value=SND.volume;$('#sndVolVal').textContent=SND.volume+'%'}
 let __sndSave=null;function saveSound(patch){Object.assign(SND,patch);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}renderSounds();clearTimeout(__sndSave);__sndSave=setTimeout(()=>post('/api/prefs/sound',SND).catch(e=>toast(e.message,true)),250)}
 $('#sndAll').onclick=()=>saveSound({enabled:!SND.enabled});
 $('#sndRank').onclick=()=>saveSound({rankup:!SND.rankup});
 $('#sndVol').oninput=e=>{SND.volume=Number(e.target.value);$('#sndVolVal').textContent=SND.volume+'%';saveSound({volume:SND.volume})};
 $('#sndTest').onclick=()=>setTimeout(()=>uiSound('primary'),80);
-$('#sndTestRank').onclick=()=>{ruRiser(1.1);setTimeout(ruSound,1100)};
+$('#sndTestRank').onclick=()=>{if(ruCustomSound()){ruSound();return}ruRiser(1.1);setTimeout(ruSound,1100)};
 $$('#setTabs button').forEach(b=>b.onclick=()=>showSettingsPane(b.dataset.p));
 let _uiThemeSynced=false;
 

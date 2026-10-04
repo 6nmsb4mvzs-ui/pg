@@ -1,4 +1,4 @@
-PG3D Mac Client 1.36.0
+PG3D Mac Client 1.37.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -132,3 +132,10 @@ Rank up   Cinematic rank-up sound: an accelerating taiko roll while the
           emblem charges, then a deep brass "BRAAAM" with sub boom and crash,
           resolving into a big choir and brass chord in a long hall reverb.
           Trophy road steps hit with a drum and a rising brass stab.
+
+New in 1.37
+Rank up   New rank-up sound in the style of League's promotion: magic
+          gathering as shimmering bells climb, then a soft deep swell, a big
+          glassy bell chord, a crystal sparkle run and an airy choir pad.
+          Settings › Sounds › Rank-up sound file lets you use your own sound
+          file instead (MP3, WAV, M4A, OGG, FLAC).
