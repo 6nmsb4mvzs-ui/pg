@@ -201,14 +201,29 @@ def request_screen_permission():
     return {"ok": True}
 
 
+# Set by server.py from Settings > Sounds: returns the volume 0..1, or 0 for no sound.
+SOUND_VOLUME = lambda: 1.0
+
+
 def notify(title, text):
     safe = lambda s: str(s).replace("\\", "\\\\").replace('"', '\\"')
     try:
         subprocess.Popen(["/usr/bin/osascript", "-e",
-                          f'display notification "{safe(text)}" with title "{safe(title)}" sound name "Glass"'],
+                          f'display notification "{safe(text)}" with title "{safe(title)}"'],
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
+    # The macOS "Glass" sound, played separately so the client's volume setting applies.
+    try:
+        vol = float(SOUND_VOLUME())
+    except Exception:
+        vol = 1.0
+    if vol > 0:
+        try:
+            subprocess.Popen(["/usr/bin/afplay", "-v", f"{vol:.2f}", "/System/Library/Sounds/Glass.aiff"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
 
 
 # --------------------------------------------------------------------------- recorder

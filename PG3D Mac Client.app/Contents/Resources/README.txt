@@ -1,4 +1,4 @@
-PG3D Mac Client 1.30.0
+PG3D Mac Client 1.31.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -83,3 +83,10 @@ plays the next time the client is in front. Start shows progress and a time
 estimate, waits for texture changes, and checks the Steam account first.
 Theme previews on a game screenshot with one tuned look per preset. Sky
 drops rotation; Clips and Cursor are simpler.
+
+New in 1.31
+Themes retexture each game texture into the preset palette instead of a
+flat tint; sky textures are never themed. Sounds for clicks, switches,
+sliders and rank-ups with Settings > Sounds (mute all, rank-up sound,
+volume). A saved Steam login is now used when an account has no remembered
+Steam token or the token stops working.

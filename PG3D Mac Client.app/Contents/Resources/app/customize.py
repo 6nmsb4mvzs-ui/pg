@@ -7,6 +7,7 @@ when files are rebuilt.
 """
 from __future__ import annotations
 
+import colorsys
 import math
 import re
 from pathlib import Path
@@ -27,25 +28,29 @@ THEMES = {
     "crimson": {
         "name": "Crimson",
         "desc": "Blood red and black with ember highlights.",
-        "strength": 0.75,
+        "strength": 1.0,
+        "remap": dict(primary=352, accent=18, spread=0.18, sat=1.05, val=0.92, tint=0.10, tint_hue=352),
         "stops": [(0.0, "#0A0203"), (0.30, "#3D060D"), (0.58, "#A3101E"), (0.82, "#FF4A3A"), (1.0, "#FFF0EC")],
     },
     "dark_souls": {
         "name": "Dark Souls",
         "desc": "Ashen blue-green over near-black, like a bonfire gone cold.",
-        "strength": 0.85,
+        "strength": 1.0,
+        "remap": dict(primary=168, accent=42, spread=0.10, sat=0.55, val=0.66, tint=0.20, tint_hue=170),
         "stops": [(0.0, "#040706"), (0.30, "#0E1C1C"), (0.58, "#2B4A46"), (0.82, "#86A597"), (1.0, "#E6EDE3")],
     },
     "royal": {
         "name": "Royal",
         "desc": "Deep violet and velvet with gold trim.",
-        "strength": 0.75,
+        "strength": 1.0,
+        "remap": dict(primary=268, accent=45, spread=0.16, sat=0.95, val=0.95, tint=0.10, tint_hue=268),
         "stops": [(0.0, "#0A0517"), (0.30, "#24105A"), (0.56, "#5528A8"), (0.80, "#D4AE55"), (1.0, "#FFF6DA")],
     },
     "icy": {
         "name": "Icy",
         "desc": "Glacier blue fading to frost white.",
-        "strength": 0.8,
+        "strength": 1.0,
+        "remap": dict(primary=200, accent=188, spread=0.14, sat=0.72, val=1.04, tint=0.10, tint_hue=205),
         "stops": [(0.0, "#020C16"), (0.30, "#0B3352"), (0.58, "#2F93CF"), (0.82, "#A6E4FF"), (1.0, "#FFFFFF")],
     },
 }
@@ -77,11 +82,36 @@ def theme_luts(preset: str):
 _LUT_CACHE = {}
 
 
-def recolor_image(img: Image.Image, preset: str, strength: float = 0.85) -> Image.Image:
-    """Gradient-map an RGBA image to a theme, keeping its alpha untouched.
+def _remap_luts(preset):
+    """Lookup tables for one preset's palette remap (hue, saturation, brightness, tint)."""
+    p = THEMES[preset]["remap"]
+    hue = []
+    for i in range(256):
+        h = i / 256 * 360
+        if 20 <= h <= 75:            # golds, oranges, yellows: PG3D's highlight colors
+            nh = p["accent"] + (h - 47) * 0.3
+        else:                        # everything else keeps part of its spread around blue
+            d = ((h - 210 + 180) % 360) - 180
+            nh = p["primary"] + d * p["spread"]
+        hue.append(int(round((nh % 360) / 360 * 256)) % 256)
+    sat = [min(255, int(v * p["sat"])) for v in range(256)]
+    val = [min(255, int(255 * ((v / 255) ** (1 / p["val"])))) for v in range(256)]
+    mask = [0 if v < 28 else 255 if v > 70 else int((v - 28) / 42 * 255) for v in range(256)]
+    tr, tg, tb = [int(c * 255) for c in colorsys.hsv_to_rgb(p["tint_hue"] / 360, 0.5, 1)]
+    t = p["tint"]
+    tint = (int(255 - (255 - tr) * t), int(255 - (255 - tg) * t), int(255 - (255 - tb) * t))
+    return hue, sat, val, mask, tint
 
-    Purely per-pixel, so recolouring an atlas and then cropping a sprite gives
-    the same pixels as cropping first and recolouring after.
+
+def recolor_image(img: Image.Image, preset: str, strength: float = 1.0) -> Image.Image:
+    """Retexture an RGBA image into a theme's palette, keeping its alpha untouched.
+
+    Each pixel keeps its own brightness and detail; colored pixels move into the
+    theme's hues (warm highlights to the accent hue, the rest around the main hue,
+    keeping part of their original spread), and near-neutral pixels such as white
+    text, greys and outlines stay neutral with a light tint. Purely per-pixel, so
+    recoloring an atlas and then cropping a sprite gives the same pixels as
+    cropping first and recoloring after.
     """
     if preset not in THEMES:
         return img
@@ -91,14 +121,18 @@ def recolor_image(img: Image.Image, preset: str, strength: float = 0.85) -> Imag
         return rgba
     luts = _LUT_CACHE.get(preset)
     if luts is None:
-        luts = _LUT_CACHE[preset] = theme_luts(preset)
-    r, g, b, a = rgba.split()
-    lum = Image.merge("RGB", (r, g, b)).convert("L")
-    mapped = Image.merge("RGB", (lum.point(luts[0]), lum.point(luts[1]), lum.point(luts[2])))
-    rgb = Image.merge("RGB", (r, g, b))
-    out = Image.blend(rgb, mapped, strength) if strength < 1 else mapped
+        luts = _LUT_CACHE[preset] = _remap_luts(preset)
+    hue, sat, val, mask_lut, tint = luts
+    alpha = rgba.getchannel("A")
+    rgb = rgba.convert("RGB")
+    H, S, V = rgb.convert("HSV").split()
+    themed = Image.merge("HSV", (H.point(hue), S.point(sat), V.point(val))).convert("RGB")
+    neutral = ImageChops.multiply(rgb, Image.new("RGB", rgb.size, tint)).point(val * 3)
+    out = Image.composite(themed, neutral, S.point(mask_lut))
+    if strength < 1:
+        out = Image.blend(rgb, out, strength)
     out = out.convert("RGBA")
-    out.putalpha(a)
+    out.putalpha(alpha)
     return out
 
 

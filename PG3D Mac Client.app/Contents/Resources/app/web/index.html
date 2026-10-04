@@ -697,6 +697,8 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
 .skItem div{padding:9px 11px!important;font-size:13px!important}
 .skDrop{min-height:0!important;aspect-ratio:auto}
 #skSetup .skCross{max-width:640px;margin:0 auto}
+
+.sndCard{max-width:620px}
 </style>
 </head>
 <body>
@@ -874,11 +876,22 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
       </div>
     </section>
     <section class="page" id="page-settings">
-      <div class="setTabs" id="setTabs"><button type="button" data-p="general" class="on">General</button><button type="button" data-p="appearance">Appearance</button></div>
+      <div class="setTabs" id="setTabs"><button type="button" data-p="general" class="on">General</button><button type="button" data-p="appearance">Appearance</button><button type="button" data-p="sounds">Sounds</button></div>
       <div class="xPage" id="setAppearance" hidden>
         <div class="crCard">
           <div class="crCardHead"><div><h3>Client colors</h3><p class="xNote" style="margin-top:4px">Recolors this app. Same presets as the in-game Theme tab, which recolors Pixel Gun 3D itself.</p></div></div>
           <div class="uiThemes" id="uiThemes"></div>
+        </div>
+      </div>
+      <div class="xPage" id="setSounds" hidden>
+        <div class="crCard sndCard">
+          <div class="crCardHead"><div><h3>Sounds</h3><p class="xNote" style="margin-top:4px">Short click sounds for buttons, switches and sliders, the rank-up sound, and the sound when a clip is saved.</p></div></div>
+          <div class="xStack">
+            <button class="xSwitch" id="sndAll" role="switch"><div><b>Sounds</b><small>Turn off to mute everything in the client.</small></div><span class="pillToggle"></span></button>
+            <button class="xSwitch" id="sndRank" role="switch"><div><b>Rank-up sound</b><small>Plays with the rank-up animation.</small></div><span class="pillToggle"></span></button>
+            <div><div class="xLabel">Volume</div><div class="xRange"><input type="range" id="sndVol" min="1" max="100" value="70"><b id="sndVolVal">70%</b></div></div>
+            <div class="xRow"><button class="btn" id="sndTest">Play test sound</button><button class="btn" id="sndTestRank">Play rank-up sound</button></div>
+          </div>
         </div>
       </div>
       <div class="setGrid" id="setGeneral">
@@ -1012,18 +1025,20 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 let __uiAudio=null;
-function uiSound(kind='soft'){
-  try{
-    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
-    if(!__uiAudio)__uiAudio=new AC();if(__uiAudio.state==='suspended')__uiAudio.resume();
-    const o=__uiAudio.createOscillator(),g=__uiAudio.createGain(),now=__uiAudio.currentTime;
-    const toggle=kind==='toggle', primary=kind==='primary';
-    o.type='sine';o.frequency.setValueAtTime(primary?980:(toggle?720:1240),now);
-    o.frequency.exponentialRampToValueAtTime(primary?760:(toggle?610:1050),now+.032);
-    g.gain.setValueAtTime(0.0001,now);g.gain.exponentialRampToValueAtTime(primary?.038:.022,now+.004);g.gain.exponentialRampToValueAtTime(.0001,now+.038);
-    o.connect(g);g.connect(__uiAudio.destination);o.start(now);o.stop(now+.045);
-  }catch{}
-}
+let SND={enabled:true,rankup:true,volume:70};
+try{Object.assign(SND,JSON.parse(localStorage.pg3dSound||'{}'))}catch{}
+function sndCtx(){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;if(!__uiAudio)__uiAudio=new AC();if(__uiAudio.state==='suspended')__uiAudio.resume();return __uiAudio}
+function tone(ac,{f=880,f2=null,type='sine',dur=.05,gain=.03,at=0}){const t=ac.currentTime+at,o=ac.createOscillator(),g=ac.createGain(),v=gain*(SND.volume/100);
+  o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,v),t+.004);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+dur+.02)}
+// Short synthesized UI sounds. kind: click | primary | on | off | tick | tab
+function uiSound(kind='click',x=0.5){if(!SND.enabled)return;try{const ac=sndCtx();if(!ac)return;
+  if(kind==='primary'){tone(ac,{f:660,f2:520,type:'triangle',dur:.06,gain:.05});tone(ac,{f:990,f2:880,dur:.07,gain:.025,at:.03})}
+  else if(kind==='on'){tone(ac,{f:620,dur:.045,gain:.035});tone(ac,{f:930,dur:.06,gain:.035,at:.05})}
+  else if(kind==='off'){tone(ac,{f:930,dur:.045,gain:.03});tone(ac,{f:560,dur:.06,gain:.03,at:.05})}
+  else if(kind==='tick'){tone(ac,{f:600+700*x,dur:.018,gain:.018,type:'square'})}
+  else if(kind==='tab'){tone(ac,{f:1150,f2:980,dur:.035,gain:.018})}
+  else{tone(ac,{f:1250,f2:1050,dur:.032,gain:.022})}}catch{}}
 function protectedPath(event,card){
   const selector='button,input,select,textarea,a,label,[role="button"],[contenteditable="true"],[data-no-toggle],.hexColorControl,.hexText,.spectrumSlider,.ratingControl,.ratingSlider,.optionTile,.dragHandle';
   const path=typeof event.composedPath==='function'?event.composedPath():[];
@@ -1032,11 +1047,15 @@ function protectedPath(event,card){
   return false;
 }
 document.addEventListener('click',e=>{
-  const el=e.target.closest?.('button,.cursorCard,.accountCard');
-  if(!el||el.disabled)return;
-  if(el.closest?.('.individualFeature,.reorderItemV3')&&!el.matches('button'))return;
-  uiSound(el.classList.contains('primary')||el.classList.contains('launchFps')?'primary':'soft');
+  const t=e.target.closest?.('button,.cursorCard,.accCard,.lkPick,.skItem,.thCard,.uiTheme,[role="switch"]');
+  if(!t||t.disabled)return;
+  const sw=t.matches('.xSwitch,.guiCombine,.clipToggle,.ovChip,.guiElement,[role="switch"]');
+  if(sw){const on=t.classList.contains('on')||t.getAttribute('aria-checked')==='true';uiSound(on?'off':'on');return}
+  if(t.closest('.nav')||t.closest('.lkTabs,.setTabs'))return uiSound('tab');
+  uiSound(t.matches('.primary,.launchFps,.crPrimary')?'primary':'click');
 },true);
+let __tickAt=0;document.addEventListener('input',e=>{const r=e.target;if(r?.type!=='range')return;const now=performance.now();if(now-__tickAt<55)return;__tickAt=now;
+  const x=(Number(r.value)-Number(r.min||0))/((Number(r.max||100)-Number(r.min||0))||1);uiSound('tick',x)},true);
 let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,statusTimer=null,previewToken=0,lastPreviewKey='';
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
@@ -1053,7 +1072,7 @@ function setState(id,text,kind=''){const e=$(id);if(!e)return;e.textContent=text
 function renderStatus(){if(!statusData)return;
   $('#launchMessage').textContent=statusData.launch_error||'';
   $('#startNormal').disabled=statusData.game_running;$('#startFps').disabled=statusData.game_running||!statusData.fps_bundle_present;
-  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t)}
+  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.sound){Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
   if(statusData.overlay && (!overlayConfig || !overlayDirty)){overlayConfig=structuredClone(statusData.overlay.config);renderOverlayEditor()}
 }
 function renderBuildBadge(){const b=$('#buildBadge');if(!b||!statusData)return;const m=statusData.fps_build_match,build=statusData.game_build;if(m===false){b.className='buildBadge show warn';b.textContent=`PG3D build ${build} is newer than the FPS unlocker supports (${(statusData.fps_supported_builds||[]).join(', ')}). Start Normal will still work.`}else if(m===true){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build} · FPS unlocker compatible`}else{b.className='buildBadge'}}
@@ -1209,7 +1228,7 @@ function elementCard(id){
   const it=overlayItem(id),card=document.createElement('button');
   card.className='guiElement'+(it.enabled?' on':'');card.setAttribute('role','switch');card.setAttribute('aria-checked',!!it.enabled);
   card.innerHTML=`<div class="geTop"><span class="geName">${widgetNames[id]}</span><span class="geDot"></span></div><div class="gePreview">${previewHtml(it,true)}</div><div class="geDesc">${widgetDesc[id]}</div>`;
-  card.onclick=()=>{it.enabled=!it.enabled;markOverlayDirty();uiSound('toggle');renderOverlayEditor()};
+  card.onclick=()=>{it.enabled=!it.enabled;markOverlayDirty();renderOverlayEditor()};
   return card;
 }
 function renderElements(){const box=$('#guiElements');box.innerHTML='';for(const id of ['fps','ping','clock','music'])box.appendChild(elementCard(id))}
@@ -1269,7 +1288,7 @@ function renderOverlayEditor(full=true){
   renderElements();renderStyleList(full);
 }
 $('#recordHotkey').onclick=recordHotkey;
-$('#guiCombine').onclick=()=>{const g=!overlayConfig.group.enabled;overlayConfig.group.enabled=g;overlayConfig.group.size_mode=g?'bundle':'individual';if(g){overlayConfig.items.forEach(x=>{x.color=overlayConfig.group.color;x.size=overlayConfig.group.size})}markOverlayDirty();uiSound('toggle');renderOverlayEditor()};
+$('#guiCombine').onclick=()=>{const g=!overlayConfig.group.enabled;overlayConfig.group.enabled=g;overlayConfig.group.size_mode=g?'bundle':'individual';if(g){overlayConfig.items.forEach(x=>{x.color=overlayConfig.group.color;x.size=overlayConfig.group.size})}markOverlayDirty();renderOverlayEditor()};
 $('#resetOverlay').onclick=async()=>{try{const d=await post('/api/overlay/reset');overlayConfig=d.config;overlayDirty=false;renderOverlayEditor();toast('Overlay reset.')}catch(e){toast(e.message,true)}};
 async function openPlacement(){const grouped=!!overlayConfig.group.enabled;if(!overlayConfig.items.some(x=>x.enabled)){toast('Turn on at least one element first.',true);return}await saveOverlayQuiet(true);try{const d=await post('/api/overlay/edit',overlayConfig);overlayConfig=d.config;overlayDirty=false;renderOverlayEditor();toast('Drag it into place in Pixel Gun 3D, then click Done in the mover.')}catch(e){toast(e.message,true)}}
 $('#guiPlace').onclick=openPlacement;
@@ -1516,8 +1535,8 @@ function maybePlayRankUp(){const p=statusData?.rank?.pending;if(!p||ruPlaying||p
 window.addEventListener('focus',()=>setTimeout(maybePlayRankUp,400));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(maybePlayRankUp,400)});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-function ruSound(){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;const ac=__uiAudio||(__uiAudio=new AC());if(ac.state==='suspended')ac.resume();const t=ac.currentTime;
-  [523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=i<4?'triangle':'sine';o.frequency.value=f;g.gain.setValueAtTime(.0001,t+i*.09);g.gain.exponentialRampToValueAtTime(.06,t+i*.09+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.09+(i===4?1.4:.5));o.connect(g);g.connect(ac.destination);o.start(t+i*.09);o.stop(t+i*.09+1.5)})}catch{}}
+function ruSound(){if(!SND.enabled||!SND.rankup)return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,vol=SND.volume/100;
+  [523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=i<4?'triangle':'sine';o.frequency.value=f;g.gain.setValueAtTime(.0001,t+i*.09);g.gain.exponentialRampToValueAtTime(Math.max(.0002,.06*vol),t+i*.09+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.09+(i===4?1.4:.5));o.connect(g);g.connect(ac.destination);o.start(t+i*.09);o.stop(t+i*.09+1.5)})}catch{}}
 function ruParticles(canvas){const ctx=canvas.getContext('2d');let parts=[],run=true;const dpr=window.devicePixelRatio||1;
   const fit=()=>{canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr};fit();addEventListener('resize',fit);
   const api={burst(color,n=160,speed=9){const cx=canvas.width/2,cy=canvas.height*0.42;for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=(Math.random()*speed+2)*dpr;parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:1,decay:.008+Math.random()*.014,size:(Math.random()*3+1.2)*dpr,color})}},
@@ -1527,7 +1546,7 @@ function ruParticles(canvas){const ctx=canvas.getContext('2d');let parts=[],run=
     if(api.ambient)api.rise(api.ambient);
     parts=parts.filter(p=>p.life>0);for(const p of parts){p.x+=p.vx;p.y+=p.vy;p.vx*=.985;p.vy=p.vy*.985+.04*dpr;p.life-=p.decay;ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill()}
     ctx.globalAlpha=1;requestAnimationFrame(frame)})();return api}
-async function playRankUp(p){ruPlaying=true;const tiers=p.tiers||[];if(tiers.length<2){ruPlaying=false;ruDoneAt=p.at;return}
+async function playRankUp(p){ruPlaying=true;const tiers=p.tiers||[];uiSound('tab');if(tiers.length<2){ruPlaying=false;ruDoneAt=p.at;return}
   const ov=$('#rankUp'),oldI=$('#ruOld'),newI=$('#ruNew'),from=tiers[0],to=tiers[tiers.length-1],reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   ov.className='ruOverlay';ov.hidden=false;ov.style.setProperty('--rk',from.color);oldI.src=from.emblem;newI.src=to.emblem;
   $('#ruName').textContent=to.name;$('#ruPath').textContent=tiers.map(t=>t.name).join('  →  ');
@@ -1731,7 +1750,14 @@ function renderUiThemes(){const box=$('#uiThemes');if(!box)return;box.innerHTML=
   for(const t of UI_THEMES){const b=el('button','uiTheme'+(t.id===cur?' sel':''));b.type='button';const pv=el('div','uiPrev');pv.style.background=t.c[0];const side=el('i');side.style.background=t.c[1];const body=el('div');
     const l1=el('em');l1.style.background='rgba(255,255,255,.18)';const l2=el('em');l2.style.cssText=`width:45%;background:rgba(255,255,255,.1)`;const cta=el('u');cta.style.background=`linear-gradient(180deg,${t.c[3]},${t.c[2]})`;body.append(l1,l2,cta);pv.append(side,body);
     b.append(pv,el('b',null,t.name),el('small',null,t.desc));b.onclick=()=>setUiTheme(t.id);box.append(b)}}
-function showSettingsPane(k){$$('#setTabs button').forEach(b=>b.classList.toggle('on',b.dataset.p===k));$('#setGeneral').hidden=k!=='general';$('#setAppearance').hidden=k!=='appearance';if(k==='appearance')renderUiThemes()}
+function showSettingsPane(k){$$('#setTabs button').forEach(b=>b.classList.toggle('on',b.dataset.p===k));$('#setGeneral').hidden=k!=='general';$('#setAppearance').hidden=k!=='appearance';$('#setSounds').hidden=k!=='sounds';if(k==='appearance')renderUiThemes();if(k==='sounds')renderSounds()}
+function renderSounds(){setSwitch('#sndAll',SND.enabled);setSwitch('#sndRank',SND.rankup);$('#sndRank').style.opacity=SND.enabled?1:.45;$('#sndVol').value=SND.volume;$('#sndVolVal').textContent=SND.volume+'%'}
+let __sndSave=null;function saveSound(patch){Object.assign(SND,patch);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}renderSounds();clearTimeout(__sndSave);__sndSave=setTimeout(()=>post('/api/prefs/sound',SND).catch(e=>toast(e.message,true)),250)}
+$('#sndAll').onclick=()=>saveSound({enabled:!SND.enabled});
+$('#sndRank').onclick=()=>saveSound({rankup:!SND.rankup});
+$('#sndVol').oninput=e=>{SND.volume=Number(e.target.value);$('#sndVolVal').textContent=SND.volume+'%';saveSound({volume:SND.volume})};
+$('#sndTest').onclick=()=>setTimeout(()=>uiSound('primary'),80);
+$('#sndTestRank').onclick=()=>ruSound();
 $$('#setTabs button').forEach(b=>b.onclick=()=>showSettingsPane(b.dataset.p));
 let _uiThemeSynced=false;
 

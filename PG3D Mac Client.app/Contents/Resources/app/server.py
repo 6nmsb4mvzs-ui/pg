@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.30.0"
+APP_VERSION = "1.31.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -2571,7 +2571,11 @@ def switch_steam_account_if_needed():
     if target.get('active'): return {'switched':False,'account':target,'needs_login':False}
     if game_running(): raise RuntimeError('Close Pixel Gun 3D before switching Steam accounts.')
     if not target.get('remembered'):
-        raise RuntimeError('This Steam account has no remembered login on this Mac. Log into it once in Steam with Remember password enabled, then close Steam and retry.')
+        # No remembered Steam token: fall back to the login saved in Accounts.
+        cred_result = login_selected_account_with_credentials(target)
+        if cred_result is not None:
+            return cred_result
+        raise RuntimeError('This Steam account has no remembered login on this Mac. Save its Steam login in Accounts, or log into it once in Steam with Remember password enabled, then retry.')
 
     set_status(launch_phase='switching',launch_message=f"Switching Steam to {target['display_name']}…",launch_error=None)
     quit_steam_tcno_style()
@@ -2604,7 +2608,12 @@ def switch_steam_account_if_needed():
 
     ok,reason=wait_for_steam_login(selected,offset,timeout=90)
     if not ok:
-        raise RuntimeError(reason or 'Steam started but did not confirm the selected account. Sign into this account once in Steam with Remember password enabled, then close Steam and retry.')
+        # The remembered token didn't work (expired or revoked): try the saved login.
+        log(f"Remembered-token switch failed for {target['account_name']}: {reason}")
+        cred_result = login_selected_account_with_credentials(target)
+        if cred_result is not None:
+            return cred_result
+        raise RuntimeError(reason or 'Steam started but did not confirm the selected account. Save its Steam login in Accounts, or sign into it once in Steam with Remember password enabled, then retry.')
     log(f"Steam confirmed selected account {target['account_name']} / {selected}.")
     return {'switched':True,'account':target,'needs_login':False}
 
@@ -3208,10 +3217,38 @@ def prefs_payload():
     prefs = read_json(PREFS_JSON, {})
     if "fps_target" not in prefs:
         prefs["fps_target"] = "uncapped"
+    snd = dict({"enabled": True, "rankup": True, "volume": 70})
+    snd.update(prefs.get("sound") or {})
+    prefs["sound"] = snd
     return prefs
 
 
 UI_THEMES = ("ember", "crimson", "dark_souls", "royal", "icy")
+SOUND_DEFAULTS = {"enabled": True, "rankup": True, "volume": 70}
+
+
+def sound_prefs():
+    snd = dict(SOUND_DEFAULTS)
+    snd.update(prefs_payload().get("sound") or {})
+    return snd
+
+
+def set_sound_prefs(raw):
+    snd = sound_prefs()
+    for k in ("enabled", "rankup"):
+        if k in raw:
+            snd[k] = bool(raw[k])
+    if "volume" in raw:
+        snd["volume"] = max(1, min(100, int(raw.get("volume") or 70)))
+    prefs = prefs_payload()
+    prefs["sound"] = snd
+    write_json(PREFS_JSON, prefs)
+    return {"ok": True, "sound": snd}
+
+
+def clip_sound_volume():
+    snd = sound_prefs()
+    return snd["volume"] / 100.0 if snd["enabled"] else 0.0
 
 
 def set_ui_theme_pref(value):
@@ -3596,8 +3633,15 @@ def apply_theme(preset, strength=None):
 
     def job(progress):
         cat = ensure_catalog(_sub_progress(progress, 0, 0.4))
-        targets = {src: sorted({int(t["path_id"]) for t in items})
-                   for src, items in cat.get("gui", {}).items() if Path(src).exists()}
+        # Sky textures are never themed: a custom sky keeps its picture, the stock sky its colors.
+        sky_ids = {(t["source_file"], int(t["path_id"])) for t in cat.get("sky", [])}
+        targets = {}
+        for src, items in cat.get("gui", {}).items():
+            if not Path(src).exists():
+                continue
+            ids = sorted({int(t["path_id"]) for t in items} - {pid for (f, pid) in sky_ids if f == src})
+            if ids:
+                targets[src] = ids
         if not targets:
             raise RuntimeError("No GUI textures were found to recolour.")
 
@@ -3627,7 +3671,15 @@ THEME_SHOT_BASE = SUPPORT / "theme_preview_base.jpg"
 THEME_SHOT_DIR = RUNTIME / "theme_shots"
 
 
+_THEME_SHOT_LOCK = threading.Lock()
+
+
 def _theme_shot_base():
+    with _THEME_SHOT_LOCK:
+        return _theme_shot_base_locked()
+
+
+def _theme_shot_base_locked():
     if THEME_SHOT_BASE.is_file():
         return THEME_SHOT_BASE
     urls = list(THEME_SHOT_URLS)
@@ -3658,12 +3710,15 @@ def render_theme_shot(preset):
         raise RuntimeError("No preview screenshot available (offline?).")
     THEME_SHOT_DIR.mkdir(parents=True, exist_ok=True)
     key = preset if preset in customize.THEMES else "original"
-    out = THEME_SHOT_DIR / f"{key}.jpg"
-    if not out.is_file() or out.stat().st_mtime < base.stat().st_mtime:
-        im = Image.open(base).convert("RGBA")
-        if key != "original":
-            im = customize.recolor_image(im, key, customize.THEMES[key].get("strength", 0.8))
-        im.convert("RGB").save(out, quality=88)
+    out = THEME_SHOT_DIR / f"{key}-v2.jpg"  # v2 = palette remap
+    with _THEME_SHOT_LOCK:
+        if not out.is_file() or out.stat().st_mtime < base.stat().st_mtime:
+            im = Image.open(base).convert("RGBA")
+            if key != "original":
+                im = customize.recolor_image(im, key, customize.THEMES[key].get("strength", 1.0))
+            tmp = out.with_suffix(".tmp.jpg")
+            im.convert("RGB").save(tmp, quality=88)
+            os.replace(tmp, out)
     return out
 
 
@@ -4662,6 +4717,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(reset_overlay_config())
             if path == "/api/overlay/edit":
                 return self.send_json(begin_overlay_editor(data))
+            if path == "/api/prefs/sound":
+                return self.send_json(set_sound_prefs(data))
             if path == "/api/prefs/ui-theme":
                 return self.send_json(set_ui_theme_pref(str(data.get("theme", ""))))
             if path == "/api/prefs/fps":
@@ -4759,6 +4816,7 @@ def main():
     global WIN_WATCHER
     WIN_WATCHER = ranks.WinWatcher(win_config, _on_auto_win, game_running, log)
     WIN_WATCHER.start()
+    clips.SOUND_VOLUME = clip_sound_volume
     clips.init(log, game_running)
     updater.init(log, APP_VERSION, os.environ.get("PG3D_APP_BUNDLE"), game_running,
                  post_install=bool(os.environ.get("PG3D_POST_INSTALL")))
