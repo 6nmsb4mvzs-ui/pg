@@ -1,4 +1,4 @@
-PG3D Mac Client 1.42.0
+PG3D Mac Client 1.43.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -187,3 +187,9 @@ Sounds    New button sounds that follow your style (Settings › Appearance):
           deep thock, lighter clack on the way back up); Noble sounds like the
           League client (glassy metallic tinks, a magic whoosh on tabs, a
           brighter chime on main buttons).
+
+New in 1.43
+Sounds    Button sounds are now real recordings instead of generated tones:
+          Modern uses mechanical key switches warmed into a creamy thock,
+          Noble uses crisp ticks and airy whooshes in a small bright hall.
+          Recordings by Kenney (kenney.nl), CC0; see web/sounds.
