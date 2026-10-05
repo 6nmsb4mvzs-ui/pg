@@ -1,4 +1,4 @@
-PG3D Mac Client 1.43.0
+PG3D Mac Client 1.44.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -193,3 +193,10 @@ Sounds    Button sounds are now real recordings instead of generated tones:
           Modern uses mechanical key switches warmed into a creamy thock,
           Noble uses crisp ticks and airy whooshes in a small bright hall.
           Recordings by Kenney (kenney.nl), CC0; see web/sounds.
+
+New in 1.44
+Sounds    Modern: one deep, smooth "clock" for every button (higher or lower
+          per control). Noble: League-style steel - a blade draw on main
+          buttons, a softer draw on tabs, a metal latch on clicks and a metal
+          click on switches, in a small bright hall. Recordings by Kenney
+          (kenney.nl), CC0.

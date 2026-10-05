@@ -1227,16 +1227,17 @@ let SND={enabled:true,rankup:true,volume:70};
 try{Object.assign(SND,JSON.parse(localStorage.pg3dSound||'{}'))}catch{}
 function sndCtx(){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;if(!__uiAudio)__uiAudio=new AC();if(__uiAudio.state==='suspended')__uiAudio.resume();return __uiAudio}
 // UI sounds: real recordings (Kenney, CC0; see web/sounds), picked per style.
-//  Modern: mechanical key switches, warmed into a creamy "thock".
-//  Noble:  crisp ticks and airy whooshes in a small bright hall (League-like).
-// Each entry: variants to pick from at random, plus optional layers played after it.
+//  Modern: one deep, smooth "clock" (a key switch with the click filtered off, pitched down);
+//          every control plays it, just higher or lower.
+//  Noble:  League-like steel - a blade draw for main buttons, a softer draw for tabs, a metal
+//          latch for clicks and a metal click for switches, all in a small bright hall.
+// Each entry: variants to pick from, playback rate r, gain g, optional layers played after it.
 const UIS_SET={
-  modern:{click:{v:['mk_click1','mk_click2','mk_click3','mk_click4']},primary:{v:['mk_space1','mk_space2']},
-    on:{v:['mk_down1','mk_down2'],then:[{v:['mk_up1'],at:.065,g:.6}]},off:{v:['mk_down3'],then:[{v:['mk_up2'],at:.05,g:.7}]},
-    tick:{v:['mk_tick1','mk_tick2','mk_tick3']},tab:{v:['mk_tab1','mk_tab2']}},
-  noble:{click:{v:['nb_click1','nb_click2','nb_click3']},primary:{v:['nb_primary1'],then:[{v:['nb_whoosh1'],at:0,g:.4}]},
-    on:{v:['nb_on1']},off:{v:['nb_off1']},tick:{v:['nb_tick1','nb_tick2']},tab:{v:['nb_open1','nb_open2']}}};
-const UIS_LEVEL={click:.5,primary:.55,on:.5,off:.5,tick:.32,tab:.45};
+  modern:{click:{v:['mk_thock']},primary:{v:['mk_thock'],r:.86,g:1.15},on:{v:['mk_thock'],r:1.08},off:{v:['mk_thock'],r:.93},
+    tick:{v:['mk_thock'],r:1.3,g:.45},tab:{v:['mk_thock'],r:.97,g:.85}},
+  noble:{click:{v:['nb_latch']},primary:{v:['nb_draw1','nb_draw2']},on:{v:['nb_click'],r:1.06},off:{v:['nb_click'],r:.88},
+    tick:{v:['nb_latch'],r:1.25,g:.4},tab:{v:['nb_soft'],g:.8}}};
+const UIS_LEVEL={click:.55,primary:.5,on:.55,off:.55,tick:.55,tab:.55};
 const UIS={buf:{},pending:null};
 function uisLoad(){if(UIS.pending)return UIS.pending;const ac=sndCtx();if(!ac)return Promise.resolve();
   const names=new Set();for(const st of Object.values(UIS_SET))for(const k of Object.values(st)){k.v.forEach(n=>names.add(n));(k.then||[]).forEach(l=>l.v.forEach(n=>names.add(n)))}
@@ -1247,8 +1248,8 @@ const uisPick=a=>a[Math.floor(Math.random()*a.length)];
 function uiSound(kind='click',x=0.5){if(!SND.enabled)return;try{const ac=sndCtx();if(!ac)return;
   const set=UIS_SET[document.documentElement.dataset.uiStyle==='noble'?'noble':'modern'],spec=set[kind]||set.click,base=UIS_LEVEL[kind]||UIS_LEVEL.click,vol=SND.volume/100;
   if(!Object.keys(UIS.buf).length){uisLoad();return}
-  const rate=kind==='tick'?.92+.16*x:1+(Math.random()-.5)*.05;
-  uisPlay(ac,uisPick(spec.v),0,base*vol,rate);for(const l of spec.then||[])uisPlay(ac,uisPick(l.v),l.at,base*vol*l.g,rate)}catch{}}
+  const rate=(spec.r||1)*(kind==='tick'?.94+.12*x:1+(Math.random()-.5)*.03),gain=base*vol*(spec.g||1);
+  uisPlay(ac,uisPick(spec.v),0,gain,rate);for(const l of spec.then||[])uisPlay(ac,uisPick(l.v),l.at,gain*l.g,rate)}catch{}}
 setTimeout(()=>{try{uisLoad()}catch{}},300);
 function protectedPath(event,card){
   const selector='button,input,select,textarea,a,label,[role="button"],[contenteditable="true"],[data-no-toggle],.hexColorControl,.hexText,.spectrumSlider,.ratingControl,.ratingSlider,.optionTile,.dragHandle';
