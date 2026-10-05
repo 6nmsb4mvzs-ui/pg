@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.49.2"
+APP_VERSION = "1.50.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -381,6 +381,63 @@ def _game_running_uncached():
                    for c in r.stdout.splitlines())
     except Exception:
         return False
+
+
+def pg3d_pids():
+    try:
+        r = subprocess.run(["/bin/ps", "-axo", "pid=,comm="], capture_output=True, text=True, timeout=5)
+    except Exception:
+        return []
+    out = []
+    for line in r.stdout.splitlines():
+        pid, _, comm = line.strip().partition(" ")
+        comm = comm.strip()
+        if pid.isdigit() and (comm.endswith("/Contents/MacOS/Pixel Gun 3D") or comm == "Pixel Gun 3D"):
+            out.append(int(pid))
+    return out
+
+
+def pg3d_window_count():
+    """PG3D's windows (any space), or None when macOS can't tell us."""
+    Q = getattr(clips, "Quartz", None)
+    if Q is None:
+        return None
+    try:
+        wins = Q.CGWindowListCopyWindowInfo(Q.kCGWindowListOptionAll, Q.kCGNullWindowID) or []
+        return sum(1 for w in wins if "pixel gun" in str(w.get("kCGWindowOwnerName") or "").lower()
+                   and int(w.get("kCGWindowLayer", 1)) == 0)
+    except Exception:
+        return None
+
+
+def game_stuck():
+    """PG3D has been running a while without any window: hung in the background."""
+    start = STATUS.get("session_start")
+    if not start or time.time() - start < 45 or not game_running():
+        return False
+    return pg3d_window_count() == 0
+
+
+def quit_game(force=False):
+    pids = pg3d_pids()
+    if not pids:
+        return {"ok": True, "quit": False}
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGKILL if force else signal.SIGTERM)
+        except OSError:
+            pass
+    deadline = time.time() + 5
+    while time.time() < deadline and pg3d_pids():
+        time.sleep(0.25)
+    for pid in pg3d_pids():  # didn't react: it's hung
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    invalidate("game_running")
+    log(f"Quit PG3D (pids {pids})")
+    return {"ok": True, "quit": True}
 
 
 def steam_running():
@@ -1358,17 +1415,25 @@ def mods_need_reapply(state=None):
     return None
 
 
+_REQ = threading.local()  # per-request flags (set while handling one HTTP request)
+
+
 def _exclusive(fn):
-    """Run an asset rebuild unless another one is already in progress."""
+    """Game-file changes run on the job queue, one at a time. Called from
+    anywhere else (a click), the change is queued and this returns right away."""
     def wrapper(*args, **kwargs):
-        if launch_busy():
-            raise RuntimeError("PG3D is starting. Change textures after it has launched and been closed again.")
-        if not _MUTATE_LOCK.acquire(blocking=False):
-            raise RuntimeError("Another change is still being applied to the game files. Wait for it to finish.")
-        try:
+        if not in_job_worker():
+            # Nothing ahead and the game closed: just do it now (quick changes stay instant).
+            if not jobs_pending() and not game_running() and not launch_busy() and _MUTATE_LOCK.acquire(blocking=False):
+                try:
+                    return fn(*args, **kwargs)
+                finally:
+                    _MUTATE_LOCK.release()
+            label = args[1] if fn.__name__ == "mutate_state" and len(args) > 1 else fn.__name__.replace("_", " ").capitalize()
+            r = start_job("change", lambda progress: (fn(*args, **kwargs), None)[1], label=str(label))
+            return {"ok": True, "queued": r["queued"]}
+        with _MUTATE_LOCK:
             return fn(*args, **kwargs)
-        finally:
-            _MUTATE_LOCK.release()
     wrapper.__name__ = fn.__name__
     return wrapper
 
@@ -3173,6 +3238,20 @@ def _watch_mouse_fix_start():
     """If PG3D keeps closing right after starting with the mouse fix, turn the fix off."""
     def work():
         time.sleep(25)
+        # Started directly but never opened a window: hung. Quit it and use Steam next time.
+        waited = 25
+        while _game_running_uncached() and pg3d_window_count() == 0 and waited < 60:
+            time.sleep(5)
+            waited += 5
+        if _game_running_uncached() and pg3d_window_count() == 0:
+            log("PG3D started with the mouse fix but never opened a window; quitting it and turning the fix off")
+            quit_game()
+            prefs = prefs_payload()
+            prefs["mouse_fix"] = False
+            write_json(PREFS_JSON, prefs)
+            set_status(launch_error="PG3D got stuck while starting with the mouse fix, so the fix was turned off. "
+                                    "Press Start again.")
+            return
         prefs = prefs_payload()
         if _game_running_uncached():
             if prefs.get("mouse_fix_failures"):
@@ -3374,17 +3453,24 @@ def launch_busy():
 
 
 def _launch_times():
+    """Expected seconds per launch step: the median of the last starts, so one
+    unusually slow start (a game update, a Steam prompt) doesn't skew it."""
     t = dict(LAUNCH_DEFAULT_TIMES)
-    t.update({k: float(v) for k, v in (prefs_payload().get("launch_times") or {}).items() if k in t})
+    samples = prefs_payload().get("launch_samples") or {}
+    for k in t:
+        vals = sorted(float(v) for v in (samples.get(k) or []) if isinstance(v, (int, float)))
+        if vals:
+            t[k] = vals[len(vals) // 2]
     return t
 
 
 def _learn_launch_time(key, seconds):
     prefs = prefs_payload()
-    times = prefs.get("launch_times") or {}
-    old = float(times.get(key, LAUNCH_DEFAULT_TIMES[key]))
-    times[key] = round(old * 0.6 + float(seconds) * 0.4, 1)  # moving average
-    prefs["launch_times"] = times
+    samples = prefs.get("launch_samples") if isinstance(prefs.get("launch_samples"), dict) else {}
+    vals = [v for v in (samples.get(key) or []) if isinstance(v, (int, float))]
+    vals.append(round(min(float(seconds), 600.0), 1))
+    samples[key] = vals[-6:]
+    prefs["launch_samples"] = samples
     write_json(PREFS_JSON, prefs)
 
 
@@ -3400,8 +3486,14 @@ def _launch_tick():
     if not st:
         return
     el = time.time() - st["start"]
-    frac = min(0.95, el / st["expected"])
-    eta = max(0.0, st["expected"] - el) + st["later"]
+    exp = st["expected"]
+    if el <= exp:
+        frac = 0.9 * el / exp
+        eta = (exp - el) + st["later"]
+    else:
+        # Past the usual time: keep creeping forward and say so instead of a fake number.
+        frac = 0.9 + 0.09 * (1 - exp / el)
+        eta = -1 if not st["later"] else st["later"]
     set_status(launch_progress=int(st["lo"] + (st["hi"] - st["lo"]) * frac), launch_eta=int(round(eta)))
 
 
@@ -3433,11 +3525,16 @@ def _launch_job(kind, fps):
         # 1) Never start while game files are being rewritten (theme, sky, cursor).
         _launch_stage("preparing", 0, 8, 1, "Checking game files…", later=times["switch"] + times[start_key])
         waited = time.time()
-        while STATUS.get("job_phase") == "running" or _MUTATE_LOCK.locked():
-            set_status(launch_message="Waiting for texture changes to finish… " + (STATUS.get("job_message") or ""))
-            if time.time() - waited > 900:
-                raise RuntimeError("Texture changes are taking too long. Try again when they finish.")
-            time.sleep(0.5)
+        _LAUNCH["waiting_jobs"] = True  # lets queued changes run first instead of waiting for this start
+        try:
+            while jobs_pending() or _MUTATE_LOCK.locked():
+                set_status(launch_message="Applying your changes first… " + (STATUS.get("job_message") or ""))
+                if time.time() - waited > 1800:
+                    raise RuntimeError("Texture changes are taking too long. Try again when they finish.")
+                _LAUNCH["stage"]["start"] = time.time()  # the start itself hasn't begun yet
+                time.sleep(0.5)
+        finally:
+            _LAUNCH["waiting_jobs"] = False
 
         # 2) Make sure the selected Steam account is the one signed in.
         info = steam_accounts()
@@ -3931,6 +4028,7 @@ def status_payload():
         "fps_bundle_present": fps_bundle_present(),
         "fps_supported_builds": sorted(FPS_SUPPORTED_BUILDS),
         "fps_build_match": fps_build_match(build),
+        "game_stuck": game_stuck(),
         "clips": {k: v for k, v in clips.RECORDER.status().items() if k in ("phase", "saving", "buffered", "last_clip")},
         "update": ({k: v for k, v in updater.UPDATER.state().items() if k in ("available", "phase", "message")}
                    if updater.UPDATER else None),
@@ -3940,7 +4038,8 @@ def status_payload():
         "game_update": game_update_info(),
         "reapply_mods": reapply_enabled(),
         "mouse_fix": mouse_fix_enabled(),
-        "job": {k[4:]: s.get(k) for k in ("job_kind", "job_phase", "job_progress", "job_message", "job_error")},
+        "job": {k[4:]: s.get(k) for k in ("job_kind", "job_phase", "job_progress", "job_message", "job_error",
+                                           "job_eta", "job_queue")},
         "overlay": {"config": overlay_config(), "runtime": overlay_runtime()},
     })
     return s
@@ -4260,31 +4359,89 @@ def _sub_progress(progress, lo, hi):
     return lambda frac, msg: progress(lo + (hi - lo) * max(0.0, min(1.0, frac)), msg)
 
 
-def start_job(kind, fn):
-    """Run a long asset task in the background; the UI polls job_* in status."""
-    with _LOCK:
-        if STATUS.get("job_phase") == "running":
-            raise RuntimeError("Another task is still running. Wait for it to finish.")
-        if launch_busy():
-            raise RuntimeError("PG3D is starting. Try again once it is running and closed again.")
-        if game_running():
-            raise RuntimeError("Close Pixel Gun 3D first. Game files can't be changed while it is running.")
-        STATUS.update(job_kind=kind, job_phase="running", job_progress=0,
-                      job_message="Starting…", job_error=None)
+JOB_LABELS = {"sky": "Sky", "theme": "Theme", "font": "Font", "scan": "Scanning game files", "change": "Change",
+              "reapply": "Re-applying mods", "restore": "Restoring game files", "repair": "Fixing textures"}
+_JOBS = {"queue": [], "seq": 0, "worker": None, "current": None}
+_JOB_COND = threading.Condition()
+
+
+def jobs_pending():
+    with _JOB_COND:
+        return bool(_JOBS["queue"]) or _JOBS["current"] is not None
+
+
+def _queue_status():
+    with _JOB_COND:
+        q = [t["label"] for t in _JOBS["queue"]]
+    set_status(job_queue=q)
+
+
+def start_job(kind, fn, label=None):
+    """Queue a game-file task. Tasks run one after another; each waits by itself
+    while PG3D is open or starting, so clicking Apply never fails with "busy"."""
+    with _JOB_COND:
+        _JOBS["seq"] += 1
+        task = {"id": _JOBS["seq"], "kind": kind, "label": label or JOB_LABELS.get(kind, kind.title()), "fn": fn}
+        _JOBS["queue"].append(task)
+        ahead = len(_JOBS["queue"]) - 1 + (1 if _JOBS["current"] else 0)
+        if _JOBS["worker"] is None or not _JOBS["worker"].is_alive():
+            _JOBS["worker"] = threading.Thread(target=_job_worker, daemon=True)
+            _JOBS["worker"].start()
+        _JOB_COND.notify_all()
+    _queue_status()
+    queued = ahead > 0 or game_running()
+    if queued:
+        _REQ.queued = True
+    return {"ok": True, "queued": queued, "ahead": ahead}
+
+
+def _job_progress_fn(task):
+    started = time.time()
+    hist = {"frac": 0.0}
 
     def progress(frac, msg):
-        set_status(job_progress=int(round(max(0.0, min(1.0, frac)) * 100)), job_message=msg)
+        frac = max(0.0, min(1.0, frac))
+        el = time.time() - started
+        eta = None
+        # Remaining time from the real pace so far, once there's enough to go on.
+        if frac >= 0.04 and el >= 2:
+            eta = int(round(el * (1 - frac) / frac))
+        hist["frac"] = frac
+        set_status(job_progress=int(round(frac * 100)), job_message=msg, job_eta=eta)
+    return progress
 
-    def work():
+
+def _job_worker():
+    _JOBS["thread_ident"] = threading.get_ident()
+    while True:
+        with _JOB_COND:
+            while not _JOBS["queue"]:
+                _JOB_COND.wait(timeout=30)
+            task = _JOBS["queue"].pop(0)
+            _JOBS["current"] = task
+        _queue_status()
+        # Game files can only change while PG3D is closed: wait instead of failing.
+        while game_running() or (launch_busy() and not _LAUNCH.get("waiting_jobs")):
+            set_status(job_kind=task["kind"], job_phase="waiting", job_progress=0, job_eta=None, job_error=None,
+                       job_message=f"{task['label']}: waiting for PG3D to close…")
+            time.sleep(1.0)
+        set_status(job_kind=task["kind"], job_phase="running", job_progress=0, job_eta=None,
+                   job_message=f"{task['label']}…", job_error=None)
         try:
-            msg = fn(progress) or "Done."
-            set_status(job_phase="done", job_progress=100, job_message=msg)
-            log(f"Job {kind} finished: {msg}")
+            msg = task["fn"](_job_progress_fn(task)) or "Done."
+            set_status(job_phase="done", job_progress=100, job_eta=0, job_message=msg)
+            log(f"Job {task['kind']} finished: {msg}")
         except Exception as e:
             log(traceback.format_exc())
-            set_status(job_phase="error", job_error=str(e), job_message="Failed.")
-    threading.Thread(target=work, daemon=True).start()
-    return {"ok": True}
+            set_status(job_phase="error", job_error=str(e), job_message="Failed.", job_eta=None)
+        finally:
+            with _JOB_COND:
+                _JOBS["current"] = None
+            _queue_status()
+
+
+def in_job_worker():
+    return threading.get_ident() == _JOBS.get("thread_ident")
 
 
 # ------------------------------------------------------- theme + sky catalog
@@ -4927,7 +5084,7 @@ def retire_removed_mods():
         try:
             if not _has_retired_mods(load_mods()):
                 return
-            if not _game_running_uncached() and STATUS.get("job_phase") != "running":
+            if not _game_running_uncached() and not jobs_pending():
                 def change(state):
                     state["theme"] = None
                     state["hud_set"] = {}
@@ -4972,7 +5129,7 @@ def repair_texture_targets():
         try:
             if not _needs_target_repair(load_mods()):
                 return
-            if not _game_running_uncached() and not launch_busy() and STATUS.get("job_phase") != "running":
+            if not _game_running_uncached() and not launch_busy() and not jobs_pending():
                 def job(progress):
                     cat = ensure_catalog(_sub_progress(progress, 0, 0.6))
                     keep_sky = {(t["source_file"], int(t["path_id"])) for t in cat.get("sky", [])}
@@ -5013,7 +5170,7 @@ def mods_reapply_watch():
     while True:
         time.sleep(20)
         try:
-            if not reapply_enabled() or game_running() or launch_busy() or STATUS.get("job_phase") == "running":
+            if not reapply_enabled() or game_running() or launch_busy() or jobs_pending():
                 continue
             if _MUTATE_LOCK.locked() or game_update_info().get("updating"):
                 continue
@@ -5583,6 +5740,8 @@ class Handler(BaseHTTPRequestHandler):
         return
 
     def send_json(self, obj, status=200):
+        if isinstance(obj, dict) and getattr(_REQ, "queued", False) and status == 200:
+            obj = {**obj, "queued": True}  # the change went onto the job queue
         raw = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -5829,6 +5988,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         global LAST_REQUEST
         LAST_REQUEST = time.time()
+        _REQ.queued = False
         path = urlparse(self.path).path
         invalidate()
         try:
@@ -5940,6 +6100,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(reset_rankup_sound())
             if path == "/api/prefs/mouse-fix":
                 return self.send_json(set_mouse_fix_pref(data.get("on", True)))
+            if path == "/api/game/quit":
+                return self.send_json(quit_game())
             if path == "/api/game/restore-files":
                 return self.send_json(restore_game_files())
             if path == "/api/game/refocus":

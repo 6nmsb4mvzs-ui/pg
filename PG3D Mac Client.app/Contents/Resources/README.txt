@@ -1,4 +1,4 @@
-PG3D Mac Client 1.49.2
+PG3D Mac Client 1.50.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -293,3 +293,19 @@ Fixes     Settings > Troubleshooting > Restore original game files puts every
           Sky textures keep their original size again (1.49.0 enlarged them).
           The diagnostic report now includes PG3D's own log and its newest
           crash report.
+
+New in 1.50
+Queue     Every change to the game files (sky, loading screen, cursor, font,
+          resets) goes into one queue and runs in order. Apply is never
+          greyed out because something else is busy or PG3D is open:
+          changes wait and run by themselves once PG3D closes, and a game
+          start waits until queued changes are done. The status line shows
+          what's running, what's next and about how long it takes.
+Times     Time estimates use the real pace of the running task, and starting
+          PG3D uses the median of your last starts, so one slow start no
+          longer throws it off; when a step runs long it says so instead of
+          "Almost there".
+Fixes     If PG3D is running in the background without a window, the Play
+          tab says so and offers Quit PG3D. A start with the mouse fix that
+          never opens a window is closed after a minute and the fix turned
+          off, so the next Start works.

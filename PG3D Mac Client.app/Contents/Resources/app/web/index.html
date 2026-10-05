@@ -62,7 +62,7 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 
 /* v1.15 additions */
 .buildBadge{display:none;margin-top:12px;font-size:11px;padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:hsl(var(--nh) var(--ns) 7.3%);color:var(--muted)}
-#quickExit .btn{padding:3px 9px;font-size:11px;margin-left:6px}
+#quickExit .btn,#gameStuck .btn{padding:3px 9px;font-size:11px;margin-left:6px}
 .buildBadge.show{display:inline-block}.buildBadge.warn{border-color:#5a4520;color:var(--warn);background:#1a1509}
 .playtime{display:flex;gap:18px;margin-top:14px;color:var(--muted);font-size:11px}
 .playtime b{display:block;color:var(--text);font-size:15px;font-weight:700}
@@ -911,7 +911,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
             <div class="lpBar"><i id="lpFill"></i></div>
             <small id="lpEta"></small>
           </div>
-          <div class="buildBadge" id="buildBadge"></div><div class="buildBadge warn" id="quickExit"><span></span><button class="btn" type="button">Restore original game files</button></div><div class="message" id="launchMessage"></div>
+          <div class="buildBadge" id="buildBadge"></div><div class="buildBadge warn" id="gameStuck"><span>PG3D is running in the background without a window, so it can't be played and game files can't change. </span><button class="btn" type="button">Quit PG3D</button></div><div class="buildBadge warn" id="quickExit"><span></span><button class="btn" type="button">Restore original game files</button></div><div class="message" id="launchMessage"></div>
         </div>
         <div class="playStats">
           <div class="playtime" id="playtime"></div>
@@ -1166,7 +1166,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
             <div class="skTargets" id="skTargets"></div>
           </details>
           <div class="xJob" id="skJob" style="margin-top:12px"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <div class="xRow" style="margin-top:14px"><button class="btn primary xBig" id="skApply">Apply sky</button><button class="btn" id="skReset">Restore original</button><span class="sub">Close PG3D first.</span></div>
+          <div class="xRow" style="margin-top:14px"><button class="btn primary xBig" id="skApply">Apply sky</button><button class="btn" id="skReset">Restore original</button><span class="sub" id="skHint"></span></div>
         </div>
       </div>
     </section>
@@ -1246,7 +1246,8 @@ var clipsTimer=null,settingsTimer=null;
 const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',sky:'Sky & loading screen',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 async function api(path,opts={}){const r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
-function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)})}
+function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Math.round(sec/60)} min`}
+function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='sky')loadSky()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
@@ -1260,7 +1261,8 @@ function renderStatus(){if(!statusData)return;
 }
 async function restoreGameFiles(){if(!confirm('Put every game file the client changed back to the original? Your cursor, sky, loading screen and font are taken out; you can apply them again afterwards.'))return;try{await post('/api/game/restore-files',{});toast('Restoring the original game files…');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}}
 $('#restoreFiles').onclick=restoreGameFiles;$('#quickExit button').onclick=restoreGameFiles;
-function renderQuickExit(){const q=statusData?.quick_exit,b=$('#quickExit');const show=!!(q&&q.mods&&!statusData.game_running);b.classList.toggle('show',show);if(show)b.querySelector('span').textContent=`PG3D closed ${q.seconds}s after starting. Changed game files can cause that. `}
+$('#gameStuck button').onclick=async()=>{try{await post('/api/game/quit',{});toast('PG3D was closed.');await refreshStatus()}catch(e){toast(e.message,true)}};
+function renderQuickExit(){$('#gameStuck').classList.toggle('show',!!statusData?.game_stuck);const q=statusData?.quick_exit,b=$('#quickExit');const show=!!(q&&q.mods&&!statusData.game_running);b.classList.toggle('show',show);if(show)b.querySelector('span').textContent=`PG3D closed ${q.seconds}s after starting. Changed game files can cause that. `}
 function renderBuildBadge(){renderQuickExit();const b=$('#buildBadge');if(!b||!statusData)return;const m=statusData.fps_build_match,build=statusData.game_build;if(m===false){b.className='buildBadge show warn';b.textContent=`The FPS unlocker couldn't attach to PG3D build ${build}. Start still works.`}else if(m===true){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build} · FPS unlocker compatible`}else{b.className='buildBadge'}}
 function renderPlaytime(){const el=$('#playtime'),p=statusData?.playtime;if(!el||!p)return;const cells=[];if(p.live)cells.push(['live','This session',p.live]);cells.push(['','Today',p.today],['','Last 7 days',p.week],['','All time',p.total]);const sig=JSON.stringify(cells);if(sig===el.__sig)return;el.__sig=sig;el.innerHTML='';for(const[c,l,v]of cells){const d=document.createElement('div');d.className=c;const b=document.createElement('b');b.textContent=v;d.append(b,document.createTextNode(l));el.appendChild(d)}}
 function renderLastSession(){const box=$('#lastSession'),r=statusData?.last_session;if(!box)return;const show=!!r&&!statusData.game_running&&(Date.now()/1000-r.start<4*86400);box.hidden=!show;if(!show)return;
@@ -1305,7 +1307,7 @@ const LAUNCH_BUSY=['preparing','switching','updating','launching','starting'];le
 function renderLaunch(){const s=statusData;if(!s)return;const busy=LAUNCH_BUSY.includes(s.launch_phase),box=$('#launchProg');
   $('#startNormal').disabled=busy||s.game_running;$('#startFps').disabled=busy||s.game_running||!s.fps_bundle_present;
   if(busy){box.hidden=false;box.classList.remove('done');const pct=Math.max(1,Math.min(99,s.launch_progress||0));$('#lpFill').style.width=pct+'%';$('#lpPct').textContent=pct+'%';$('#lpMsg').textContent=s.launch_message||'Starting…';
-    const eta=s.launch_eta;$('#lpEta').textContent=eta==null?'':eta<=1?'Almost there…':`About ${eta<60?eta+' s':Math.round(eta/60)+' min'} left`}
+    const eta=s.launch_eta;$('#lpEta').textContent=eta==null?'':eta<0?'Taking longer than usual…':eta<=2?'Almost there…':`About ${fmtEta(eta)} left`}
   else if(lpWasBusy){if(!s.launch_error&&s.launch_progress===100){box.hidden=false;box.classList.add('done');$('#lpFill').style.width='100%';$('#lpPct').textContent='100%';$('#lpMsg').textContent=s.launch_message||'PG3D is running.';$('#lpEta').textContent='Have fun!';setTimeout(()=>{if(!LAUNCH_BUSY.includes(statusData?.launch_phase))$('#launchProg').hidden=true},5000)}else box.hidden=true}
   lpWasBusy=busy}
 $('#startNormal').onclick=()=>launch('normal');$('#startFps').onclick=()=>launch('fps');
@@ -1337,7 +1339,7 @@ function updateCursorPanel(){
   if(lastGuiPhase==='scanning'&&statusData.gui_phase!=='scanning')loadSprites();lastGuiPhase=statusData.gui_phase;
   const roleMode=curTarget!=='cursor';$('#curColorField').hidden=roleMode;$('#curOutlineField').hidden=roleMode;$('#importCursor').textContent=roleMode?'Install PNG':'Import PNG';
   if(roleMode){const ok=renderRoleNote();const sel=roleSelected();$('#cursorPreviewTitle').textContent=sel?sel.name:(curTarget==='hitmarker'?'Hit marker':'Kill icon');$('#cursorSizeValue').textContent=cursorSize+'%';
-    $('#applyCursor').disabled=statusData.game_running||!ok||!sel;$('#resetCursor').disabled=statusData.game_running||!spritesData?.roles?.[curTarget]?.applied;return}
+    $('#applyCursor').disabled=!ok||!sel;$('#resetCursor').disabled=!spritesData?.roles?.[curTarget]?.applied;return}
   $('#curRoleNote').hidden=true;
   const t=statusData.cursor_target;
   renderCursorStyleControls();
@@ -1345,8 +1347,8 @@ function updateCursorPanel(){
   const item=cursorCatalog.find(x=>x.id===selectedCursor);
   $('#cursorPreviewTitle').textContent=selectedCursor==='custom'?'Custom':(item?.name||'Preview');
   $('#cursorSizeValue').textContent=cursorSize+'%';
-  $('#applyCursor').disabled=statusData.game_running||statusData.cursor_phase!=='ready';
-  $('#resetCursor').disabled=statusData.game_running||!statusData.mods?.cursor;
+  $('#applyCursor').disabled=statusData.cursor_phase!=='ready';
+  $('#resetCursor').disabled=!statusData.mods?.cursor;
   if(!t)return;
   const img=$('#cursorPreviewImg');
   const dpr=Math.max(1,window.devicePixelRatio||1);
@@ -1752,12 +1754,14 @@ const TIER_IMG=t=>`/ranks/${t}.png`;
 
 // Shared job progress (theme / sky / scan run in the background on the server)
 let lastJobPhase=null;
-function renderJob(){const j=statusData?.job;if(!j)return;
-  for(const [id,kinds] of [['#thJob',['theme','scan','font']],['#skJob',['sky','scan']]]){const box=$(id);if(!box)continue;
-    const mine=kinds.includes(j.kind)&&(j.phase==='running'||j.phase==='error');box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
-    box.querySelector('.msg').textContent=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');box.querySelector('.bar i').style.width=(j.phase==='error'?0:j.progress||0)+'%'}
-  const busy=j.phase==='running';$$('.fnChip').forEach(b=>b.disabled=busy||statusData.game_running);['#skApply','#skReset'].forEach(s=>{const b=$(s);if(b)b.disabled=busy||statusData.game_running});
-  if(lastJobPhase==='running'&&j.phase!=='running'){if(j.phase==='done')toast(j.message||'Done.');else if(j.phase==='error')toast(j.error||'Failed.',true);loadTheme();loadSky()}
+function jobLine(j){const q=j.queue||[];let t=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');
+  if(j.phase==='running'&&j.eta!=null&&j.eta>0)t+=` · about ${fmtEta(j.eta)} left`;if(q.length)t+=` · then: ${q.join(', ')}`;return t}
+function renderJob(){const j=statusData?.job;if(!j)return;const active=j.phase==='running'||j.phase==='waiting';
+  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#skJob',['sky','scan','change','reapply','restore','repair']]]){const box=$(id);if(!box)continue;
+    const mine=(kinds.includes(j.kind)&&(active||j.phase==='error'))||(j.queue||[]).length>0;box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
+    box.querySelector('.msg').textContent=jobLine(j);box.querySelector('.bar i').style.width=(j.phase==='running'?j.progress||0:0)+'%'}
+  const hint=$('#skHint');if(hint)hint.textContent=statusData.game_stuck?'PG3D is stuck in the background: quit it on the Play tab, then this applies.':statusData.game_running?'PG3D is open: your change is applied as soon as it closes.':active?'Changes you click now are queued and run one after another.':'';
+  if(lastJobPhase==='running'&&j.phase!=='running'){if(j.phase==='done')toast(j.message||'Done.');else if(j.phase==='error')toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}}
   lastJobPhase=j.phase}
 
 // Rank chip on the Play page + promotion splash
@@ -1947,12 +1951,12 @@ function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.inne
   const cur=d.library.find(s=>s.id===skySel);$('#skLoadPrev').style.backgroundImage=ld&&cur?`url("${cur.thumb}")`:'';
   const lt=d.loading?.targets||[];const ln=$('#skLoadNote');ln.hidden=!ld||(!!lt.length||!d.scan.generated);ln.textContent='No loading screen texture was found in this PG3D build.';
   $('#skApply').textContent=ld?'Set loading screen':'Apply sky';
-  if(ld){$('#skReset').hidden=!act;$('#skApply').disabled=!skySel||statusData?.game_running||statusData?.job?.phase==='running'||(d.scan.generated&&!lt.length);return}
+  if(ld){$('#skReset').hidden=!act;$('#skApply').disabled=!skySel||(d.scan.generated&&!lt.length);return}
   $('#skYawVal').textContent=$('#skYaw').value+'°';renderSkyCross();
   const tg=$('#skTargets');tg.innerHTML='';
   if(!d.targets.length){tg.append(el('div','xEmpty',d.scan.generated?'No sky textures were found in this PG3D build.':'Found the first time you apply a sky.'))}
   for(const t of d.targets){const row=el('label','skTarget');const cb=el('input');cb.type='checkbox';cb.checked=!skyTargetsOff.has(t.id);cb.onchange=()=>{cb.checked?skyTargetsOff.delete(t.id):skyTargetsOff.add(t.id);renderSky()};const im=el('img');if(t.preview)im.src=t.preview;const txt=el('div');txt.append(el('b',null,t.name||`#${t.path_id}`),el('small',null,`${t.relative_file} · ${t.width}×${t.height}${t.type==='Cubemap'?' · cubemap (experimental)':''}`));row.append(cb,im,txt,el('span','skFace',t.face));tg.append(row)}
-  $('#skReset').hidden=!d.active;$('#skApply').disabled=!skySel||statusData?.game_running||statusData?.job?.phase==='running';const on=d.targets.filter(t=>!skyTargetsOff.has(t.id)).length;$('#skTargetsSum').textContent=d.targets.length?`Replaces ${on} of ${d.targets.length} sky textures`:'Sky textures (found on first apply)'}
+  $('#skReset').hidden=!d.active;$('#skApply').disabled=!skySel;const on=d.targets.filter(t=>!skyTargetsOff.has(t.id)).length;$('#skTargetsSum').textContent=d.targets.length?`Replaces ${on} of ${d.targets.length} sky textures`:'Sky textures (found on first apply)'}
 function renderSkyCross(){const c=$('#skCross');if(!skySel){c.style.backgroundImage='';return}const q=`id=${skySel}&yaw=${$('#skYaw').value}&swap=${$('#skSwap').classList.contains('on')?1:0}`;if(c._q===q)return;c._q=q;c.style.backgroundImage=`url("/api/sky/cross.png?${q}")`}
 
 $('#skSwap').onclick=()=>{$('#skYaw').dataset.touched='1';setSwitch('#skSwap',!$('#skSwap').classList.contains('on'));renderSkyCross()};
