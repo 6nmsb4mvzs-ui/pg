@@ -593,7 +593,8 @@ class Recorder:
                 if hk is None or time.time() - hk_loaded > 0.5:
                     hk, hk_loaded = load_config()["hotkey"], time.time()
                 down = _hotkey_down(hk)
-                if down and not was_down and time.time() - last_fire > 1.5:
+                # The key is read system-wide, so only act on it inside PG3D.
+                if down and not was_down and time.time() - last_fire > 1.5 and pg3d_in_front():
                     last_fire = time.time()
                     try:
                         self.save_clip()
@@ -763,6 +764,34 @@ def _key_down(code):
         return False
     try:
         return bool(Quartz.CGEventSourceKeyState(Quartz.kCGEventSourceStateCombinedSessionState, int(code)))
+    except Exception:
+        return False
+
+
+def _is_pg3d(name):
+    name = (name or "").lower()
+    return "pixel gun" in name or "pixelgun" in name
+
+
+def pg3d_in_front():
+    """True when Pixel Gun 3D is the app in front. Uses the window list (front to
+    back), which stays current in a background process, unlike NSWorkspace."""
+    if Quartz is not None:
+        try:
+            wins = Quartz.CGWindowListCopyWindowInfo(
+                Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
+                Quartz.kCGNullWindowID) or []
+            for w in wins:
+                if int(w.get("kCGWindowLayer", 1)) != 0:
+                    continue  # menu bar, Dock, overlays
+                return _is_pg3d(str(w.get("kCGWindowOwnerName") or ""))
+        except Exception:
+            pass
+    try:
+        asn = subprocess.run(["/usr/bin/lsappinfo", "front"], capture_output=True, text=True, timeout=2).stdout.strip()
+        info = subprocess.run(["/usr/bin/lsappinfo", "info", "-only", "name", asn],
+                              capture_output=True, text=True, timeout=2).stdout
+        return _is_pg3d(info)
     except Exception:
         return False
 

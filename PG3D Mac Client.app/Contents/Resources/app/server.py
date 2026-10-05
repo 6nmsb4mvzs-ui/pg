@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.47.1"
+APP_VERSION = "1.48.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -273,8 +273,8 @@ def prepare_fps_runtime():
                 src_sha = sha256_file(src)
                 if not dst.exists() or (stamp.read_text().strip() if stamp.exists() else sha256_file(dst)) != src_sha:
                     shutil.copy2(src, dst)
-                    if dst == MOUSEFIX_DYLIB:
-                        # Built without Apple's tools, so it gets its ad-hoc signature here.
+                    if dst in (MOUSEFIX_DYLIB, FPS_DYLIB):
+                        # Built without Apple's tools, so they get their ad-hoc signature here.
                         try:
                             subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", str(dst)],
                                            capture_output=True, timeout=30)
@@ -3284,10 +3284,38 @@ def fps_launch(game: Path, fps: str):
                 failure_note = "PG3D exited before the FPS override could be verified."
                 break
         time.sleep(0.25)
+    _record_fps_build_result(True if ready else (False if failure_note and "does not match" in failure_note else None))
     return {
         "pid": pid, "verified": ready, "log": str(log_path),
         "message": "FPS override verified active." if ready else (failure_note or "Game launched, but FPS override was not verified within 20 seconds."),
     }
+
+
+def _record_fps_build_result(ok):
+    """Remember per PG3D build whether the unlocker managed to attach (None: unknown)."""
+    if ok is None:
+        return
+    try:
+        build = str(plist_value(find_app() / "Contents/Info.plist", "CFBundleVersion") or "")
+    except Exception:
+        build = ""
+    if not build or build == "unknown":
+        return
+    prefs = prefs_payload()
+    results = prefs.get("fps_builds") if isinstance(prefs.get("fps_builds"), dict) else {}
+    results[build] = bool(ok)
+    prefs["fps_builds"] = dict(list(results.items())[-20:])
+    write_json(PREFS_JSON, prefs)
+
+
+def fps_build_match(build):
+    """True: works on this build, False: failed on it, None: not tried yet."""
+    if build in (None, "unknown"):
+        return None
+    known = prefs_payload().get("fps_builds") or {}
+    if str(build) in known:
+        return bool(known[str(build)])
+    return True if build in FPS_SUPPORTED_BUILDS else None
 
 
 def launch_with_fps(fps):
@@ -3879,7 +3907,7 @@ def status_payload():
         "prefs": prefs_payload(),
         "fps_bundle_present": fps_bundle_present(),
         "fps_supported_builds": sorted(FPS_SUPPORTED_BUILDS),
-        "fps_build_match": (build in FPS_SUPPORTED_BUILDS) if build not in ("unknown", None) else None,
+        "fps_build_match": fps_build_match(build),
         "clips": {k: v for k, v in clips.RECORDER.status().items() if k in ("phase", "saving", "buffered", "last_clip")},
         "update": ({k: v for k, v in updater.UPDATER.state().items() if k in ("available", "phase", "message")}
                    if updater.UPDATER else None),

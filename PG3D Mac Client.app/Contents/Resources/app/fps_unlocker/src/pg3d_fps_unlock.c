@@ -1,4 +1,5 @@
-// Pixel Gun 3D macOS 26.11.0 / build 151027 (x86_64) frame pacing override.
+// Pixel Gun 3D macOS (x86_64) frame pacing override. Written against build 151027;
+// other builds are handled by locating the two Unity icall wrappers by content.
 // This library changes process memory only; it never writes into the app bundle.
 
 #include <dispatch/dispatch.h>
@@ -33,11 +34,14 @@ typedef struct {
     void *volatile *cache_slot;
     bool installed;
     bool binding_was_invalid;
+    bool scanned;
 } Override;
 
 static uintptr_t g_image_slide;
 static uintptr_t g_image_start;
 static uintptr_t g_image_end;
+static uintptr_t g_text_start;  // __TEXT,__text of GameAssembly (slid)
+static uintptr_t g_text_end;
 static int g_requested_frame_rate = -1;
 static dispatch_source_t g_retry_timer;
 static unsigned int g_retry_count;
@@ -99,6 +103,8 @@ static bool find_game_assembly(void) {
         uintptr_t lowest_vmaddr = UINTPTR_MAX;
         uintptr_t highest_vmaddr = 0;
         bool saw_text_segment = false;
+        uintptr_t text_section_addr = 0;
+        uintptr_t text_section_size = 0;
 
         for (uint32_t command_index = 0; command_index < header->ncmds; ++command_index) {
             const struct load_command *command = (const struct load_command *)command_bytes;
@@ -120,6 +126,13 @@ static bool find_game_assembly(void) {
                 if (strncmp(segment->segname, SEG_TEXT, sizeof(segment->segname)) == 0) {
                     text_vmaddr = (uintptr_t)segment->vmaddr;
                     saw_text_segment = true;
+                    const struct section_64 *sections = (const struct section_64 *)(segment + 1);
+                    for (uint32_t s = 0; s < segment->nsects; ++s) {
+                        if (strncmp(sections[s].sectname, SECT_TEXT, sizeof(sections[s].sectname)) == 0) {
+                            text_section_addr = (uintptr_t)sections[s].addr;
+                            text_section_size = (uintptr_t)sections[s].size;
+                        }
+                    }
                 }
             }
             command_bytes += command->cmdsize;
@@ -132,6 +145,10 @@ static bool find_game_assembly(void) {
         g_image_slide = (uintptr_t)header - text_vmaddr;
         g_image_start = g_image_slide + lowest_vmaddr;
         g_image_end = g_image_slide + highest_vmaddr;
+        if (text_section_size != 0) {
+            g_text_start = g_image_slide + text_section_addr;
+            g_text_end = g_text_start + text_section_size;
+        }
         void *handle = dlopen(image_name, RTLD_NOW | RTLD_NOLOAD);
         if (handle == NULL) {
             return false;
@@ -166,6 +183,28 @@ static bool wrapper_matches_binding(const uint8_t *wrapper, const char *binding_
         return false;
     }
     return memcmp(resolved_name, binding_name, expected_length + 1) == 0;
+}
+
+// Newer builds move the wrappers. Find the one whose lazy-lookup code names
+// this exact binding; the full pattern plus string match makes a false hit
+// practically impossible.
+static uintptr_t scan_for_wrapper(const char *binding_name) {
+    if (g_text_start == 0 || g_text_end <= g_text_start + 64) {
+        return 0;
+    }
+    const uint8_t *cursor = (const uint8_t *)g_text_start;
+    const uint8_t *end = (const uint8_t *)g_text_end - 32;
+    while (cursor < end) {
+        const uint8_t *hit = memchr(cursor, 0x48, (size_t)(end - cursor));
+        if (hit == NULL) {
+            break;
+        }
+        if (hit[1] == 0x8B && hit[2] == 0x05 && wrapper_matches_binding(hit, binding_name)) {
+            return (uintptr_t)hit;
+        }
+        cursor = hit + 1;
+    }
+    return 0;
 }
 
 static void target_frame_rate_hook(int ignored_value);
@@ -206,25 +245,28 @@ static bool prepare_override(Override *override) {
         return true;
     }
 
-    const uintptr_t wrapper_address = g_image_slide + override->wrapper_rva;
-    if (!range_is_inside_image(wrapper_address, 32)) {
-        if (!override->binding_was_invalid) {
-            log_message("%s wrapper RVA is outside GameAssembly; unsupported build.",
-                        override->description);
-            override->binding_was_invalid = true;
+    uintptr_t wrapper_address = g_image_slide + override->wrapper_rva;
+    if (!range_is_inside_image(wrapper_address, 32) ||
+        !wrapper_matches_binding((const uint8_t *)wrapper_address, override->binding_name)) {
+        if (override->scanned) {
+            return false;
         }
-        return false;
+        override->scanned = true;
+        wrapper_address = scan_for_wrapper(override->binding_name);
+        if (wrapper_address == 0) {
+            if (!override->binding_was_invalid) {
+                log_message("%s binding does not match this game build; no override applied.",
+                            override->description);
+                override->binding_was_invalid = true;
+            }
+            return false;
+        }
+        log_message("%s wrapper found by scan at RVA 0x%lx (this build moved it).",
+                    override->description, (unsigned long)(wrapper_address - g_image_slide));
+        override->wrapper_rva = wrapper_address - g_image_slide;
     }
 
     const uint8_t *wrapper = (const uint8_t *)wrapper_address;
-    if (!wrapper_matches_binding(wrapper, override->binding_name)) {
-        if (!override->binding_was_invalid) {
-            log_message("%s binding does not match this game build; no override applied.",
-                        override->description);
-            override->binding_was_invalid = true;
-        }
-        return false;
-    }
 
     int32_t cache_displacement;
     memcpy(&cache_displacement, wrapper + 3, sizeof(cache_displacement));

@@ -1,4 +1,4 @@
-PG3D Mac Client 1.47.1
+PG3D Mac Client 1.48.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -247,3 +247,11 @@ Fixes     The client window opens again (1.47's file-dialog code stopped it
           opens in your browser instead of not appearing at all. The
           in-game overlay had the same kind of startup error and starts
           again too.
+
+New in 1.48
+Fixes     FPS unlocker works with new PG3D builds: instead of fixed
+          addresses for one build, it finds Unity's frame-rate functions in
+          the game by their code. The Play tab only warns if the unlocker
+          actually failed on your build.
+          The save-clip key only works while PG3D is the app in front, so
+          pressing it in other apps no longer saves clips or shows errors.
