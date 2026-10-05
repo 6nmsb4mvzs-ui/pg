@@ -1,4 +1,4 @@
-PG3D Mac Client 1.41.0
+PG3D Mac Client 1.41.1
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -172,3 +172,11 @@ Mouse fix PG3D's own Mac bugs: the system cursor staying visible in the
           the first click count. Settings › Troubleshooting › Mouse fix
           turns it off; it switches itself off if PG3D closes right after
           starting twice in a row.
+
+New in 1.41.1
+Sounds    Click, switch, slider and tab sounds are now soft taps instead of
+          beeps, and loud enough to actually hear (they were about 35 dB
+          quieter than the rank-up). Fixed a small pop at the end of the
+          rank-up charge sound.
+Launch    Start and Start with FPS Unlocker open Steam first if it isn't
+          running (the direct launch used for the mouse fix needs it).

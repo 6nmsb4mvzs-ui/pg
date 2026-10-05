@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.41.0"
+APP_VERSION = "1.41.1"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3141,6 +3141,21 @@ def _watch_mouse_fix_start():
     threading.Thread(target=work, daemon=True).start()
 
 
+def ensure_steam_running(timeout=60):
+    """Direct launches (FPS unlocker, mouse fix) skip steam://run, which used to start Steam.
+    PG3D needs a running, signed-in Steam, so start it first if needed."""
+    if _steam_running_uncached():
+        return True
+    start_steam_client()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if _steam_running_uncached():
+            time.sleep(8)  # let it finish signing in before the game asks for it
+            return True
+        time.sleep(1)
+    return False
+
+
 def launch_with_mouse_fix(game: Path):
     """Start PG3D directly with only the mouse fix loaded (normal frame pacing)."""
     binary = game / "Contents/MacOS/Pixel Gun 3D"
@@ -3172,6 +3187,8 @@ def fps_launch(game: Path, fps: str):
     if not binary.exists():
         raise RuntimeError("PG3D executable was not found inside the app bundle.")
     fps = fps_target_value(fps)
+    if not ensure_steam_running():
+        raise RuntimeError("Steam didn't start. Open Steam, sign in, then press Start again.")
     log_path = FPS_LOG_DIR / f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
     log_path.write_text(
         f"[PG3D Mac Client] launch {datetime.now().isoformat(timespec='seconds')} fps={fps}\n",
@@ -3379,7 +3396,8 @@ def _launch_job(kind, fps):
             set_status(last_fps={**result, "at": datetime.now().isoformat(timespec="seconds")})
         else:
             game = find_app()
-            if game and FPS_LAUNCHER.is_file() and mouse_fix_usable(game / "Contents/MacOS/Pixel Gun 3D"):
+            if (game and FPS_LAUNCHER.is_file() and mouse_fix_usable(game / "Contents/MacOS/Pixel Gun 3D")
+                    and ensure_steam_running()):
                 launch_with_mouse_fix(game)
                 message = "PG3D is running with the mouse fix."
             else:

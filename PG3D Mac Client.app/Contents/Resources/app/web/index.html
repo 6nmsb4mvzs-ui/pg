@@ -1226,17 +1226,26 @@ let __uiAudio=null;
 let SND={enabled:true,rankup:true,volume:70};
 try{Object.assign(SND,JSON.parse(localStorage.pg3dSound||'{}'))}catch{}
 function sndCtx(){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;if(!__uiAudio)__uiAudio=new AC();if(__uiAudio.state==='suspended')__uiAudio.resume();return __uiAudio}
-function tone(ac,{f=880,f2=null,type='sine',dur=.05,gain=.03,at=0}){const t=ac.currentTime+at,o=ac.createOscillator(),g=ac.createGain(),v=gain*(SND.volume/100);
-  o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,v),t+.004);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+dur+.02)}
-// Short synthesized UI sounds. kind: click | primary | on | off | tick | tab
+// UI sounds: soft, tactile taps (a tiny filtered noise transient over a short warm body),
+// like a modern app, instead of plain beeps. Level sits well below the rank-up sound.
+let __uiNoise=null;
+function uiNoiseBuf(ac){if(__uiNoise&&__uiNoise.sampleRate===ac.sampleRate)return __uiNoise;const len=Math.ceil(ac.sampleRate*.08),b=ac.createBuffer(1,len,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;return __uiNoise=b}
+function uiTap(ac,{at=0,freq=3200,q=1.2,len=.018,gain=.3,body=0,bodyTo=0,bodyLen=.05,bodyGain=.25}={}){
+  const t=ac.currentTime+at,v=SND.volume/100;
+  const n=ac.createBufferSource(),bp=ac.createBiquadFilter(),g=ac.createGain();n.buffer=uiNoiseBuf(ac);bp.type='bandpass';bp.frequency.value=freq;bp.Q.value=q;
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,gain*v),t+.0015);g.gain.exponentialRampToValueAtTime(.0001,t+len);
+  n.connect(bp);bp.connect(g);g.connect(ac.destination);n.start(t);n.stop(t+len+.02);
+  if(body){const o=ac.createOscillator(),og=ac.createGain();o.type='sine';o.frequency.setValueAtTime(body,t);o.frequency.exponentialRampToValueAtTime(bodyTo||body*.7,t+bodyLen);
+    og.gain.setValueAtTime(.0001,t);og.gain.exponentialRampToValueAtTime(Math.max(.0002,bodyGain*v),t+.004);og.gain.exponentialRampToValueAtTime(.0001,t+bodyLen);
+    o.connect(og);og.connect(ac.destination);o.start(t);o.stop(t+bodyLen+.02)}}
+// kind: click | primary | on | off | tick | tab
 function uiSound(kind='click',x=0.5){if(!SND.enabled)return;try{const ac=sndCtx();if(!ac)return;
-  if(kind==='primary'){tone(ac,{f:660,f2:520,type:'triangle',dur:.06,gain:.05});tone(ac,{f:990,f2:880,dur:.07,gain:.025,at:.03})}
-  else if(kind==='on'){tone(ac,{f:620,dur:.045,gain:.035});tone(ac,{f:930,dur:.06,gain:.035,at:.05})}
-  else if(kind==='off'){tone(ac,{f:930,dur:.045,gain:.03});tone(ac,{f:560,dur:.06,gain:.03,at:.05})}
-  else if(kind==='tick'){tone(ac,{f:600+700*x,dur:.018,gain:.018,type:'square'})}
-  else if(kind==='tab'){tone(ac,{f:1150,f2:980,dur:.035,gain:.018})}
-  else{tone(ac,{f:1250,f2:1050,dur:.032,gain:.022})}}catch{}}
+  if(kind==='primary'){uiTap(ac,{freq:2600,q:1,len:.022,gain:.24,body:330,bodyTo:220,bodyLen:.09,bodyGain:.2})}
+  else if(kind==='on'){uiTap(ac,{freq:2400,len:.016,gain:.24,body:520,bodyTo:600,bodyLen:.05,bodyGain:.16});uiTap(ac,{at:.055,freq:3400,len:.016,gain:.22,body:780,bodyTo:880,bodyLen:.06,bodyGain:.14})}
+  else if(kind==='off'){uiTap(ac,{freq:3200,len:.016,gain:.22,body:700,bodyTo:620,bodyLen:.05,bodyGain:.14});uiTap(ac,{at:.055,freq:2200,len:.016,gain:.2,body:460,bodyTo:380,bodyLen:.06,bodyGain:.14})}
+  else if(kind==='tick'){uiTap(ac,{freq:1800+2600*x,q:2,len:.009,gain:.42})}
+  else if(kind==='tab'){uiTap(ac,{freq:2000,q:.8,len:.03,gain:.18,body:420,bodyTo:360,bodyLen:.04,bodyGain:.1})}
+  else{uiTap(ac,{freq:3400,q:1.4,len:.014,gain:.28,body:900,bodyTo:600,bodyLen:.025,bodyGain:.1})}}catch{}}
 function protectedPath(event,card){
   const selector='button,input,select,textarea,a,label,[role="button"],[contenteditable="true"],[data-no-toggle],.hexColorControl,.hexText,.spectrumSlider,.ratingControl,.ratingSlider,.optionTile,.dragHandle';
   const path=typeof event.composedPath==='function'?event.composedPath():[];
@@ -1860,7 +1869,7 @@ function ruChoirLow(ac,bus,freqs,t,{peak=.1,att=.5,hold=.9,rel=3}={}){
 // Reverse-cymbal style swell: noise that accelerates into the hit.
 function ruReverse(ac,bus,t,dur,{peak=.3}={}){const n=ruNoise(ac,dur+.05),lp=ac.createBiquadFilter(),hp=ac.createBiquadFilter(),g=ac.createGain();lp.type='lowpass';hp.type='highpass';hp.frequency.value=400;
   lp.frequency.setValueAtTime(700,t);lp.frequency.exponentialRampToValueAtTime(9000,t+dur);
-  const steps=24;g.gain.setValueAtTime(.0001,t);for(let i=1;i<=steps;i++){const x=i/steps;g.gain.linearRampToValueAtTime(Math.max(.0001,peak*Math.pow(x,3.2)),t+dur*x)}g.gain.setValueAtTime(.0001,t+dur+.01);
+  const steps=24;g.gain.setValueAtTime(.0001,t);for(let i=1;i<=steps;i++){const x=i/steps;g.gain.linearRampToValueAtTime(Math.max(.0001,peak*Math.pow(x,3.2)),t+(dur-.015)*x)}g.gain.linearRampToValueAtTime(.0001,t+dur);
   n.connect(hp);hp.connect(lp);lp.connect(g);ruOut(ac,g,bus,{dry:.8,wet:.5});n.start(t);n.stop(t+dur+.05)}
 // Charge: reverse swell + low strings rising into the hit.
 function ruRiser(dur=1.1){if(!SND.enabled||!SND.rankup||ruCustomSound())return;try{const ac=sndCtx();if(!ac)return;const t=ac.currentTime,bus=ruBus(ac),N=RU_E;
