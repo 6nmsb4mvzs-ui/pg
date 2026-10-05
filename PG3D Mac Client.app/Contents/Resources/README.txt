@@ -1,4 +1,4 @@
-PG3D Mac Client 1.66.0
+PG3D Mac Client 1.67.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,14 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.67
+HUD       The weapon bar can be resized too: PG3D sets the bar's own size while
+          running, so its parts are scaled instead. Press "Find again" in the
+          HUD tab once; a size you already set is then applied by itself.
+Tidy      Old copies of the client (from downloads and updates) are removed
+          from macOS's app list, so the Dock's recent apps, Launchpad and
+          Spotlight only show the installed client.
 
 New in 1.66
 HUD       New HUD tab: make parts of the in-match HUD smaller or bigger (top

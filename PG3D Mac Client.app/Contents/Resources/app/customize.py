@@ -1067,6 +1067,9 @@ def hud_report(result, build=""):
 # screen-corner anchor groups (TopLeftAnchor, WeaponTogglesForCharacter, BottomRightAnchor,
 # ...). Scaling one group's Transform resizes that whole block around its corner.
 HUD_GROUP_PARENTS = ("InGameInterface/InterfaceContainer", "JoystikPanel/JoystickContainer")
+HUD_GROUPS_V = 2
+# PG3D sets these containers' own scale at runtime, so their parts are scaled instead.
+HUD_SCALE_CHILDREN = {"weapontogglesforcharacter"}
 HUD_GROUP_LABELS = {
     "topleftanchor": "Top left: health, armor, pet",
     "toprightanchor": "Top right",
@@ -1140,7 +1143,9 @@ def hud_groups(path, log=print):
                 key = re.sub(r"[^a-z]", "", n.lower())
                 kids = [name(k) for k in children.get(c, [])[:10]]
                 out.append({"path_id": c, "name": n, "label": HUD_GROUP_LABELS.get(key, n), "path": path_of(c),
-                            "scale": tf[c][2], "children": [k for k in kids if k]})
+                            "scale": tf[c][2], "children": [k for k in kids if k],
+                            "mode": "children" if key in HUD_SCALE_CHILDREN else "self",
+                            "child_ids": [k for k in children.get(c, []) if k in tf]})
     order = list(HUD_GROUP_LABELS)
     out.sort(key=lambda g: (order.index(re.sub(r"[^a-z]", "", g["name"].lower()))
                             if re.sub(r"[^a-z]", "", g["name"].lower()) in order else len(order), g["path"]))
@@ -1148,10 +1153,15 @@ def hud_groups(path, log=print):
     return out
 
 
-def scale_transform(reader, factor):
-    """Multiply a Transform's x/y scale (z kept) in place, from the file's own value."""
+def scale_transform(reader, factor, move=False):
+    """Multiply a Transform's x/y scale (z kept) in place, from the file's own value.
+    move=True also scales its position: the same as scaling its parent by factor."""
     tree = reader.read_typetree()
     s = tree["m_LocalScale"]
     s["x"] = float(s["x"]) * factor
     s["y"] = float(s["y"]) * factor
+    if move:
+        p = tree["m_LocalPosition"]
+        p["x"] = float(p["x"]) * factor
+        p["y"] = float(p["y"]) * factor
     reader.save_typetree(tree)

@@ -21,7 +21,7 @@ import traceback
 from datetime import datetime
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import urlparse, parse_qs, quote, unquote
 from urllib.request import Request, urlopen
 
 import importlib
@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.66.0"
+APP_VERSION = "1.67.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1063,8 +1063,8 @@ def _source_sig(state, src):
         if mine:
             params = {k: val for k, val in v.items() if k not in ("targets", "targets_v", "custom")}
             sig[key] = [params, sorted(int(t["path_id"]) for t in mine)]
-    hud = sorted((int(op["path_id"]), op.get("pct")) for op in (state.get("hud_layout") or {}).values()
-                 if op.get("source_file") == src)
+    hud = sorted((int(op["path_id"]), op.get("pct"), op.get("mode", "self"))
+                 for op in (state.get("hud_layout") or {}).values() if op.get("source_file") == src)
     if hud:
         sig["hud_layout"] = hud
     return json.dumps(sig, sort_keys=True, default=str)
@@ -1675,11 +1675,16 @@ def _rebuild_one(source_str, state):
 
         # HUD group sizes: scale the anchor group's Transform (from the original value).
         for op in hud_ops:
-            reader = _find(int(op["path_id"]))
-            if reader is None or reader.type.name not in ("Transform", "RectTransform"):
-                skipped["HUD groups"] = skipped.get("HUD groups", 0) + 1
-                continue
-            customize.scale_transform(reader, float(op["pct"]) / 100.0)
+            factor = float(op["pct"]) / 100.0
+            if op.get("mode") == "children" and op.get("child_ids"):
+                targets, move = [_find(int(c)) for c in op["child_ids"]], True
+            else:
+                targets, move = [_find(int(op["path_id"]))], False
+            for reader in targets:
+                if reader is None or reader.type.name not in ("Transform", "RectTransform"):
+                    skipped["HUD groups"] = skipped.get("HUD groups", 0) + 1
+                    continue
+                customize.scale_transform(reader, factor, move)
 
         if skipped:
             log(f"{source.name}: not found, skipped " + ", ".join(f"{n} {k}" for k, n in skipped.items())
@@ -5069,7 +5074,8 @@ def hud_payload():
     src = _hud_source()
     build = plist_value(find_app() / "Contents/Info.plist", "CFBundleVersion") if src else None
     d = read_json(HUD_GROUPS_JSON, {})
-    fresh = bool(d) and d.get("build") == build and d.get("source") == str(src)
+    fresh = (bool(d) and d.get("build") == build and d.get("source") == str(src)
+             and d.get("v") == customize.HUD_GROUPS_V)
     layout = load_mods().get("hud_layout") or {}
     groups = []
     for g in (d.get("groups") or []) if fresh else []:
@@ -5091,8 +5097,22 @@ def start_hud_find():
         if not groups:
             raise RuntimeError("PG3D's in-match HUD (InGameGUI) wasn't found in this build.")
         build = plist_value(find_app() / "Contents/Info.plist", "CFBundleVersion")
-        write_json(HUD_GROUPS_JSON, {"build": build, "source": str(src), "groups": groups,
+        write_json(HUD_GROUPS_JSON, {"build": build, "source": str(src), "groups": groups, "v": customize.HUD_GROUPS_V,
                                      "generated": datetime.now().isoformat(timespec="seconds")})
+        # Sizes already applied pick up how each group is scaled now (e.g. the weapon bar).
+        by_pid = {int(g["path_id"]): g for g in groups}
+        layout = load_mods().get("hud_layout") or {}
+        if any(int(op.get("path_id", -1)) in by_pid and
+               (op.get("mode", "self"), op.get("child_ids", [])) != (by_pid[int(op["path_id"])].get("mode", "self"),
+                                                                    by_pid[int(op["path_id"])].get("child_ids", []))
+               for op in layout.values()):
+            def change(state):
+                for op in (state.get("hud_layout") or {}).values():
+                    g = by_pid.get(int(op.get("path_id", -1)))
+                    if g:
+                        op["mode"], op["child_ids"] = g.get("mode", "self"), g.get("child_ids", [])
+            mutate_state(change, "HUD size", progress)
+            return f"Found {len(groups)} HUD groups and updated your HUD sizes."
         return f"Found {len(groups)} HUD groups."
     return start_job("scan", job, label="Finding the HUD")
 
@@ -5121,7 +5141,8 @@ def apply_hud_sizes(sizes):
                 layout.pop(key, None)
             else:
                 layout[key] = {"source_file": src, "relative_file": rel,
-                               "path_id": int(g["path_id"]), "name": g["name"], "pct": pct}
+                               "path_id": int(g["path_id"]), "name": g["name"], "pct": pct,
+                               "mode": g.get("mode", "self"), "child_ids": g.get("child_ids", [])}
     def job(progress):
         mutate_state(change, "HUD size", progress)
         return "HUD size applied. It shows the next time PG3D starts."
@@ -7136,6 +7157,81 @@ def cleanup():
         pass
 
 
+LSREGISTER = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+
+
+def _stale_app_paths(dump_text, current):
+    """Other copies of the client macOS still has registered (old downloads, update
+    staging, translocated launches): they show up as extra apps in the Dock's recent
+    apps, Launchpad and Spotlight."""
+    out = set()
+    for m in re.finditer(r"^path:\s+(.+?\.app)(?:\s+\(0x[0-9a-fA-F]+\))?\s*$", dump_text, re.M):
+        p = m.group(1).strip()
+        if Path(p).name.startswith("PG3D Mac Client") and os.path.realpath(p) != os.path.realpath(current):
+            out.add(p)
+    return sorted(out)
+
+
+def _clean_dock_recents(current):
+    """Drop the Dock's recent-app entries for other client copies; keep the real one."""
+    try:
+        raw = subprocess.run(["/usr/bin/defaults", "export", "com.apple.dock", "-"], capture_output=True,
+                             timeout=10).stdout
+        dock = plistlib.loads(raw)
+    except Exception:
+        return 0
+    cur_url = "file://" + quote(os.path.realpath(current).rstrip("/")) + "/"
+
+    def url(e):
+        return str(((e.get("tile-data") or {}).get("file-data") or {}).get("_CFURLString", ""))
+
+    removed, kept = 0, False
+    for key in ("recent-apps", "persistent-apps"):
+        items = dock.get(key) or []
+        new = []
+        for e in items:
+            u = url(e)
+            if "PG3D%20Mac%20Client" in u or "PG3D Mac Client" in u:
+                is_current = u.rstrip("/") + "/" == cur_url
+                gone = u.startswith("file://") and not Path(unquote(u[7:])).exists()
+                # recents: keep only the real app once; pinned: drop only copies that no longer exist
+                if (key == "recent-apps" and (not is_current or kept)) or (key == "persistent-apps" and gone):
+                    removed += 1
+                    continue
+                kept = kept or (key == "recent-apps" and is_current)
+            new.append(e)
+        dock[key] = new
+    if removed:
+        try:
+            subprocess.run(["/usr/bin/defaults", "import", "com.apple.dock", "-"], input=plistlib.dumps(dock),
+                           capture_output=True, timeout=10)
+            subprocess.run(["/usr/bin/killall", "Dock"], capture_output=True, timeout=10)
+        except Exception:
+            return 0
+    return removed
+
+
+def cleanup_old_app_copies():
+    """Once per version: unregister stale client copies from macOS and tidy the Dock."""
+    current = os.environ.get("PG3D_APP_BUNDLE") or ""
+    marker = STATE_DIR / f"copies-cleaned-{APP_VERSION}"
+    if not current.endswith(".app") or marker.exists() or not Path(LSREGISTER).exists():
+        return
+    time.sleep(20)
+    try:
+        dump = subprocess.run([LSREGISTER, "-dump"], capture_output=True, text=True, errors="ignore",
+                              timeout=120).stdout
+        stale = _stale_app_paths(dump, current)
+        for p in stale:
+            subprocess.run([LSREGISTER, "-u", p], capture_output=True, timeout=30)
+        dock = _clean_dock_recents(current)
+        if stale or dock:
+            log(f"Removed {len(stale)} old client copies from macOS's app list and {dock} from the Dock.")
+        marker.write_text(datetime.now().isoformat(timespec="seconds"))
+    except Exception as e:
+        log(f"Old client copies cleanup failed: {e}")
+
+
 def main():
     port = 38435
     if len(sys.argv) > 1:
@@ -7158,6 +7254,7 @@ def main():
     threading.Thread(target=ember_sync_watch, daemon=True).start()
     threading.Thread(target=mods_reapply_watch, daemon=True).start()
     threading.Thread(target=retire_removed_mods, daemon=True).start()
+    threading.Thread(target=cleanup_old_app_copies, daemon=True).start()
     threading.Thread(target=repair_texture_targets, daemon=True).start()
     global WIN_WATCHER
     WIN_WATCHER = ranks.WinWatcher(win_config, _on_auto_win, game_running, log)
