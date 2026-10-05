@@ -887,7 +887,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="cursor"><span class="ico">＋</span><span class="label">Cursor</span></button>
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
       <button data-tab="theme"><span class="ico">Aa</span><span class="label">Font</span></button>
-      <button data-tab="sky"><span class="ico">▣</span><span class="label">Loading</span></button>
       <button data-tab="textures"><span class="ico">▤</span><span class="label">Textures</span></button>
     </nav>
     <nav class="nav navBottom">
@@ -1159,8 +1158,8 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <section class="page" id="page-textures">
       <div class="xPage">
         <div class="crCard">
-          <div class="crCardHead"><div class="curSeg" id="txSeg"><button data-c="cursor" class="active">Cursor</button><button data-c="loading">Loading screen</button></div><button class="btn" id="txScan">Scan game files</button></div>
-          <p class="xNote">Every texture in PG3D, sorted into mouse cursor and loading screen. Select the ones you want and press Use selected: the cursor uses your pick, and your loading picture goes onto exactly the textures you selected.</p>
+          <div class="crCardHead"><div class="curSeg" id="txSeg"><button data-c="cursor" class="active">Cursor</button></div><button class="btn" id="txScan">Scan game files</button></div>
+          <p class="xNote">Every texture in PG3D that could be the mouse cursor. Select one and press Use selected: the cursor uses your pick.</p>
           <div class="xJob" id="txJob"><div class="msg"></div><div class="bar"><i></i></div></div>
           <div class="xRow" style="margin:10px 0;gap:8px"><input class="search" id="txSearch" placeholder="Filter by name or file" spellcheck="false" style="flex:1"><div class="curSeg" id="txScope"><button data-s="sug" class="active">Suggested</button><button data-s="all">All textures</button><button data-s="sel">Selected</button></div></div>
           <div class="fdGrid" id="txGrid"></div>
@@ -1170,7 +1169,8 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <section class="page" id="page-sky">
+    <!-- Sky / loading screens were removed (1.57/1.58); the page stays unreachable so its script keeps working. -->
+    <section class="page" id="page-sky" hidden>
       <div class="xPage">
         <div class="crCard">
           <div class="crCardHead"><h3 class="skModeSeg">Loading screen</h3><span class="xPill" id="skActive"></span></div>
@@ -1268,7 +1268,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',sky:'Loading screen',textures:'Textures',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',textures:'Textures',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 async function api(path,opts={}){const r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Math.round(sec/60)} min`}
@@ -1744,7 +1744,7 @@ function renderSettings(){
   renderGithubRow(u.github||{});
   const tg=$('#updToggles');tg.innerHTML='';const pr=u.prefs||{};
   tg.append(toggleRow('Install updates automatically','New versions install and restart the client, never mid-game',pr.auto_install,async()=>{settingsData=await post('/api/settings/updates',{auto_install:!pr.auto_install});renderSettings()}));
-  tg.append(toggleRow('Re-apply mods after PG3D updates','Puts your cursor, sky, loading screen and font back by themselves',statusData?.reapply_mods!==false,async()=>{try{await post('/api/prefs/reapply',{on:statusData?.reapply_mods===false});await refreshStatus();renderSettings()}catch(e){toast(e.message,true)}}));
+  tg.append(toggleRow('Re-apply mods after PG3D updates','Puts your cursor and font back by themselves',statusData?.reapply_mods!==false,async()=>{try{await post('/api/prefs/reapply',{on:statusData?.reapply_mods===false});await refreshStatus();renderSettings()}catch(e){toast(e.message,true)}}));
   tg.append(toggleRow('Clean up downloads','Moves downloaded installers and old versions to the Trash',pr.auto_clean,async()=>{settingsData=await post('/api/settings/updates',{auto_clean:!pr.auto_clean});renderSettings()}));
   $('#updCleaned').textContent=(u.cleaned||[]).length?`Recently moved to the Trash: ${u.cleaned.slice(0,3).join(', ')}${u.cleaned.length>3?` and ${u.cleaned.length-3} more`:''}.`:'';
   const s=d.setup||{},rows=$('#setupRows');rows.innerHTML='';
@@ -2195,7 +2195,7 @@ function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',pick
   if($p('Use'))$p('Use').onclick=async()=>{try{await post('/api/finder/picks',{cat:F.cat,ids:[...F.picks[F.cat]]});const r=await post('/api/finder/use',{cat:F.cat});
     toast(F.cat==='cursor'?`Your cursor now uses ${r.target}.`:r.applied?`Applying your ${F.cat==='sky'?'sky':'loading screen'} to the ${r.count} selected textures…`:`Saved. Pick a picture in the Loading tab and apply it; it goes onto these ${r.count} textures.`);await refreshStatus();scheduleStatus();loadSky()}catch(e){toast(e.message,true)}};
   return F}
-const TX=makeFinder('tx',['cursor','loading']);
+const TX=makeFinder('tx',['cursor']);
 </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-PG3D Mac Client 1.57.0
+PG3D Mac Client 1.58.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,11 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.58
+Removed   Custom loading screens are gone too. One you applied is taken out of
+          the game files automatically the next time PG3D is closed. The
+          Textures tab now only picks the cursor.
 
 New in 1.57
 Removed   The custom sky and the GUI Finder are gone. A sky you applied is
