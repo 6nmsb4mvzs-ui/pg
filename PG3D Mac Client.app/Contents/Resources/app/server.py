@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.54.0"
+APP_VERSION = "1.55.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -932,6 +932,27 @@ def push_history(before, after, label):
     save_mods(after)
 
 
+def _source_sig(state, src):
+    """Everything that decides how one game file is rebuilt."""
+    sig = {}
+    c = state.get("cursor")
+    if c and (c.get("target") or {}).get("source_file") == src:
+        sig["cursor"] = c
+    sig["gui"] = sorted((json.dumps(op, sort_keys=True, default=str) for op in all_operations_for_source(state, src)))
+    theme = state.get("theme")
+    if theme and src in (theme.get("targets") or {}):
+        sig["theme"] = [theme.get("preset"), theme.get("strength"), theme["targets"][src]]
+    for key in ("skybox", "loading", "font"):
+        v = state.get(key)
+        if not v:
+            continue
+        mine = [t for t in v.get("targets", []) if t.get("source_file") == src]
+        if mine:
+            params = {k: val for k, val in v.items() if k not in ("targets", "targets_v", "custom")}
+            sig[key] = [params, sorted(int(t["path_id"]) for t in mine)]
+    return json.dumps(sig, sort_keys=True, default=str)
+
+
 def sources_for_state(state):
     out = set()
     c = state.get("cursor")
@@ -1248,221 +1269,308 @@ def _load_sky_image(sky):
     return Image.open(path).convert("RGBA")
 
 
+_ENC_CACHE = {}
+
+
+def set_texture_cached(data, key, make_image):
+    """Put an image into a Texture2D like UnityPy's set_image, but compress each
+    (picture, size, format) only once: a loading screen covers hundreds of
+    textures that mostly share a few sizes and formats."""
+    from UnityPy.export import Texture2DConverter
+
+    platform = data.object_reader.platform if getattr(data, "object_reader", None) is not None else 0
+    fmt = data.m_TextureFormat
+    ck = (key, int(data.m_Width), int(data.m_Height), int(fmt), int(platform))
+    hit = _ENC_CACHE.get(ck)
+    if hit is None:
+        img = make_image()
+        enc, tex_format = Texture2DConverter.image_to_texture2d(img, fmt, platform, data.m_PlatformBlob)
+        hit = (enc, tex_format, img.width, img.height)
+        if len(_ENC_CACHE) > 24:
+            _ENC_CACHE.clear()
+        _ENC_CACHE[ck] = hit
+    enc, tex_format, w, h = hit
+    data.m_Width, data.m_Height = w, h
+    if getattr(data, "m_MipMap", None) is not None:
+        data.m_MipMap = False
+    if getattr(data, "m_MipCount", None) is not None:
+        data.m_MipCount = 1
+    data.image_data = enc
+    data.m_CompleteImageSize = len(enc)
+    data.m_TextureFormat = tex_format
+    if getattr(data, "m_StreamData", None) is not None:
+        data.m_StreamData.path = ""
+        data.m_StreamData.offset = 0
+        data.m_StreamData.size = 0
+
+
+def _rebuild_worker(args):
+    source_str, state = args
+    _rebuild_one(source_str, state)
+    return source_str
+
+
+def _rebuild_many(ordered, state, progress=None):
+    """Rebuild files in parallel (UnityPy is pure Python, so one process per core)."""
+    total = max(1, len(ordered))
+    workers = min(len(ordered), max(1, min(6, (os.cpu_count() or 2) - 1)))
+    size = sum(Path(p).stat().st_size for p in ordered if Path(p).exists())
+    if os.environ.get("PG3D_REBUILD_SERIAL") or size < 64 * 1024 * 1024:
+        workers = 1  # starting worker processes costs ~2 s: only worth it for big rebuilds
+    if workers <= 1:
+        for i, src in enumerate(ordered, 1):
+            if progress:
+                progress((i - 1) / total, f"Rebuilding game files ({i}/{total})…")
+            _rebuild_one(src, state)
+        return
+    import concurrent.futures as cf
+    import multiprocessing as mp
+    done = 0
+    try:
+        ctx = mp.get_context("spawn")
+        with cf.ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as pool:
+            # The biggest files first, so the slowest one doesn't start last.
+            order = sorted(ordered, key=lambda p: -(Path(p).stat().st_size if Path(p).exists() else 0))
+            futures = [pool.submit(_rebuild_worker, (src, state)) for src in order]
+            for fut in cf.as_completed(futures):
+                fut.result()  # re-raise the first failure
+                done += 1
+                if progress:
+                    progress(done / total, f"Rebuilding game files ({done}/{total}, {workers} at once)…")
+    except (OSError, ImportError, cf.process.BrokenProcessPool) as e:
+        log(f"Parallel rebuild unavailable ({e}); rebuilding one by one")
+        for i, src in enumerate(ordered, 1):
+            if progress:
+                progress((i - 1) / total, f"Rebuilding game files ({i}/{total})…")
+            _rebuild_one(src, state)
+
+
 def rebuild_sources(source_strings, state=None, progress=None):
     if game_running():
         raise RuntimeError("Close Pixel Gun 3D before applying or resetting asset changes.")
     state = state or load_mods()
+    ordered = sorted(set(source_strings))
+    _rebuild_many(ordered, state, progress)
+    if progress:
+        progress(1.0, "Done.")
+
+
+def _rebuild_one(source_str, state):
+    """Rebuild one game file from its original with every change that belongs in it."""
     theme = state.get("theme") or None
     sky = state.get("skybox") or None
     sky_image = None
-    ordered = sorted(set(source_strings))
-    for index, source_str in enumerate(ordered, 1):
-        if progress:
-            progress((index - 1) / max(1, len(ordered)), f"Rebuilding game files ({index}/{len(ordered)})…")
-        source = Path(source_str)
-        if not source.exists():
-            log(f"Skipping missing asset during rebuild: {source}")
-            continue
-        manifest = ensure_baseline(source)
-        original = Path(manifest["original"])
-        needs_cursor = bool(state.get("cursor") and state["cursor"].get("target", {}).get("source_file") == source_str)
-        gui_ops = all_operations_for_source(state, source_str)
-        sky_ops = [t for t in (sky or {}).get("targets", []) if t.get("source_file") == source_str]
-        sky_pids = {int(t["path_id"]) for t in sky_ops}
-        load_cfg = state.get("loading") or None
-        load_ops = [t for t in (load_cfg or {}).get("targets", []) if t.get("source_file") == source_str]
-        sky_pids |= {int(t["path_id"]) for t in load_ops}
-        theme_pids = {int(x) for x in (theme or {}).get("targets", {}).get(source_str, [])} - sky_pids
-        if needs_cursor and state["cursor"]["target"].get("object_type") == "Texture2D":
-            theme_pids.discard(int(state["cursor"]["target"]["path_id"]))
-        if sky_ops and sky_image is None:
-            sky_image = _load_sky_image(sky)
-        font_ops = [t for t in ((state.get("font") or {}).get("targets") or []) if t.get("source_file") == source_str]
-        if not needs_cursor and not gui_ops and not theme_pids and not sky_ops and not load_ops and not font_ops:
-            shutil.copy2(original, source)
-            manifest["last_mod_sha256"] = None
-            manifest["restored"] = datetime.now().isoformat(timespec="seconds")
-            write_manifest(source, manifest)
-            continue
-
+    source = Path(source_str)
+    if not source.exists():
+        log(f"Skipping missing asset during rebuild: {source}")
+        return
+    manifest = ensure_baseline(source)
+    original = Path(manifest["original"])
+    needs_cursor = bool(state.get("cursor") and state["cursor"].get("target", {}).get("source_file") == source_str)
+    gui_ops = all_operations_for_source(state, source_str)
+    sky_ops = [t for t in (sky or {}).get("targets", []) if t.get("source_file") == source_str]
+    sky_pids = {int(t["path_id"]) for t in sky_ops}
+    load_cfg = state.get("loading") or None
+    load_ops = [t for t in (load_cfg or {}).get("targets", []) if t.get("source_file") == source_str]
+    sky_pids |= {int(t["path_id"]) for t in load_ops}
+    theme_pids = {int(x) for x in (theme or {}).get("targets", {}).get(source_str, [])} - sky_pids
+    if needs_cursor and state["cursor"]["target"].get("object_type") == "Texture2D":
+        theme_pids.discard(int(state["cursor"]["target"]["path_id"]))
+    if sky_ops and sky_image is None:
+        sky_image = _load_sky_image(sky)
+    font_ops = [t for t in ((state.get("font") or {}).get("targets") or []) if t.get("source_file") == source_str]
+    if not needs_cursor and not gui_ops and not theme_pids and not sky_ops and not load_ops and not font_ops:
         shutil.copy2(original, source)
-        try:
-            env = UnityPy.load(str(source))
-            atlas_cache = {}  # texture path id -> {reader,data,image,orig,dirty}
+        manifest["last_mod_sha256"] = None
+        manifest["restored"] = datetime.now().isoformat(timespec="seconds")
+        write_manifest(source, manifest)
+        return
 
-            def themed(img):
-                return customize.recolor_image(img, theme["preset"], theme.get("strength", 0.85))
+    shutil.copy2(original, source)
+    try:
+        env = UnityPy.load(str(source))
+        _by_pid = {}
 
-            def atlas_entry(tex_reader):
-                pid = int(tex_reader.path_id)
-                if pid not in atlas_cache:
-                    data = tex_reader.parse_as_object()
-                    image = data.image.convert("RGBA")
-                    entry = {"reader": tex_reader, "data": data, "image": image, "orig": image, "dirty": False}
-                    if pid in theme_pids:
-                        # Recolour the whole atlas first; cursor/GUI edits are
-                        # composited on top. "orig" keeps sprite lookup exact.
-                        entry["orig"] = image.copy()
-                        entry["image"] = themed(image)
-                        entry["dirty"] = True
-                    atlas_cache[pid] = entry
-                return atlas_cache[pid]
+        def _find(pid):
+            if not _by_pid:
+                _by_pid.update({int(o.path_id): o for o in env.objects})
+            return _by_pid.get(int(pid))
+        atlas_cache = {}  # texture path id -> {reader,data,image,orig,dirty}
 
-            # Cursor operation first.
-            if needs_cursor:
-                c = state["cursor"]
-                target = c["target"]
-                reader = find_reader(env, int(target["path_id"]))
-                if reader is None:
-                    raise RuntimeError("Cursor asset #3 moved. Use Re-detect Cursor Asset.")
-                icon = styled_cursor_icon(c["cursor"], c.get("color"), c.get("outline"), c.get("outline_width", 0))
-                pct = float(c["size"])
-                if target["object_type"] == "Texture2D":
-                    tex = reader.parse_as_object()
-                    old = tex.image.convert("RGBA")
-                    tex.image = fit_cursor(icon, old.size, pct, target.get("visible_bbox"))
-                    save_parsed_object(tex, reader)
-                elif target["object_type"] == "Sprite":
-                    spr = reader.parse_as_object()
-                    old_sprite = spr.image.convert("RGBA")
-                    tr, r = sprite_texture(spr)
-                    if tr is None:
-                        raise RuntimeError("Cursor sprite texture atlas could not be resolved.")
-                    entry = atlas_entry(tr)
-                    x, y, w, h = sprite_xy(entry["orig"], old_sprite, [r.x, r.y, r.width, r.height])
-                    entry["image"].paste((0, 0, 0, 0), (x, y, x + w, y + h))
-                    entry["image"].alpha_composite(fit_cursor(icon, (w, h), pct, target.get("visible_bbox")), (x, y))
+        def themed(img):
+            return customize.recolor_image(img, theme["preset"], theme.get("strength", 0.85))
+
+        def atlas_entry(tex_reader):
+            pid = int(tex_reader.path_id)
+            if pid not in atlas_cache:
+                data = tex_reader.parse_as_object()
+                image = data.image.convert("RGBA")
+                entry = {"reader": tex_reader, "data": data, "image": image, "orig": image, "dirty": False}
+                if pid in theme_pids:
+                    # Recolour the whole atlas first; cursor/GUI edits are
+                    # composited on top. "orig" keeps sprite lookup exact.
+                    entry["orig"] = image.copy()
+                    entry["image"] = themed(image)
                     entry["dirty"] = True
-                else:
-                    raise RuntimeError("Unsupported cursor asset type.")
+                atlas_cache[pid] = entry
+            return atlas_cache[pid]
 
-            # GUI sprite operations. Last operation for a path ID wins.
-            merged = {}
-            for op in gui_ops:
-                merged[int(op["path_id"])] = op
-            for path_id, op in merged.items():
-                reader = find_reader(env, path_id)
-                if reader is not None and reader.type.name == "Texture2D" and op.get("finder"):
-                    # A standalone GUI texture (picked in Finder): shrink or hide it in place.
-                    tex = reader.parse_as_object()
-                    img = tex.image.convert("RGBA")
-                    if op.get("hidden"):
-                        img = Image.new("RGBA", img.size, (0, 0, 0, 0))
-                    else:
-                        img = scale_sprite_about_pivot(img, max(10.0, min(100.0, float(op.get("scale", 100)))), 0.5, 0.5)
-                    tex.image = img
-                    save_parsed_object(tex, reader)
-                    continue
-                if reader is None or reader.type.name != "Sprite":
-                    log(f"GUI asset path {path_id} moved or is not a Sprite; skipped")
-                    continue
+        # Cursor operation first.
+        if needs_cursor:
+            c = state["cursor"]
+            target = c["target"]
+            reader = _find(int(target["path_id"]))
+            if reader is None:
+                raise RuntimeError("Cursor asset #3 moved. Use Re-detect Cursor Asset.")
+            icon = styled_cursor_icon(c["cursor"], c.get("color"), c.get("outline"), c.get("outline_width", 0))
+            pct = float(c["size"])
+            if target["object_type"] == "Texture2D":
+                tex = reader.parse_as_object()
+                old = tex.image.convert("RGBA")
+                tex.image = fit_cursor(icon, old.size, pct, target.get("visible_bbox"))
+                save_parsed_object(tex, reader)
+            elif target["object_type"] == "Sprite":
                 spr = reader.parse_as_object()
                 old_sprite = spr.image.convert("RGBA")
                 tr, r = sprite_texture(spr)
                 if tr is None:
-                    log(f"GUI asset path {path_id} has unresolved texture; skipped")
-                    continue
+                    raise RuntimeError("Cursor sprite texture atlas could not be resolved.")
                 entry = atlas_entry(tr)
                 x, y, w, h = sprite_xy(entry["orig"], old_sprite, [r.x, r.y, r.width, r.height])
                 entry["image"].paste((0, 0, 0, 0), (x, y, x + w, y + h))
-                hidden = bool(op.get("hidden", False))
-                rep = op.get("replace")
-                if rep and not hidden:
-                    try:
-                        if rep.get("file"):
-                            icon = Image.open(ROLE_DIR / op.get("role", "") / Path(rep["file"]).name).convert("RGBA")
-                        else:
-                            icon = styled_cursor_icon(rep["cursor"], rep.get("color"), rep.get("outline"), rep.get("outline_width", 0))
-                        entry["image"].alpha_composite(fit_cursor(icon, (w, h), float(rep.get("size", 90))), (x, y))
-                    except Exception as e:
-                        log(f"Sprite swap skipped for {path_id}: {e}")
-                        entry["image"].alpha_composite(old_sprite.resize((w, h)) if old_sprite.size != (w, h) else old_sprite, (x, y))
-                elif not hidden:
-                    scale = max(10.0, min(100.0, float(op.get("scale", 100))))
-                    px = float(op.get("pivot_x", 0.5))
-                    py = float(op.get("pivot_y", 0.5))
-                    if int(tr.path_id) in theme_pids:
-                        old_sprite = themed(old_sprite)
-                    changed = scale_sprite_about_pivot(old_sprite, scale, px, py)
-                    if changed.size != (w, h):
-                        changed = changed.resize((w, h), Image.Resampling.LANCZOS)
-                    entry["image"].alpha_composite(changed, (x, y))
+                entry["image"].alpha_composite(fit_cursor(icon, (w, h), pct, target.get("visible_bbox")), (x, y))
                 entry["dirty"] = True
+            else:
+                raise RuntimeError("Unsupported cursor asset type.")
 
-            # Theme: every remaining GUI texture in this file.
-            if theme_pids:
-                readers = {int(o.path_id): o for o in env.objects}
-                for pid in sorted(theme_pids):
-                    reader = readers.get(pid)
-                    if reader is None or reader.type.name != "Texture2D":
-                        continue
-                    try:
-                        atlas_entry(reader)
-                    except Exception as e:
-                        log(f"Theme skipped texture {pid} in {source.name}: {e}")
-
-            # Skybox textures.
-            skipped = {}
-            for t in sky_ops:
-                reader = find_reader(env, int(t["path_id"]))
-                if reader is None:
-                    skipped["sky textures"] = skipped.get("sky textures", 0) + 1
-                    continue
-                data = reader.parse_as_object()
-                if reader.type.name == "Cubemap":
-                    size = int(data.m_Width) or int(t.get("width", 512))
-                    faces = customize.cubemap_faces(sky_image, size, sky.get("yaw", 0), sky.get("swap_lr", False))
-                    customize.write_cubemap(data, faces, flip=not sky.get("flip", False))
+        # GUI sprite operations. Last operation for a path ID wins.
+        merged = {}
+        for op in gui_ops:
+            merged[int(op["path_id"])] = op
+        for path_id, op in merged.items():
+            reader = _find(path_id)
+            if reader is not None and reader.type.name == "Texture2D" and op.get("finder"):
+                # A standalone GUI texture (picked in Finder): shrink or hide it in place.
+                tex = reader.parse_as_object()
+                img = tex.image.convert("RGBA")
+                if op.get("hidden"):
+                    img = Image.new("RGBA", img.size, (0, 0, 0, 0))
                 else:
-                    img = customize.sky_image_for({**t, "width": data.m_Width, "height": data.m_Height},
+                    img = scale_sprite_about_pivot(img, max(10.0, min(100.0, float(op.get("scale", 100)))), 0.5, 0.5)
+                tex.image = img
+                save_parsed_object(tex, reader)
+                continue
+            if reader is None or reader.type.name != "Sprite":
+                log(f"GUI asset path {path_id} moved or is not a Sprite; skipped")
+                continue
+            spr = reader.parse_as_object()
+            old_sprite = spr.image.convert("RGBA")
+            tr, r = sprite_texture(spr)
+            if tr is None:
+                log(f"GUI asset path {path_id} has unresolved texture; skipped")
+                continue
+            entry = atlas_entry(tr)
+            x, y, w, h = sprite_xy(entry["orig"], old_sprite, [r.x, r.y, r.width, r.height])
+            entry["image"].paste((0, 0, 0, 0), (x, y, x + w, y + h))
+            hidden = bool(op.get("hidden", False))
+            rep = op.get("replace")
+            if rep and not hidden:
+                try:
+                    if rep.get("file"):
+                        icon = Image.open(ROLE_DIR / op.get("role", "") / Path(rep["file"]).name).convert("RGBA")
+                    else:
+                        icon = styled_cursor_icon(rep["cursor"], rep.get("color"), rep.get("outline"), rep.get("outline_width", 0))
+                    entry["image"].alpha_composite(fit_cursor(icon, (w, h), float(rep.get("size", 90))), (x, y))
+                except Exception as e:
+                    log(f"Sprite swap skipped for {path_id}: {e}")
+                    entry["image"].alpha_composite(old_sprite.resize((w, h)) if old_sprite.size != (w, h) else old_sprite, (x, y))
+            elif not hidden:
+                scale = max(10.0, min(100.0, float(op.get("scale", 100))))
+                px = float(op.get("pivot_x", 0.5))
+                py = float(op.get("pivot_y", 0.5))
+                if int(tr.path_id) in theme_pids:
+                    old_sprite = themed(old_sprite)
+                changed = scale_sprite_about_pivot(old_sprite, scale, px, py)
+                if changed.size != (w, h):
+                    changed = changed.resize((w, h), Image.Resampling.LANCZOS)
+                entry["image"].alpha_composite(changed, (x, y))
+            entry["dirty"] = True
+
+        # Theme: every remaining GUI texture in this file.
+        if theme_pids:
+            readers = {int(o.path_id): o for o in env.objects}
+            for pid in sorted(theme_pids):
+                reader = readers.get(pid)
+                if reader is None or reader.type.name != "Texture2D":
+                    continue
+                try:
+                    atlas_entry(reader)
+                except Exception as e:
+                    log(f"Theme skipped texture {pid} in {source.name}: {e}")
+
+        # Skybox textures.
+        skipped = {}
+        for t in sky_ops:
+            reader = _find(int(t["path_id"]))
+            if reader is None:
+                skipped["sky textures"] = skipped.get("sky textures", 0) + 1
+                continue
+            data = reader.parse_as_object()
+            if reader.type.name == "Cubemap":
+                size = int(data.m_Width) or int(t.get("width", 512))
+                faces = customize.cubemap_faces(sky_image, size, sky.get("yaw", 0), sky.get("swap_lr", False))
+                customize.write_cubemap(data, faces, flip=not sky.get("flip", False))
+            else:
+                def make(d=data, t=t):
+                    img = customize.sky_image_for({**t, "width": d.m_Width, "height": d.m_Height},
                                                   sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
-                    if sky.get("flip"):
-                        img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-                    data.image = img
-                save_parsed_object(data, reader)
+                    return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if sky.get("flip") else img
+                set_texture_cached(data, ("sky", sky.get("image"), sky.get("yaw", 0), sky.get("swap_lr"), sky.get("flip"),
+                                          t.get("face")), make)
+            save_parsed_object(data, reader)
 
-            # Loading screens: the picked image, filling the texture like CSS cover.
-            if load_ops:
-                load_img = _load_sky_image(load_cfg)
-                for t in load_ops:
-                    reader = find_reader(env, int(t["path_id"]))
-                    if reader is None or reader.type.name != "Texture2D":
-                        skipped["loading screens"] = skipped.get("loading screens", 0) + 1
-                        continue
-                    data = reader.parse_as_object()
-                    data.image = customize.cover(load_img, (int(data.m_Width), int(data.m_Height)))
-                    save_parsed_object(data, reader)
-
-            # Font swap.
-            for t in font_ops:
-                reader = find_reader(env, int(t["path_id"]))
-                if reader is None or reader.type.name != "Font":
-                    skipped["fonts"] = skipped.get("fonts", 0) + 1
+        # Loading screens: the picked image, filling the texture like CSS cover.
+        if load_ops:
+            load_img = _load_sky_image(load_cfg)
+            for t in load_ops:
+                reader = _find(int(t["path_id"]))
+                if reader is None or reader.type.name != "Texture2D":
+                    skipped["loading screens"] = skipped.get("loading screens", 0) + 1
                     continue
                 data = reader.parse_as_object()
-                customize.replace_font_data(data, font_bytes(state["font"]))
+                set_texture_cached(data, ("load", load_cfg.get("image")),
+                                   lambda d=data: customize.cover(load_img, (int(d.m_Width), int(d.m_Height))))
                 save_parsed_object(data, reader)
 
-            if skipped:
-                log(f"{source.name}: not found, skipped " + ", ".join(f"{n} {k}" for k, n in skipped.items())
-                    + " (rescan in Settings if this stays)")
-            for entry in atlas_cache.values():
-                if entry["dirty"]:
-                    entry["data"].image = entry["image"]
-                    save_parsed_object(entry["data"], entry["reader"])
+        # Font swap.
+        for t in font_ops:
+            reader = _find(int(t["path_id"]))
+            if reader is None or reader.type.name != "Font":
+                skipped["fonts"] = skipped.get("fonts", 0) + 1
+                continue
+            data = reader.parse_as_object()
+            customize.replace_font_data(data, font_bytes(state["font"]))
+            save_parsed_object(data, reader)
 
-            save_env(env, source)
-        except Exception:
-            shutil.copy2(original, source)
-            raise
+        if skipped:
+            log(f"{source.name}: not found, skipped " + ", ".join(f"{n} {k}" for k, n in skipped.items())
+                + " (rescan in Settings if this stays)")
+        for entry in atlas_cache.values():
+            if entry["dirty"]:
+                entry["data"].image = entry["image"]
+                save_parsed_object(entry["data"], entry["reader"])
 
-        manifest["last_mod_sha256"] = sha256_file(source)
-        manifest["last_mod_stat"] = _file_sig(source)
-        manifest["modified"] = datetime.now().isoformat(timespec="seconds")
-        write_manifest(source, manifest)
+        save_env(env, source)
+    except Exception:
+        shutil.copy2(original, source)
+        raise
+
+    manifest["last_mod_sha256"] = sha256_file(source)
+    manifest["last_mod_stat"] = _file_sig(source)
+    manifest["modified"] = datetime.now().isoformat(timespec="seconds")
+    write_manifest(source, manifest)
     _record_mods_build()
-    if progress:
-        progress(1.0, "Done.")
+
 
 
 def _file_sig(path: Path):
@@ -1548,7 +1656,10 @@ def mutate_state(mutator, label, progress=None):
     before = load_mods()
     after = copy.deepcopy(before)
     mutator(after)
-    affected = sources_for_state(before) | sources_for_state(after)
+    # Only files whose own changes differ: applying a loading screen leaves the
+    # cursor's and sky's files alone (they used to be rebuilt every time).
+    affected = {src for src in sources_for_state(before) | sources_for_state(after)
+                if _source_sig(before, src) != _source_sig(after, src)}
     push_history(before, after, label)
     try:
         rebuild_sources(affected, after, progress)
@@ -1576,7 +1687,8 @@ def undo_change():
     target = entry["state"]
     hist["redo"].append({"state": current, "label": entry.get("label", "Change"), "at": datetime.now().isoformat(timespec="seconds")})
     hist["redo"] = hist["redo"][-25:]
-    affected = sources_for_state(current) | sources_for_state(target)
+    affected = {src for src in sources_for_state(current) | sources_for_state(target)
+                if _source_sig(current, src) != _source_sig(target, src)}
     save_mods(target)
     try:
         rebuild_sources(affected, target)
@@ -1597,7 +1709,8 @@ def redo_change():
     target = entry["state"]
     hist["undo"].append({"state": current, "label": entry.get("label", "Change"), "at": datetime.now().isoformat(timespec="seconds")})
     hist["undo"] = hist["undo"][-25:]
-    affected = sources_for_state(current) | sources_for_state(target)
+    affected = {src for src in sources_for_state(current) | sources_for_state(target)
+                if _source_sig(current, src) != _source_sig(target, src)}
     save_mods(target)
     try:
         rebuild_sources(affected, target)
@@ -4630,7 +4743,16 @@ def _finder_data():
     except OSError:
         return {"items": []}
     if _FINDER_MEM["mtime"] != m:
-        _FINDER_MEM.update(mtime=m, data=read_json(FINDER_JSON, {"items": []}))
+        data = read_json(FINDER_JSON, {"items": []})
+        # GUI suggestions follow the current rules without a new scan.
+        for x in data.get("items", []):
+            gs = customize.gui_view_score(x["name"], x["type"], x["width"], x["height"]) if x["type"] != "Cubemap" else 0
+            x["gs"] = gs
+            cats = [c for c in x.get("cats", []) if c != "gui"]
+            if gs:
+                cats.append("gui")
+            x["cats"] = cats
+        _FINDER_MEM.update(mtime=m, data=data)
     return _FINDER_MEM["data"]
 
 

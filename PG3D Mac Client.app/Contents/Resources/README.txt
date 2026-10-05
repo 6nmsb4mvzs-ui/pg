@@ -1,4 +1,4 @@
-PG3D Mac Client 1.54.0
+PG3D Mac Client 1.55.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,3 +365,13 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.55
+Speed     Applying is much faster: only game files whose own changes differ
+          are rebuilt (a loading screen no longer redoes the cursor's or
+          sky's files), your picture is compressed once per size/format
+          instead of once per texture, textures are found through a lookup
+          table, and big rebuilds use several CPU cores at once.
+GUI       GUI Finder suggestions are only things on screen in a match;
+          avatars, weapons, pets, shop and item art are left out (overlays
+          and scopes stay even when named after a weapon). No rescan needed.

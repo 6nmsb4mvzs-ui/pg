@@ -747,13 +747,29 @@ _VIEW_BLOCKERS = {"vignette": 60, "blood": 55, "damage": 45, "hurt": 45, "injury
                   "shield": 15, "armor": 15, "frame": 15, "border": 20, "banner": 25, "streak": 30, "killstreak": 35,
                   "kill": 20, "feed": 20, "notification": 25, "notify": 25, "popup": 20, "hint": 20, "tutorial": 20,
                   "joystick": 30, "touch": 25, "button": 10, "btn": 10, "crosshair": 15, "reticle": 15, "aim": 15,
-                  "hud": 20, "bar": 10, "ammo": 15, "reload": 15, "timer": 15, "score": 10, "minimap": 20,
+                  "hud": 20, "bar": 10, "ammo": 15, "timer": 15, "score": 10, "minimap": 20,
                   "radar": 20, "compass": 20, "chat": 15, "emote": 20, "mvp": 20, "medal": 20, "achievement": 20,
-                  "ui": 5, "gui": 5, "icon": 3}
+                  "ui": 5, "gui": 5}
+
+
+# Items, cosmetics and shop art are sprites too, but never part of the match HUD.
+_GUI_NOT = {"avatar", "avatars", "skin", "skins", "weapon", "weapons", "gun", "guns", "rifle", "pistol", "shotgun",
+            "sniper", "smg", "minigun", "launcher", "sword", "knife", "blade", "axe", "hammer", "bow", "pet", "pets",
+            "gadget", "gadgets", "hat", "cape", "mask", "boots", "emblem", "flag", "sticker", "graffiti", "lootbox",
+            "chest", "offer", "bundle", "pack", "shop", "store", "preview", "portrait", "character", "hero", "boss",
+            "item", "items", "reward", "coin", "coins", "gem", "gems", "ticket", "season", "event", "roulette",
+            "lottery", "clan", "profile", "rank", "league", "trophy", "achievement", "frame_avatar", "wear", "armor_set",
+            "module", "upgrade", "craft", "recipe", "map", "maps", "lobby", "anim", "animation", "sheet"}
+
+
+_GUI_STRONG = {"vignette", "blood", "overlay", "flash", "flashbang", "scope", "damage", "hurt", "smoke", "fog",
+               "lowhp", "indicator", "splatter"}  # these cover the view even when named after a weapon
 
 
 def gui_view_score(name, typ, w, h):
     words = _words(name)
+    if words & _GUI_NOT and not words & _GUI_STRONG:
+        return 0
     score = sum(v for k, v in _VIEW_BLOCKERS.items() if k in words)
     if score and max(w, h) >= 512:
         score += 20  # big: covers more of the screen
@@ -811,7 +827,7 @@ def finder_scan(files, app: Path, progress=None, log=print):
             if int(obj.path_id) in sky_mat and "sky" not in cats:
                 cats.append("sky")
             gs = gui_view_score(name, typ, w, h) if typ != "Cubemap" else 0
-            if gs or _finder_gui(name, typ, w, h):
+            if gs:
                 cats.append("gui")
             items.append({"gid": len(items), "name": name, "type": typ, "width": w, "height": h,
                           "source_file": str(p), "relative_file": rel, "path_id": int(obj.path_id), "cats": cats,
