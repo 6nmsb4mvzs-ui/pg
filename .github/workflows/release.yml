@@ -34,5 +34,9 @@ jobs:
           zip="PG3D_Mac_Client_v$V.zip"
           # git archive keeps the launcher's executable bits.
           git archive --format=zip -o "$zip" HEAD "PG3D Mac Client.app"
-          notes=$(awk -v hdr="New in ${V%.*}" '$0==hdr{f=1;next} f&&/^New in /{exit} f' "PG3D Mac Client.app/Contents/Resources/README.txt")
+          # The FPS unlocker, mouse fix and launcher are prebuilt binaries; never ship without them.
+          for f in PG3DFPSUnlock.dylib PG3DMouseFix.dylib launch-game; do
+            unzip -l "$zip" | grep -q "fps_unlocker/build/$f" || { echo "Missing fps_unlocker/build/$f"; exit 1; }
+          done
+          notes=$(awk -v hdr="New in ${V%.0}" '$0==hdr{f=1;next} f&&/^New in /{exit} f' "PG3D Mac Client.app/Contents/Resources/README.txt")
           gh release create "v$V" "$zip" --title "PG3D Mac Client $V" --notes "${notes:-Version $V}"

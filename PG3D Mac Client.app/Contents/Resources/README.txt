@@ -1,4 +1,4 @@
-PG3D Mac Client 1.48.0
+PG3D Mac Client 1.48.1
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -255,3 +255,9 @@ Fixes     FPS unlocker works with new PG3D builds: instead of fixed
           actually failed on your build.
           The save-clip key only works while PG3D is the app in front, so
           pressing it in other apps no longer saves clips or shows errors.
+
+New in 1.48.1
+Fixes     The FPS unlocker, the mouse fix and the game launcher were missing
+          from every download since updates moved to GitHub (a build-folder
+          rule kept them out). They're included again, so Start with FPS
+          Unlocker and the mouse fix work.
