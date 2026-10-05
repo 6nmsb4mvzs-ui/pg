@@ -131,14 +131,41 @@ class Shell(NSObject):
         NSApplication.sharedApplication().terminate_(None)
 
 
+def brand_process():
+    """The window runs in Python, which macOS would show as "Python" with Python's
+    rocket icon. Present it as the client instead: its name and its own icon."""
+    name = "PG3D Mac Client"
+    try:
+        from Foundation import NSBundle, NSProcessInfo
+        NSProcessInfo.processInfo().setProcessName_(name)
+        info = NSBundle.mainBundle().infoDictionary()
+        info["CFBundleName"] = name
+        info["CFBundleDisplayName"] = name
+    except Exception:
+        pass
+
+
+def set_app_icon(app):
+    try:
+        from Cocoa import NSImage
+        icon = Path(__file__).resolve().parent.parent / "AppIcon.icns"
+        image = NSImage.alloc().initWithContentsOfFile_(str(icon))
+        if image is not None:
+            app.setApplicationIconImage_(image)
+    except Exception:
+        pass
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit(2)
     pidfile = Path(sys.argv[2]) if len(sys.argv) > 2 else SUPPORT / "shell.pid"
     SUPPORT.mkdir(parents=True, exist_ok=True)
     pidfile.write_text(str(os.getpid()))
+    brand_process()
     try:
         app = NSApplication.sharedApplication()
+        set_app_icon(app)
         app.setActivationPolicy_(NSApplicationActivationPolicyRegular)
         shell = Shell.alloc().initWithURL_(sys.argv[1])
         shell.activate()
@@ -156,4 +183,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        # The window couldn't open: still show the client, in the browser.
+        import subprocess
+        import traceback
+        traceback.print_exc()
+        print("window failed to open; using the browser", flush=True)
+        subprocess.run(["/usr/bin/open", sys.argv[1]])
+        raise SystemExit(1)
