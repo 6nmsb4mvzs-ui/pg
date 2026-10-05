@@ -1,0 +1,791 @@
+{
+"credit": "Sounds by Kenney (kenney.nl), CC0 1.0",
+"sounds": [
+{
+"id": "kb_switch1",
+"name": "Switch 1",
+"group": "Keyboard & switches",
+"len": 0.16
+},
+{
+"id": "kb_switch2",
+"name": "Switch 2",
+"group": "Keyboard & switches",
+"len": 0.131
+},
+{
+"id": "kb_switch4",
+"name": "Switch 4",
+"group": "Keyboard & switches",
+"len": 0.139
+},
+{
+"id": "kb_switch5",
+"name": "Switch 5",
+"group": "Keyboard & switches",
+"len": 0.158
+},
+{
+"id": "kb_switch6",
+"name": "Switch 6",
+"group": "Keyboard & switches",
+"len": 0.141
+},
+{
+"id": "kb_switch7",
+"name": "Switch 7",
+"group": "Keyboard & switches",
+"len": 0.164
+},
+{
+"id": "kb_switch9",
+"name": "Switch 9",
+"group": "Keyboard & switches",
+"len": 0.101
+},
+{
+"id": "kb_switch12",
+"name": "Switch 12",
+"group": "Keyboard & switches",
+"len": 0.047
+},
+{
+"id": "kb_switch14",
+"name": "Switch 14",
+"group": "Keyboard & switches",
+"len": 0.032
+},
+{
+"id": "kb_switch17",
+"name": "Switch 17",
+"group": "Keyboard & switches",
+"len": 0.185
+},
+{
+"id": "kb_switch20",
+"name": "Switch 20",
+"group": "Keyboard & switches",
+"len": 0.19
+},
+{
+"id": "kb_switch22",
+"name": "Switch 22",
+"group": "Keyboard & switches",
+"len": 0.262
+},
+{
+"id": "kb_switch24",
+"name": "Switch 24",
+"group": "Keyboard & switches",
+"len": 0.197
+},
+{
+"id": "kb_switch25",
+"name": "Switch 25",
+"group": "Keyboard & switches",
+"len": 0.23
+},
+{
+"id": "kb_switch26",
+"name": "Switch 26",
+"group": "Keyboard & switches",
+"len": 0.145
+},
+{
+"id": "kb_switch29",
+"name": "Switch 29",
+"group": "Keyboard & switches",
+"len": 0.186
+},
+{
+"id": "kb_switch31",
+"name": "Switch 31",
+"group": "Keyboard & switches",
+"len": 0.26
+},
+{
+"id": "kb_switch33",
+"name": "Switch 33",
+"group": "Keyboard & switches",
+"len": 0.3
+},
+{
+"id": "kb_switch36",
+"name": "Switch 36",
+"group": "Keyboard & switches",
+"len": 0.184
+},
+{
+"id": "kb_switch38",
+"name": "Switch 38",
+"group": "Keyboard & switches",
+"len": 0.265
+},
+{
+"id": "kb_click1",
+"name": "Key click 1",
+"group": "Keyboard & switches",
+"len": 0.082
+},
+{
+"id": "kb_click2",
+"name": "Key click 2",
+"group": "Keyboard & switches",
+"len": 0.046
+},
+{
+"id": "kb_click3",
+"name": "Key click 3",
+"group": "Keyboard & switches",
+"len": 0.05
+},
+{
+"id": "kb_click4",
+"name": "Key click 4",
+"group": "Keyboard & switches",
+"len": 0.034
+},
+{
+"id": "kb_click5",
+"name": "Key click 5",
+"group": "Keyboard & switches",
+"len": 0.03
+},
+{
+"id": "kb_mouse",
+"name": "Mouse click",
+"group": "Keyboard & switches",
+"len": 0.046
+},
+{
+"id": "kb_mouse_up",
+"name": "Mouse release",
+"group": "Keyboard & switches",
+"len": 0.046
+},
+{
+"id": "dp_impactSoft_heavy_0",
+"name": "Soft heavy knock 1",
+"group": "Deep & soft",
+"len": 0.35
+},
+{
+"id": "dp_impactSoft_heavy_1",
+"name": "Soft heavy knock 2",
+"group": "Deep & soft",
+"len": 0.35
+},
+{
+"id": "dp_impactSoft_heavy_2",
+"name": "Soft heavy knock 3",
+"group": "Deep & soft",
+"len": 0.35
+},
+{
+"id": "dp_impactSoft_medium_0",
+"name": "Soft knock 1",
+"group": "Deep & soft",
+"len": 0.115
+},
+{
+"id": "dp_impactSoft_medium_1",
+"name": "Soft knock 2",
+"group": "Deep & soft",
+"len": 0.18
+},
+{
+"id": "dp_impactSoft_medium_2",
+"name": "Soft knock 3",
+"group": "Deep & soft",
+"len": 0.132
+},
+{
+"id": "dp_impactWood_light_0",
+"name": "Light wood knock 1",
+"group": "Deep & soft",
+"len": 0.123
+},
+{
+"id": "dp_impactWood_light_1",
+"name": "Light wood knock 2",
+"group": "Deep & soft",
+"len": 0.263
+},
+{
+"id": "dp_impactWood_light_2",
+"name": "Light wood knock 3",
+"group": "Deep & soft",
+"len": 0.127
+},
+{
+"id": "dp_impactWood_medium_0",
+"name": "Wood knock 1",
+"group": "Deep & soft",
+"len": 0.33
+},
+{
+"id": "dp_impactWood_medium_1",
+"name": "Wood knock 2",
+"group": "Deep & soft",
+"len": 0.33
+},
+{
+"id": "dp_impactWood_medium_2",
+"name": "Wood knock 3",
+"group": "Deep & soft",
+"len": 0.33
+},
+{
+"id": "dp_impactPlank_medium_0",
+"name": "Plank knock 1",
+"group": "Deep & soft",
+"len": 0.192
+},
+{
+"id": "dp_impactPlank_medium_1",
+"name": "Plank knock 2",
+"group": "Deep & soft",
+"len": 0.212
+},
+{
+"id": "dp_impactPlank_medium_2",
+"name": "Plank knock 3",
+"group": "Deep & soft",
+"len": 0.215
+},
+{
+"id": "dp_impactPunch_medium_0",
+"name": "Dull thud 1",
+"group": "Deep & soft",
+"len": 0.282
+},
+{
+"id": "dp_impactPunch_medium_1",
+"name": "Dull thud 2",
+"group": "Deep & soft",
+"len": 0.265
+},
+{
+"id": "dp_impactPunch_medium_2",
+"name": "Dull thud 3",
+"group": "Deep & soft",
+"len": 0.347
+},
+{
+"id": "dp_impactGeneric_light_0",
+"name": "Light tap 1",
+"group": "Deep & soft",
+"len": 0.14
+},
+{
+"id": "dp_impactGeneric_light_1",
+"name": "Light tap 2",
+"group": "Deep & soft",
+"len": 0.115
+},
+{
+"id": "dp_impactGeneric_light_2",
+"name": "Light tap 3",
+"group": "Deep & soft",
+"len": 0.143
+},
+{
+"id": "dp_book1",
+"name": "Book place 1",
+"group": "Deep & soft",
+"len": 0.183
+},
+{
+"id": "dp_book2",
+"name": "Book place 2",
+"group": "Deep & soft",
+"len": 0.228
+},
+{
+"id": "dp_book3",
+"name": "Book place 3",
+"group": "Deep & soft",
+"len": 0.222
+},
+{
+"id": "ui_click1",
+"name": "Click 1",
+"group": "Interface clicks",
+"len": 0.041
+},
+{
+"id": "ui_click2",
+"name": "Click 2",
+"group": "Interface clicks",
+"len": 0.012
+},
+{
+"id": "ui_click3",
+"name": "Click 3",
+"group": "Interface clicks",
+"len": 0.007
+},
+{
+"id": "ui_click4",
+"name": "Click 4",
+"group": "Interface clicks",
+"len": 0.01
+},
+{
+"id": "ui_click5",
+"name": "Click 5",
+"group": "Interface clicks",
+"len": 0.007
+},
+{
+"id": "ui_tick1",
+"name": "Tick 1",
+"group": "Interface clicks",
+"len": 0.011
+},
+{
+"id": "ui_tick2",
+"name": "Tick 2",
+"group": "Interface clicks",
+"len": 0.02
+},
+{
+"id": "ui_tick4",
+"name": "Tick 4",
+"group": "Interface clicks",
+"len": 0.031
+},
+{
+"id": "ui_toggle1",
+"name": "Toggle 1",
+"group": "Interface clicks",
+"len": 0.101
+},
+{
+"id": "ui_toggle2",
+"name": "Toggle 2",
+"group": "Interface clicks",
+"len": 0.1
+},
+{
+"id": "ui_toggle3",
+"name": "Toggle 3",
+"group": "Interface clicks",
+"len": 0.101
+},
+{
+"id": "ui_toggle4",
+"name": "Toggle 4",
+"group": "Interface clicks",
+"len": 0.059
+},
+{
+"id": "ui_select1",
+"name": "Select 1",
+"group": "Interface clicks",
+"len": 0.04
+},
+{
+"id": "ui_select2",
+"name": "Select 2",
+"group": "Interface clicks",
+"len": 0.04
+},
+{
+"id": "ui_select3",
+"name": "Select 3",
+"group": "Interface clicks",
+"len": 0.216
+},
+{
+"id": "ui_select4",
+"name": "Select 4",
+"group": "Interface clicks",
+"len": 0.211
+},
+{
+"id": "ui_select5",
+"name": "Select 5",
+"group": "Interface clicks",
+"len": 0.214
+},
+{
+"id": "ui_select6",
+"name": "Select 6",
+"group": "Interface clicks",
+"len": 0.209
+},
+{
+"id": "ui_select7",
+"name": "Select 7",
+"group": "Interface clicks",
+"len": 0.048
+},
+{
+"id": "ui_select8",
+"name": "Select 8",
+"group": "Interface clicks",
+"len": 0.046
+},
+{
+"id": "ui_back1",
+"name": "Back 1",
+"group": "Interface clicks",
+"len": 0.058
+},
+{
+"id": "ui_back2",
+"name": "Back 2",
+"group": "Interface clicks",
+"len": 0.07
+},
+{
+"id": "ui_back3",
+"name": "Back 3",
+"group": "Interface clicks",
+"len": 0.055
+},
+{
+"id": "ui_back4",
+"name": "Back 4",
+"group": "Interface clicks",
+"len": 0.073
+},
+{
+"id": "ui_switch1",
+"name": "Flip switch 1",
+"group": "Interface clicks",
+"len": 0.133
+},
+{
+"id": "ui_switch2",
+"name": "Flip switch 2",
+"group": "Interface clicks",
+"len": 0.138
+},
+{
+"id": "ui_switch4",
+"name": "Flip switch 4",
+"group": "Interface clicks",
+"len": 0.15
+},
+{
+"id": "ui_switch5",
+"name": "Flip switch 5",
+"group": "Interface clicks",
+"len": 0.15
+},
+{
+"id": "ui_switch6",
+"name": "Flip switch 6",
+"group": "Interface clicks",
+"len": 0.137
+},
+{
+"id": "ui_switch7",
+"name": "Flip switch 7",
+"group": "Interface clicks",
+"len": 0.14
+},
+{
+"id": "ui_pluck1",
+"name": "Pluck 1",
+"group": "Interface clicks",
+"len": 0.095
+},
+{
+"id": "ui_pluck2",
+"name": "Pluck 2",
+"group": "Interface clicks",
+"len": 0.126
+},
+{
+"id": "ui_drop1",
+"name": "Drop 1",
+"group": "Interface clicks",
+"len": 0.111
+},
+{
+"id": "ui_drop2",
+"name": "Drop 2",
+"group": "Interface clicks",
+"len": 0.188
+},
+{
+"id": "ui_drop3",
+"name": "Drop 3",
+"group": "Interface clicks",
+"len": 0.188
+},
+{
+"id": "ui_drop4",
+"name": "Drop 4",
+"group": "Interface clicks",
+"len": 0.251
+},
+{
+"id": "mt_latch",
+"name": "Metal latch",
+"group": "Metal & steel",
+"len": 0.169
+},
+{
+"id": "mt_click",
+"name": "Metal click",
+"group": "Metal & steel",
+"len": 0.288
+},
+{
+"id": "mt_belt1",
+"name": "Buckle 1",
+"group": "Metal & steel",
+"len": 0.228
+},
+{
+"id": "mt_belt2",
+"name": "Buckle 2",
+"group": "Metal & steel",
+"len": 0.3
+},
+{
+"id": "mt_impactMetal_light_0",
+"name": "Light metal 1",
+"group": "Metal & steel",
+"len": 0.254
+},
+{
+"id": "mt_impactMetal_light_1",
+"name": "Light metal 2",
+"group": "Metal & steel",
+"len": 0.243
+},
+{
+"id": "mt_impactMetal_light_2",
+"name": "Light metal 3",
+"group": "Metal & steel",
+"len": 0.194
+},
+{
+"id": "mt_impactPlate_light_0",
+"name": "Light plate 1",
+"group": "Metal & steel",
+"len": 0.35
+},
+{
+"id": "mt_impactPlate_light_1",
+"name": "Light plate 2",
+"group": "Metal & steel",
+"len": 0.35
+},
+{
+"id": "mt_impactPlate_light_2",
+"name": "Light plate 3",
+"group": "Metal & steel",
+"len": 0.35
+},
+{
+"id": "mt_impactTin_medium_0",
+"name": "Tin 1",
+"group": "Metal & steel",
+"len": 0.156
+},
+{
+"id": "mt_impactTin_medium_1",
+"name": "Tin 2",
+"group": "Metal & steel",
+"len": 0.171
+},
+{
+"id": "mt_impactTin_medium_2",
+"name": "Tin 3",
+"group": "Metal & steel",
+"len": 0.131
+},
+{
+"id": "bw_draw1",
+"name": "Blade draw 1",
+"group": "Blade & whoosh",
+"len": 0.324
+},
+{
+"id": "bw_draw2",
+"name": "Blade draw 2",
+"group": "Blade & whoosh",
+"len": 0.432
+},
+{
+"id": "bw_draw3",
+"name": "Blade draw 3",
+"group": "Blade & whoosh",
+"len": 0.248
+},
+{
+"id": "bw_slice1",
+"name": "Blade slice 1",
+"group": "Blade & whoosh",
+"len": 0.371
+},
+{
+"id": "bw_slice2",
+"name": "Blade slice 2",
+"group": "Blade & whoosh",
+"len": 0.439
+},
+{
+"id": "bw_open1",
+"name": "Whoosh open 1",
+"group": "Blade & whoosh",
+"len": 0.14
+},
+{
+"id": "bw_open2",
+"name": "Whoosh open 2",
+"group": "Blade & whoosh",
+"len": 0.288
+},
+{
+"id": "bw_open3",
+"name": "Whoosh open 3",
+"group": "Blade & whoosh",
+"len": 0.294
+},
+{
+"id": "bw_close1",
+"name": "Whoosh close 1",
+"group": "Blade & whoosh",
+"len": 0.146
+},
+{
+"id": "bw_close2",
+"name": "Whoosh close 2",
+"group": "Blade & whoosh",
+"len": 0.31
+},
+{
+"id": "bw_close3",
+"name": "Whoosh close 3",
+"group": "Blade & whoosh",
+"len": 0.31
+},
+{
+"id": "bw_maximize1",
+"name": "Rise 1",
+"group": "Blade & whoosh",
+"len": 0.241
+},
+{
+"id": "bw_maximize2",
+"name": "Rise 2",
+"group": "Blade & whoosh",
+"len": 0.241
+},
+{
+"id": "bw_maximize3",
+"name": "Rise 3",
+"group": "Blade & whoosh",
+"len": 0.193
+},
+{
+"id": "bw_minimize1",
+"name": "Fall 1",
+"group": "Blade & whoosh",
+"len": 0.256
+},
+{
+"id": "bw_minimize2",
+"name": "Fall 2",
+"group": "Blade & whoosh",
+"len": 0.256
+},
+{
+"id": "bw_minimize3",
+"name": "Fall 3",
+"group": "Blade & whoosh",
+"len": 0.206
+},
+{
+"id": "gl_glass1",
+"name": "Glass 1",
+"group": "Glass",
+"len": 0.27
+},
+{
+"id": "gl_glass2",
+"name": "Glass 2",
+"group": "Glass",
+"len": 0.122
+},
+{
+"id": "gl_glass3",
+"name": "Glass 3",
+"group": "Glass",
+"len": 0.095
+},
+{
+"id": "gl_glass4",
+"name": "Glass 4",
+"group": "Glass",
+"len": 0.45
+},
+{
+"id": "gl_glass5",
+"name": "Glass 5",
+"group": "Glass",
+"len": 0.07
+},
+{
+"id": "gl_glass6",
+"name": "Glass 6",
+"group": "Glass",
+"len": 0.072
+},
+{
+"id": "gl_impactGlass_light_0",
+"name": "Glass tap 1",
+"group": "Glass",
+"len": 0.147
+},
+{
+"id": "gl_impactGlass_light_1",
+"name": "Glass tap 2",
+"group": "Glass",
+"len": 0.169
+},
+{
+"id": "pv_mk_thock",
+"name": "Deep clock (1.44)",
+"group": "Previous sets",
+"len": 0.094
+},
+{
+"id": "pv_nb_draw1",
+"name": "Steel draw A (1.44)",
+"group": "Previous sets",
+"len": 0.538
+},
+{
+"id": "pv_nb_draw2",
+"name": "Steel draw B (1.44)",
+"group": "Previous sets",
+"len": 0.473
+},
+{
+"id": "pv_nb_soft",
+"name": "Soft draw (1.44)",
+"group": "Previous sets",
+"len": 0.373
+},
+{
+"id": "pv_nb_latch",
+"name": "Steel latch (1.44)",
+"group": "Previous sets",
+"len": 0.254
+},
+{
+"id": "pv_nb_click",
+"name": "Steel click (1.44)",
+"group": "Previous sets",
+"len": 0.297
+}
+]
+}

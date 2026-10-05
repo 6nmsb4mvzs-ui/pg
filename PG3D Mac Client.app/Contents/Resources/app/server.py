@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.44.0"
+APP_VERSION = "1.45.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3626,11 +3626,68 @@ def sound_prefs():
     return snd
 
 
+UI_SOUND_SLOTS = ("click", "primary", "on", "off", "tab", "tick")
+CUSTOM_SOUNDS_DIR = SUPPORT / "sounds" / "custom"
+
+
+def _sound_ids():
+    try:
+        ids = {x["id"] for x in json.loads((WEB / "sounds/catalog.json").read_text(encoding="utf-8"))["sounds"]}
+    except Exception:
+        ids = set()
+    return ids | {x["id"] for x in custom_sounds()}
+
+
+def _clean_picks(raw):
+    ids, out = _sound_ids(), {}
+    for style in ("modern", "noble"):
+        picks = (raw or {}).get(style) if isinstance(raw, dict) else None
+        if isinstance(picks, dict):
+            out[style] = {k: str(v) for k, v in picks.items() if k in UI_SOUND_SLOTS and str(v) in ids}
+    return out
+
+
+def custom_sounds():
+    data = read_json(CUSTOM_SOUNDS_DIR / "library.json", {"sounds": []})
+    return [x for x in data.get("sounds", []) if (CUSTOM_SOUNDS_DIR / x.get("file", "")).is_file()]
+
+
+def add_custom_sound(data_url, name):
+    if "," not in str(data_url):
+        raise RuntimeError("Invalid sound upload.")
+    raw = base64.b64decode(str(data_url).split(",", 1)[1])
+    if len(raw) > 3 * 1024 * 1024:
+        raise RuntimeError("Button sounds must be smaller than 3 MB.")
+    ext = next((e for sig, e in _AUDIO_SIGS if raw.startswith(sig)), None) or (".m4a" if raw[4:8] == b"ftyp" else None)
+    if not ext:
+        raise RuntimeError("Use an MP3, WAV, M4A, OGG or FLAC file.")
+    CUSTOM_SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
+    sid = "c_" + hashlib.sha256(raw).hexdigest()[:12]
+    (CUSTOM_SOUNDS_DIR / f"{sid}{ext}").write_bytes(raw)
+    lib = read_json(CUSTOM_SOUNDS_DIR / "library.json", {"sounds": []})
+    title = re.sub(r"\.[a-z0-9]{2,4}$", "", Path(str(name or "Sound")).name, flags=re.I)[:40] or "Sound"
+    lib["sounds"] = [x for x in lib.get("sounds", []) if x.get("id") != sid] + [{"id": sid, "name": title, "file": f"{sid}{ext}"}]
+    write_json(CUSTOM_SOUNDS_DIR / "library.json", lib)
+    return {"ok": True, "id": sid, "sounds": custom_sounds()}
+
+
+def remove_custom_sound(sid):
+    lib = read_json(CUSTOM_SOUNDS_DIR / "library.json", {"sounds": []})
+    for x in lib.get("sounds", []):
+        if x.get("id") == sid:
+            (CUSTOM_SOUNDS_DIR / Path(x["file"]).name).unlink(missing_ok=True)
+    lib["sounds"] = [x for x in lib.get("sounds", []) if x.get("id") != sid]
+    write_json(CUSTOM_SOUNDS_DIR / "library.json", lib)
+    return {"ok": True, "sounds": custom_sounds()}
+
+
 def set_sound_prefs(raw):
     snd = sound_prefs()
     for k in ("enabled", "rankup"):
         if k in raw:
             snd[k] = bool(raw[k])
+    if "picks" in raw:
+        snd["picks"] = _clean_picks(raw.get("picks"))
     if "volume" in raw:
         snd["volume"] = max(1, min(100, int(raw.get("volume") or 70)))
     prefs = prefs_payload()
@@ -5339,6 +5396,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(steam_player_count())
         if path == "/api/gui-assets":
             return self.send_json(gui_catalog())
+        if path == "/api/sound/custom":
+            return self.send_json({"sounds": custom_sounds()})
+        if path.startswith("/api/sound/custom/"):
+            sid = Path(path).name
+            hit = next((x for x in custom_sounds() if x["id"] == sid), None)
+            return self.send_file(CUSTOM_SOUNDS_DIR / hit["file"], cache=True) if hit else self.send_error(404)
         if path == "/api/sound/rankup":
             f = _rankup_file()
             return self.send_file(f, cache=True) if f else self.send_error(404)
@@ -5577,6 +5640,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(set_ui_theme_pref(str(data.get("theme", ""))))
             if path == "/api/sound/rankup":
                 return self.send_json(set_rankup_sound(data.get("data"), data.get("name")))
+            if path == "/api/sound/custom":
+                return self.send_json(add_custom_sound(data.get("data"), data.get("name")))
+            if path == "/api/sound/custom/delete":
+                return self.send_json(remove_custom_sound(str(data.get("id", ""))))
             if path == "/api/sound/rankup/reset":
                 return self.send_json(reset_rankup_sound())
             if path == "/api/prefs/mouse-fix":

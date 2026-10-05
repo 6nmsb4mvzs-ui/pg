@@ -1,4 +1,4 @@
-PG3D Mac Client 1.44.0
+PG3D Mac Client 1.45.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -200,3 +200,11 @@ Sounds    Modern: one deep, smooth "clock" for every button (higher or lower
           buttons, a softer draw on tabs, a metal latch on clicks and a metal
           click on switches, in a small bright hall. Recordings by Kenney
           (kenney.nl), CC0.
+
+New in 1.45
+Sounds    Settings > Sounds > Button sounds: pick the sound for each control
+          (click, main button, switch on/off, tab, slider) separately for the
+          Modern and Noble styles. Click a sound to hear and choose it, use
+          + Add file for your own sounds (MP3, WAV, M4A, OGG or FLAC, up to
+          3 MB) and Reset to defaults to go back. 131 recordings by Kenney
+          (kenney.nl), CC0; see web/sounds.

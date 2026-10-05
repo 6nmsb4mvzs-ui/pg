@@ -357,6 +357,17 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .sndCustom{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:hsl(var(--nh) var(--ns) 5%);border:1px solid var(--border);border-radius:12px;padding:10px 12px}
 .gameUpd{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid rgba(var(--accent-rgb),.35);border-radius:12px;padding:12px 16px;margin-bottom:12px}
 .gameUpd .guText{flex:1;min-width:0;display:grid;gap:3px}.gameUpd b{font-size:14px}.gameUpd small{color:var(--muted);font-size:12px}.gameUpd .lpBar{margin-top:6px}
+.sndPick{display:grid;gap:6px;background:hsl(var(--nh) var(--ns) 5%);border:1px solid var(--border);border-radius:12px;padding:12px}
+.spHead{display:flex;align-items:center;justify-content:space-between;gap:10px}.spHead b{font-size:14px}.spNote{color:var(--muted);font-size:11.5px;margin-bottom:4px}
+.spRow{display:grid;grid-template-columns:110px 30px minmax(0,1fr) auto;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border)}
+.spSlot{font-weight:600;font-size:13px}.spName{color:var(--dim);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spPlay{width:30px;height:30px;border-radius:50%;border:1px solid var(--border2);background:var(--surface2);color:var(--text);cursor:pointer;font-size:11px}
+.spPlay:hover{border-color:var(--accent);color:var(--accent-light)}
+.spLib{display:grid;gap:10px;padding:8px 0 10px;max-height:360px;overflow:auto}.spGroup .xLabel{margin-bottom:6px}
+.spChips{display:flex;flex-wrap:wrap;gap:6px}.spChip{position:relative;border:1px solid var(--border2);background:var(--surface2);color:var(--dim);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}
+.spChip:hover{border-color:hsl(var(--nh) var(--ns) 35%);color:var(--text)}.spChip.sel{border-color:var(--accent);color:var(--accent-light);background:rgba(var(--accent-rgb),.12)}
+.spChip.add{color:var(--muted);border-style:dashed}.spDel{margin-left:6px;color:var(--muted)}.spDel:hover{color:var(--bad)}
+.spReset{justify-self:start;margin-top:4px}
 .curRoleNote{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;min-height:20px}
 #curRoleNote img{width:26px!important;height:26px!important;max-width:26px;flex:none;object-fit:contain;background:hsl(var(--nh) var(--ns) 3%);border:1px solid var(--border);border-radius:6px;padding:2px}
 .curSeg button.active{background:linear-gradient(135deg,var(--ember),var(--accent-deep));color:#f5f5ff}
@@ -1060,9 +1071,11 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
             <button class="xSwitch" id="sndAll" role="switch"><div><b>Sounds</b><small>Turn off to mute everything in the client.</small></div><span class="pillToggle"></span></button>
             <button class="xSwitch" id="sndRank" role="switch"><div><b>Rank-up sound</b><small>Plays with the rank-up animation.</small></div><span class="pillToggle"></span></button>
             <div><div class="xLabel">Volume</div><div class="xRange"><input type="range" id="sndVol" min="1" max="100" value="70"><b id="sndVolVal">70%</b></div></div>
+            <div class="sndPick" id="sndPick"></div>
             <div class="sndCustom" id="sndCustom"></div>
             <div class="xRow"><button class="btn" id="sndTest">Play test sound</button><button class="btn" id="sndTestRank">Play rank-up sound</button></div>
             <input type="file" id="sndFile" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg" hidden>
+            <input type="file" id="sndLibFile" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" hidden>
           </div>
         </div>
       </div>
@@ -1226,30 +1239,24 @@ let __uiAudio=null;
 let SND={enabled:true,rankup:true,volume:70};
 try{Object.assign(SND,JSON.parse(localStorage.pg3dSound||'{}'))}catch{}
 function sndCtx(){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;if(!__uiAudio)__uiAudio=new AC();if(__uiAudio.state==='suspended')__uiAudio.resume();return __uiAudio}
-// UI sounds: real recordings (Kenney, CC0; see web/sounds), picked per style.
-//  Modern: one deep, smooth "clock" (a key switch with the click filtered off, pitched down);
-//          every control plays it, just higher or lower.
-//  Noble:  League-like steel - a blade draw for main buttons, a softer draw for tabs, a metal
-//          latch for clicks and a metal click for switches, all in a small bright hall.
-// Each entry: variants to pick from, playback rate r, gain g, optional layers played after it.
-const UIS_SET={
-  modern:{click:{v:['mk_thock']},primary:{v:['mk_thock'],r:.86,g:1.15},on:{v:['mk_thock'],r:1.08},off:{v:['mk_thock'],r:.93},
-    tick:{v:['mk_thock'],r:1.3,g:.45},tab:{v:['mk_thock'],r:.97,g:.85}},
-  noble:{click:{v:['nb_latch']},primary:{v:['nb_draw1','nb_draw2']},on:{v:['nb_click'],r:1.06},off:{v:['nb_click'],r:.88},
-    tick:{v:['nb_latch'],r:1.25,g:.4},tab:{v:['nb_soft'],g:.8}}};
-const UIS_LEVEL={click:.55,primary:.5,on:.55,off:.55,tick:.55,tab:.55};
-const UIS={buf:{},pending:null};
-function uisLoad(){if(UIS.pending)return UIS.pending;const ac=sndCtx();if(!ac)return Promise.resolve();
-  const names=new Set();for(const st of Object.values(UIS_SET))for(const k of Object.values(st)){k.v.forEach(n=>names.add(n));(k.then||[]).forEach(l=>l.v.forEach(n=>names.add(n)))}
-  UIS.pending=Promise.all([...names].map(async n=>{try{const r=await fetch(`/sounds/${n}.wav`);const data=await r.arrayBuffer();UIS.buf[n]=await new Promise((res,rej)=>ac.decodeAudioData(data,res,rej))}catch{}}));return UIS.pending}
-function uisPlay(ac,name,at,gain,rate=1){const b=UIS.buf[name];if(!b)return;const src=ac.createBufferSource(),g=ac.createGain();src.buffer=b;src.playbackRate.value=rate;g.gain.value=gain;src.connect(g);g.connect(ac.destination);src.start(ac.currentTime+at)}
-const uisPick=a=>a[Math.floor(Math.random()*a.length)];
+// UI sounds: real recordings (Kenney, CC0; see web/sounds). Settings > Sounds lets you pick any
+// sound from the library, or your own file, for each kind of control, separately per style.
+const UIS_SLOTS=[['click','Click'],['primary','Main button'],['on','Switch on'],['off','Switch off'],['tab','Tab'],['tick','Slider']];
+const UIS_DEFAULT={modern:{click:'pv_mk_thock',primary:'pv_mk_thock',on:'pv_mk_thock',off:'pv_mk_thock',tab:'pv_mk_thock',tick:'pv_mk_thock'},
+  noble:{click:'pv_nb_latch',primary:'pv_nb_draw1',on:'pv_nb_click',off:'pv_nb_click',tab:'pv_nb_soft',tick:'pv_nb_latch'}};
+const UIS_LEVEL={click:.55,primary:.55,on:.55,off:.55,tab:.5,tick:.3};
+const UIS={buf:{},loading:{},catalog:null,custom:[]};
+function uisStyle(){return document.documentElement.dataset.uiStyle==='noble'?'noble':'modern'}
+function uisPick(style,slot){return SND.picks?.[style]?.[slot]||UIS_DEFAULT[style][slot]}
+function uisUrl(id){return id.startsWith('c_')?`/api/sound/custom/${id}`:`/sounds/lib/${id}.wav`}
+function uisLoadOne(id){if(UIS.buf[id])return Promise.resolve();if(UIS.loading[id])return UIS.loading[id];const ac=sndCtx();if(!ac)return Promise.resolve();
+  return UIS.loading[id]=fetch(uisUrl(id)).then(r=>r.arrayBuffer()).then(d=>new Promise((res,rej)=>ac.decodeAudioData(d,res,rej))).then(b=>{UIS.buf[id]=b}).catch(()=>{}).finally(()=>{delete UIS.loading[id]})}
+function uisLoad(){const ids=new Set();for(const st of ['modern','noble'])for(const [k] of UIS_SLOTS)ids.add(uisPick(st,k));return Promise.all([...ids].map(uisLoadOne))}
+function uisPlayId(id,gain,rate=1){const ac=sndCtx(),b=UIS.buf[id];if(!ac||!b)return false;const src=ac.createBufferSource(),g=ac.createGain();src.buffer=b;src.playbackRate.value=rate;g.gain.value=gain;src.connect(g);g.connect(ac.destination);src.start(ac.currentTime);return true}
 // kind: click | primary | on | off | tick | tab
-function uiSound(kind='click',x=0.5){if(!SND.enabled)return;try{const ac=sndCtx();if(!ac)return;
-  const set=UIS_SET[document.documentElement.dataset.uiStyle==='noble'?'noble':'modern'],spec=set[kind]||set.click,base=UIS_LEVEL[kind]||UIS_LEVEL.click,vol=SND.volume/100;
-  if(!Object.keys(UIS.buf).length){uisLoad();return}
-  const rate=(spec.r||1)*(kind==='tick'?.94+.12*x:1+(Math.random()-.5)*.03),gain=base*vol*(spec.g||1);
-  uisPlay(ac,uisPick(spec.v),0,gain,rate);for(const l of spec.then||[])uisPlay(ac,uisPick(l.v),l.at,gain*l.g,rate)}catch{}}
+function uiSound(kind='click',x=0.5){if(!SND.enabled)return;try{const slot=UIS_LEVEL[kind]!=null?kind:'click',id=uisPick(uisStyle(),slot);
+  const rate=slot==='tick'?.94+.12*x:1+(Math.random()-.5)*.03;
+  if(!uisPlayId(id,UIS_LEVEL[slot]*(SND.volume/100),rate))uisLoadOne(id)}catch{}}
 setTimeout(()=>{try{uisLoad()}catch{}},300);
 function protectedPath(event,card){
   const selector='button,input,select,textarea,a,label,[role="button"],[contenteditable="true"],[data-no-toggle],.hexColorControl,.hexText,.spectrumSlider,.ratingControl,.ratingSlider,.optionTile,.dragHandle';
@@ -1260,7 +1267,7 @@ function protectedPath(event,card){
 }
 document.addEventListener('click',e=>{
   const t=e.target.closest?.('button,.cursorCard,.accCard,.lkPick,.skItem,.thCard,.uiTheme,[role="switch"]');
-  if(!t||t.disabled)return;
+  if(!t||t.disabled||t.closest('.spChip,.spPlay'))return;  // sound picker plays its own preview
   const sw=t.matches('.xSwitch,.guiCombine,.clipToggle,.ovChip,.guiElement,[role="switch"]');
   if(sw){const on=t.classList.contains('on')||t.getAttribute('aria-checked')==='true';uiSound(on?'off':'on');return}
   if(t.closest('.nav')||t.closest('.lkTabs,.setTabs'))return uiSound('tab');
@@ -2165,6 +2172,36 @@ function renderUiStyles(){const box=$('#uiStyles');if(!box)return;box.innerHTML=
   const th=$('#uiThemes');if(th){th.classList.toggle('locked',cur==='noble');th.title=cur==='noble'?'Noble uses its own gold and navy colors.':''}}
 $('#animSwitch').onclick=()=>setUiPrefs({animations:document.documentElement.dataset.anim==='off'});
 function showSettingsPane(k){$$('#setTabs button').forEach(b=>b.classList.toggle('on',b.dataset.p===k));$('#setGeneral').hidden=k!=='general';$('#setAppearance').hidden=k!=='appearance';$('#setSounds').hidden=k!=='sounds';if(k==='appearance'){renderUiThemes();renderUiStyles()}if(k==='sounds')renderSounds()}
+// Settings > Sounds > Button sounds: audition the library and pick a sound per control and style.
+let sndPickStyle=null,sndPickOpen=null;
+async function sndLibrary(){if(!UIS.catalog){try{UIS.catalog=(await (await fetch('/sounds/catalog.json')).json()).sounds}catch{UIS.catalog=[]}
+    try{UIS.custom=(await api('/api/sound/custom')).sounds||[]}catch{}}return UIS.catalog}
+function sndName(id){const c=(UIS.catalog||[]).find(x=>x.id===id)||UIS.custom.find(x=>x.id===id);return c?c.name:id}
+async function sndPreview(id,slot){await uisLoadOne(id);uisPlayId(id,(UIS_LEVEL[slot]||.55)*(SND.volume/100))}
+function sndSetPick(style,slot,id){const picks=JSON.parse(JSON.stringify(SND.picks||{}));picks[style]={...(picks[style]||{}),[slot]:id};saveSound({picks})}
+async function renderSndPick(){const box=$('#sndPick');if(!box)return;await sndLibrary();sndPickStyle=sndPickStyle||uisStyle();box.innerHTML='';
+  const head=el('div','spHead');head.append(el('b',null,'Button sounds'));const seg=el('div','curSeg');
+  for(const [st,label] of [['modern','Modern'],['noble','Noble']]){const b=el('button',st===sndPickStyle?'active':'',label);b.type='button';b.onclick=()=>{sndPickStyle=st;sndPickOpen=null;renderSndPick()};seg.append(b)}
+  head.append(seg);box.append(head);
+  box.append(el('small','spNote',`Click a sound to hear it and use it. ${sndPickStyle==='modern'?'Modern':'Noble'} keeps its own set${uisStyle()===sndPickStyle?' (your current style)':''}.`));
+  for(const [slot,label] of UIS_SLOTS){const id=uisPick(sndPickStyle,slot),row=el('div','spRow'+(sndPickOpen===slot?' open':''));
+    const play=el('button','spPlay','▶');play.type='button';play.title='Play';play.onclick=()=>sndPreview(id,slot);
+    const ch=el('button','btn',sndPickOpen===slot?'Done':'Change');ch.type='button';ch.onclick=()=>{sndPickOpen=sndPickOpen===slot?null:slot;renderSndPick()};
+    row.append(el('span','spSlot',label),play,el('span','spName',sndName(id)),ch);box.append(row);
+    if(sndPickOpen===slot){const lib=el('div','spLib'),groups={};
+      for(const c of UIS.catalog)(groups[c.group]=groups[c.group]||[]).push(c);
+      groups['Your sounds']=UIS.custom.map(c=>({...c,custom:true}));
+      for(const [g,list] of Object.entries(groups)){const gw=el('div','spGroup');gw.append(el('div','xLabel',g));const chips=el('div','spChips');
+        for(const c of list){const b=el('button','spChip'+(c.id===id?' sel':''),c.name);b.type='button';b.onclick=e=>{e.stopPropagation();sndPreview(c.id,slot);if(c.id!==id){sndSetPick(sndPickStyle,slot,c.id);renderSndPick()}};
+          if(c.custom){const x=el('span','spDel','×');x.title='Remove';x.onclick=async ev=>{ev.stopPropagation();try{UIS.custom=(await post('/api/sound/custom/delete',{id:c.id})).sounds;renderSndPick()}catch(err){toast(err.message,true)}};b.append(x)}
+          chips.append(b)}
+        if(g==='Your sounds'){const add=el('button','spChip add','＋ Add file');add.type='button';add.onclick=()=>{$('#sndLibFile').dataset.slot=slot;$('#sndLibFile').click()};chips.append(add)}
+        gw.append(chips);lib.append(gw)}
+      box.append(lib)}}
+  const rs=el('button','btn ghost spReset','Reset to defaults');rs.type='button';rs.onclick=()=>{const picks=JSON.parse(JSON.stringify(SND.picks||{}));delete picks[sndPickStyle];saveSound({picks});renderSndPick()};box.append(rs)}
+$('#sndLibFile').onchange=async e=>{const f=e.target.files[0],slot=e.target.dataset.slot;e.target.value='';if(!f)return;if(f.size>3*1024*1024)return toast('Button sounds must be smaller than 3 MB.',true);
+  const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
+  try{const d=await post('/api/sound/custom',{data,name:f.name});UIS.custom=d.sounds;if(slot)sndSetPick(sndPickStyle,slot,d.id);await sndPreview(d.id,slot||'click');renderSndPick()}catch(err){toast(err.message,true)}};
 function renderSndCustom(){const box=$('#sndCustom');if(!box)return;box.innerHTML='';const has=!!SND.custom_rankup;
   const t=el('div','ghInfo');t.append(el('b',null,'Rank-up sound file'),el('small',null,has?`Using your file: ${SND.custom_rankup_name||'custom sound'}`:'Built-in. Choose an audio file to use your own.'));
   const pick=smallBtn(has?'Change':'Choose file',()=>$('#sndFile').click());box.append(t,pick);
@@ -2172,7 +2209,7 @@ function renderSndCustom(){const box=$('#sndCustom');if(!box)return;box.innerHTM
 $('#sndFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;if(f.size>10*1024*1024)return toast('Sound files must be smaller than 10 MB.',true);
   const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
   try{const d=await post('/api/sound/rankup',{data,name:f.name});Object.assign(SND,d.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}renderSounds();toast('Rank-up sound set.')}catch(err){toast(err.message,true)}};
-function renderSounds(){renderSndCustom();setSwitch('#sndAll',SND.enabled);setSwitch('#sndRank',SND.rankup);$('#sndRank').style.opacity=SND.enabled?1:.45;$('#sndVol').value=SND.volume;$('#sndVolVal').textContent=SND.volume+'%'}
+function renderSounds(){renderSndCustom();if(!$('#sndPick').childElementCount)renderSndPick();setSwitch('#sndAll',SND.enabled);setSwitch('#sndRank',SND.rankup);$('#sndRank').style.opacity=SND.enabled?1:.45;$('#sndVol').value=SND.volume;$('#sndVolVal').textContent=SND.volume+'%'}
 let __sndSave=null;function saveSound(patch){Object.assign(SND,patch);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}renderSounds();clearTimeout(__sndSave);__sndSave=setTimeout(()=>post('/api/prefs/sound',SND).catch(e=>toast(e.message,true)),250)}
 $('#sndAll').onclick=()=>saveSound({enabled:!SND.enabled});
 $('#sndRank').onclick=()=>saveSound({rankup:!SND.rankup});
