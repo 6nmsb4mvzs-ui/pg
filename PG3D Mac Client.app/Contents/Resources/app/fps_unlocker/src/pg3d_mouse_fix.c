@@ -28,6 +28,12 @@ extern void objc_msgSend(void);
 extern Class object_getClass(id object);
 extern IMP class_replaceMethod(Class cls, SEL name, IMP imp, const char *types);
 
+extern void *dlsym(void *handle, const char *symbol);
+#define RTLD_DEFAULT_HANDLE ((void *)-2)
+struct timespec_ { long tv_sec; long tv_nsec; };
+extern int clock_gettime(int clock_id, struct timespec_ *tp);
+#define CLOCK_MONOTONIC_ 6
+
 extern int32_t CGAssociateMouseAndMouseCursorPosition(uint32_t connected);
 extern int32_t CGDisplayHideCursor(uint32_t display);
 extern int32_t CGDisplayShowCursor(uint32_t display);
@@ -132,6 +138,40 @@ static void install_click_fix(id app) {
     note("click fix installed (%u windows)", (unsigned)count);
 }
 
+// Frame-rate readout for the client's overlay when the FPS unlocker isn't loaded
+// (it logs the same line itself). Reads Unity's own frame counter; changes nothing.
+static int (*g_frame_count)(void);
+static bool g_measure_off;
+static double g_last_t;
+static int g_last_frames;
+
+static double now_seconds(void) {
+    struct timespec_ ts;
+    clock_gettime(CLOCK_MONOTONIC_, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
+}
+
+static void measure_fps(void) {
+    if (g_measure_off) return;
+    if (g_frame_count == NULL) {
+        void *(*resolve)(const char *) = (void *(*)(const char *))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_resolve_icall");
+        if (resolve == NULL) return;  // GameAssembly not loaded yet
+        g_frame_count = (int (*)(void))resolve("UnityEngine.Time::get_frameCount");
+        if (g_frame_count == NULL) { g_measure_off = true; return; }
+        g_last_t = now_seconds();
+        g_last_frames = g_frame_count();
+        return;
+    }
+    double t = now_seconds();
+    if (t - g_last_t < 5.0) return;
+    int frames = g_frame_count();
+    fprintf(stderr, "[PG3D Mouse Fix pid=%d] engine measurement: rendered=%.1f FPS, window=%.2fs.\n",
+            getpid(), (double)(frames - g_last_frames) / (t - g_last_t), t - g_last_t);
+    fflush(stderr);
+    g_last_t = t;
+    g_last_frames = frames;
+}
+
 static void tick(void *unused) {
     (void)unused;
     id app = shared_app();
@@ -141,6 +181,7 @@ static void tick(void *unused) {
         if (active && !g_was_active && g_locked) kick_cursor();
         g_was_active = active;
         sync_cursor(NULL);
+        measure_fps();
     }
     dispatch_after_f(dispatch_time(0, (int64_t)kTickMs * 1000000), MAIN_QUEUE, NULL, tick);
 }
@@ -149,6 +190,9 @@ __attribute__((constructor)) static void start(void) {
     const char *flag = getenv("PG3D_MOUSEFIX");
     if (flag && strcmp(flag, "0") == 0) return;
     note("loaded (%u)", 1);
+    // With the FPS unlocker loaded too, it reports the frame rate itself.
+    const char *unlock = getenv("PG3D_UNLOCK_FPS");
+    g_measure_off = unlock != NULL && strcmp(unlock, "-1") != 0;
     // The main queue only runs once the app's run loop is up.
     dispatch_after_f(dispatch_time(0, 1000LL * 1000000), MAIN_QUEUE, NULL, tick);
 }

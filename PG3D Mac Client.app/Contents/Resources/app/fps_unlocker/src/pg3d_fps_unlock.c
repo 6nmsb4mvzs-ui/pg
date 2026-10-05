@@ -303,9 +303,12 @@ static bool initialize_bindings(void) {
     // Validate BOTH wrappers before modifying either. A warm target cache proves
     // Unity registered its icalls, even when the game never calls the v-sync
     // wrapper. Resolve that cold callback explicitly after this readiness check.
-    if (!prepare_override(&g_target_frame_rate) || !prepare_override(&g_vsync_count)) {
+    if (!prepare_override(&g_target_frame_rate)) {
         return false;
     }
+    // V-sync is a bonus: newer builds may not expose its wrapper the same way, and the
+    // frame-rate target alone already unlocks the game (vSyncCount is usually 0 on macOS).
+    const bool have_vsync = prepare_override(&g_vsync_count);
     if (__atomic_load_n(g_target_frame_rate.cache_slot, __ATOMIC_ACQUIRE) == NULL ||
         g_resolve_icall == NULL) {
         return false;
@@ -332,11 +335,16 @@ static bool initialize_bindings(void) {
     }
     log_message("before override: target=%d, vSyncCount=%d, v-sync cache=%s.",
                 g_get_target(), g_get_vsync(),
-                *g_vsync_count.cache_slot == NULL ? "cold" : "initialized");
+                !have_vsync ? "unavailable" : (*g_vsync_count.cache_slot == NULL ? "cold" : "initialized"));
     if (!g_observe_only) {
-        install_override(&g_vsync_count);
+        if (have_vsync) {
+            install_override(&g_vsync_count);
+        } else if (g_get_vsync() != 0) {
+            g_vsync_count.original(0);  // one-time set; the game may change it back
+            log_message("v-sync wrapper not found in this build; set vSyncCount=0 once.");
+        }
         install_override(&g_target_frame_rate);
-        if (g_get_target() != g_target_frame_rate.forced_value || g_get_vsync() != 0) {
+        if (g_get_target() != g_target_frame_rate.forced_value || (have_vsync && g_get_vsync() != 0)) {
             log_message("Unity readback did not match requested values; override unverified.");
             return false;
         }
@@ -393,7 +401,7 @@ static void retry_installation(void) {
         g_active = true;
         return;
     }
-    if (g_target_frame_rate.binding_was_invalid || g_vsync_count.binding_was_invalid) {
+    if (g_target_frame_rate.binding_was_invalid) {
         dispatch_source_cancel(g_retry_timer);
     } else if (g_retry_count >= kRetryLimit) {
         log_message("timed out waiting for Unity initialization; override not active.");

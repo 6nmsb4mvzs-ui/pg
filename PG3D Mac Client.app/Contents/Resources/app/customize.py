@@ -346,6 +346,20 @@ def is_loading_name(name: str) -> bool:
                 or {"load", "screen"} <= w or {"loader", "bg"} <= w)
 
 
+_LOADING_HINTS = {"map", "maps", "preview", "background", "bg", "lobby", "menu", "art", "banner", "arena", "level",
+                  "mode", "event", "season", "poster", "wallpaper", "screen"}
+_NOT_LOADING = {"reload", "reloading", "weapon", "gun", "skin", "icon", "button", "atlas", "font", "normal", "mask",
+                "lightmap", "shadowmask", "noise", "ramp", "lut", "sprite", "sheet", "anim", "fx", "particle"}
+
+
+def is_loading_candidate(name: str, w: int, h: int) -> bool:
+    """Screen-sized art that may be shown while a map loads (map previews and the
+    like). Offered in the picker, not ticked by default."""
+    words = _words(name)
+    return (w >= 1024 and 1.45 <= w / max(1, h) <= 2.1 and bool(words & _LOADING_HINTS)
+            and not words & _NOT_LOADING)
+
+
 _SKY_WORD = re.compile(r"^(sky|skies|skybox|skydome|skysphere|skymap|skytex)\d*$")
 
 
@@ -378,13 +392,16 @@ def _loading_textures_in(env, p: Path, app: Path, log):
         if obj.type.name != "Texture2D":
             continue
         name = _name(obj)
-        if not is_loading_name(name):
+        sure = is_loading_name(name)
+        if not sure and not _words(name) & _LOADING_HINTS:
             continue
         try:
             tex = obj.parse_as_object()
             w, h = int(tex.m_Width), int(tex.m_Height)
             # A loading screen fills the screen: landscape, roughly 4:3 to 21:9.
             if int(tex.m_TextureFormat) in ALPHA_ONLY_FORMATS or w < 512 or h < 256 or not 1.2 <= w / h <= 2.5:
+                continue
+            if not sure and not is_loading_candidate(name, w, h):
                 continue
             thumb = tex.image.convert("RGB")
             thumb.thumbnail((320, 320))
@@ -396,7 +413,7 @@ def _loading_textures_in(env, p: Path, app: Path, log):
         except ValueError:
             rel = p.name
         out.append({"source_file": str(p), "relative_file": rel, "path_id": int(obj.path_id),
-                    "name": name, "width": w, "height": h, "_thumb": thumb})
+                    "name": name, "width": w, "height": h, "suggested": sure, "_thumb": thumb})
     return out
 
 

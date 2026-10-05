@@ -1,4 +1,4 @@
-PG3D Mac Client 1.50.0
+PG3D Mac Client 1.51.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -309,3 +309,19 @@ Fixes     If PG3D is running in the background without a window, the Play
           tab says so and offers Quit PG3D. A start with the mouse fix that
           never opens a window is closed after a minute and the fix turned
           off, so the next Start works.
+
+New in 1.51
+FPS       The Play tab no longer reports the FPS unlocker as failing while
+          PG3D is still loading: it keeps checking for 2 minutes and
+          updates the message. Only the frame-rate hook decides; the
+          v-sync hook is optional (it is reset every 5 s anyway).
+Overlay   A soft dark background behind the overlay text (switch in
+          Overlay > Style). FPS now also shows for normal starts (measured
+          by the mouse fix) and only ever for the running game. Ping
+          measures the match server PG3D talks to, in the background, so
+          the overlay never stutters while it measures.
+Loading   The Sky tab's loading-screen mode lists every loading image it
+          found, plus likely map/preview images (unticked), so you can pick
+          which ones get your picture.
+Fixes     A queued change that fails now always shows its error. The
+          diagnostic report lists recent game-file jobs and what's applied.

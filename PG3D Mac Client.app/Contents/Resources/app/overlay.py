@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -20,8 +21,10 @@ from Cocoa import (
     NSScreen, NSTextField, NSView, NSWindowCollectionBehaviorCanJoinAllSpaces,
     NSWindowCollectionBehaviorFullScreenAuxiliary, NSWindowCollectionBehaviorIgnoresCycle,
     NSWindowCollectionBehaviorStationary, NSWindowStyleMaskBorderless,
-    NSWindowStyleMaskNonactivatingPanel, NSWorkspace
+    NSWindowStyleMaskNonactivatingPanel, NSWorkspace, NSWindowBelow
 )
+
+BG_PAD_X, BG_PAD_Y, BG_ALPHA = 8, 4, 0.38  # overlay background box
 from Foundation import NSObject, NSTimer
 import Quartz
 import objc
@@ -247,35 +250,99 @@ def pg3d_pid():
 
 
 def fps_value():
-    try:
-        files=sorted(FPS_LOG_DIR.glob('run-*.log'),key=lambda p:p.stat().st_mtime,reverse=True)
-        if not files or time.time()-files[0].stat().st_mtime>12*3600:return None
-        txt=files[0].read_text(errors='ignore')[-24000:]
-        vals=re.findall(r'engine measurement: rendered=([0-9.]+) FPS',txt)
-        return round(float(vals[-1])) if vals else None
-    except Exception:return None
-
-
-def ping_value():
+    """Frames per second of the running game, from its own measurement lines
+    (FPS unlocker or mouse fix). Only lines from the current PG3D process count,
+    so an old run's number never shows."""
     pid=pg3d_pid()
     if not pid:return None
     try:
-        r=subprocess.run(['/usr/bin/nettop','-n','-P','-L','1','-J','rtt_avg','-p',str(pid)],capture_output=True,text=True,timeout=2.5)
-        rows=list(csv.reader(r.stdout.splitlines())); vals=[]
-        for row in rows[1:]:
-            for cell in row[1:]:
-                m=re.search(r'([0-9]+(?:\.[0-9]+)?)\s*ms',cell,re.I)
-                if m: vals.append(float(m.group(1))); continue
-                c=cell.strip()
-                if re.fullmatch(r'[0-9]+(?:\.[0-9]+)?',c):
-                    v=float(c)
-                    if 0<v<5000: vals.append(v)
-        if vals:
-            v=min(vals)
-            if 0<v<1:v*=1000
-            return int(round(v))
+        files=sorted(FPS_LOG_DIR.glob('run-*.log'),key=lambda p:p.stat().st_mtime,reverse=True)[:3]
+        for f in files:
+            if time.time()-f.stat().st_mtime>30:continue  # measurements arrive every 5 s
+            txt=f.read_text(errors='ignore')[-24000:]
+            vals=re.findall(r'pid=%d\] engine measurement: rendered=([0-9.]+) FPS'%pid,txt)
+            if vals:return round(float(vals[-1]))
     except Exception:pass
     return None
+
+
+# Ping runs in the background: nettop/ping can take seconds and must never stall
+# the overlay (it shares a thread with the window that sits over the game).
+_PING={'value':None,'at':0.0,'thread':None}
+
+
+def _udp_peers(pid):
+    """Remote addresses PG3D talks to over UDP (the game server) and TCP."""
+    udp,tcp=[],[]
+    try:
+        r=subprocess.run(['/usr/sbin/lsof','-nP','-a','-p',str(pid),'-i'],capture_output=True,text=True,timeout=3)
+        for line in r.stdout.splitlines()[1:]:
+            m=re.search(r'(UDP|TCP) \S*->\[?([0-9a-fA-F:.]+?)\]?:(\d+)',line)
+            if not m:continue
+            ip=m.group(2)
+            if ip.startswith(('127.','::1','0.0.0.0')):continue
+            (udp if m.group(1)=='UDP' else tcp).append((ip,int(m.group(3))))
+    except Exception:pass
+    return udp,tcp
+
+
+def _icmp_ms(ip):
+    try:
+        r=subprocess.run(['/sbin/ping','-c','1','-W','1000','-t','2',ip],capture_output=True,text=True,timeout=3)
+        m=re.search(r'time=([0-9.]+) ms',r.stdout)
+        if m:return float(m.group(1))
+    except Exception:pass
+    return None
+
+
+def _tcp_ms(ip,port):
+    import socket
+    try:
+        t=time.time(); s=socket.create_connection((ip,port),timeout=1.5); s.close()
+        return (time.time()-t)*1000
+    except Exception:return None
+
+
+def _nettop_ms(pid):
+    try:
+        r=subprocess.run(['/usr/bin/nettop','-n','-P','-L','1','-J','rtt_avg','-p',str(pid)],capture_output=True,text=True,timeout=2.5)
+        vals=[]
+        for row in list(csv.reader(r.stdout.splitlines()))[1:]:
+            for cell in row[1:]:
+                m=re.search(r'([0-9]+(?:\.[0-9]+)?)\s*ms',cell,re.I)
+                if m:vals.append(float(m.group(1)))
+        return min(vals) if vals else None
+    except Exception:return None
+
+
+def _measure_ping():
+    pid=pg3d_pid()
+    if not pid:return None
+    udp,tcp=_udp_peers(pid)
+    for ip,_ in udp[:3]:  # the match server: what ping means in a game
+        v=_icmp_ms(ip)
+        if v is not None:return v
+    v=_nettop_ms(pid)
+    if v is not None:return v
+    for ip,port in tcp[:2]:
+        v=_tcp_ms(ip,port)
+        if v is not None:return v
+    return None
+
+
+def _ping_worker():
+    while True:
+        try:
+            v=_measure_ping()
+            _PING['value']=None if v is None else int(round(v)); _PING['at']=time.time()
+        except Exception:pass
+        time.sleep(2.0 if _PING['value'] is not None else 4.0)
+
+
+def ping_value():
+    if _PING['thread'] is None:
+        _PING['thread']=threading.Thread(target=_ping_worker,daemon=True); _PING['thread'].start()
+    return _PING['value'] if time.time()-_PING['at']<10 else None
 
 
 def _app_running(name):
@@ -640,17 +707,39 @@ class Overlay(NSObject):
             v.setStringValue_(text); v.setTextColor_(hex_color(display_item.get('color','#FFFFFF'))); v.setFont_(NSFont.monospacedSystemFontOfSize_weight_(float(size),0.35)); v.sizeToFit()
 
     def _layout(self):
-        self._place(); self._fit_panel()
+        self._place(); self._backgrounds(); self._fit_panel()
+
+    @objc.python_method  # helper, not an Objective-C selector
+    def _backgrounds(self):
+        """A soft dark box behind the text so it stays readable on bright maps."""
+        for b in getattr(self,'bgs',[]):b.removeFromSuperview()
+        self.bgs=[]
+        if not self.config.get('background',True):return
+        cv=self.panel.contentView()
+        labels=[(k,v) for k,v in self.views.items() if k!='music']
+        if not labels:return
+        rects=[]
+        if (self.config.get('group') or {}).get('enabled'):
+            fr=[v.frame() for _,v in labels]
+            x0=min(f.origin.x for f in fr); y0=min(f.origin.y for f in fr)
+            x1=max(f.origin.x+f.size.width for f in fr); y1=max(f.origin.y+f.size.height for f in fr)
+            rects.append((x0,y0,x1-x0,y1-y0))
+        else:
+            rects=[(f.origin.x,f.origin.y,f.size.width,f.size.height) for f in (v.frame() for _,v in labels)]
+        for x,y,w,h in rects:
+            b=NSView.alloc().initWithFrame_(NSMakeRect(x-BG_PAD_X,y-BG_PAD_Y,w+2*BG_PAD_X,h+2*BG_PAD_Y)); b.setWantsLayer_(True)
+            b.layer().setBackgroundColor_(Quartz.CGColorCreateGenericRGB(0.04,0.04,0.06,BG_ALPHA)); b.layer().setCornerRadius_(8.0)
+            cv.addSubview_positioned_relativeTo_(b,NSWindowBelow,None); self.bgs.append(b)
 
     def _fit_panel(self):
         # The panel only covers the widgets themselves. A screen-sized window from another
         # app over the game made macOS hand focus around: the game lost its mouse lock
         # (system cursor stuck in the middle) and needed a second click to react.
-        views=[v for v in self.views.values() if v.superview() is not None]
+        views=[v for v in list(self.views.values())+list(getattr(self,'bgs',[])) if v.superview() is not None]
         scr=NSScreen.mainScreen().frame()
         if not views:
             return
-        pad=6
+        pad=2
         fr=[v.frame() for v in views]
         x0=min(f.origin.x for f in fr)-pad; y0=min(f.origin.y for f in fr)-pad
         x1=max(f.origin.x+f.size.width for f in fr)+pad; y1=max(f.origin.y+f.size.height for f in fr)+pad

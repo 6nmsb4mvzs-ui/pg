@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.50.0"
+APP_VERSION = "1.51.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3363,34 +3363,51 @@ def fps_launch(game: Path, fps: str):
         pid = int(pid_text)
     except Exception:
         pid = None
-    ready = False
-    failure_note = None
-    deadline = time.time() + 20
+    state = _fps_log_state(log_path, pid, 20)
+    if state is None:
+        # Still loading: keep watching in the background and update the message then.
+        threading.Thread(target=_finish_fps_check, args=(log_path, pid), daemon=True).start()
+    else:
+        _record_fps_build_result(state == "ok" if state != "exited" else None)
+    return {"pid": pid, "verified": state == "ok", "log": str(log_path), "message": _FPS_MESSAGES[state]}
+
+
+_FPS_MESSAGES = {
+    "ok": "FPS unlocker active.",
+    "fail": "The FPS unlocker couldn't hook into this PG3D build; the game runs at its own frame rate.",
+    "exited": "PG3D closed before the FPS unlocker could start.",
+    None: "PG3D is loading; the FPS unlocker switches on once the game is ready.",
+}
+
+
+def _fps_log_state(log_path, pid, timeout):
+    """'ok' / 'fail' / 'exited' from the unlocker's own log, or None if undecided yet.
+    Only the frame-rate hook counts: v-sync is optional and is reset every 5 s anyway."""
+    deadline = time.time() + timeout
     while time.time() < deadline:
         try:
             txt = log_path.read_text(errors="ignore")
         except Exception:
             txt = ""
-        if "render pacing override is active" in txt:
-            ready = True
-            break
-        if ("binding does not match this game build" in txt or
-                "unsupported build" in txt or
-                "required Unity binding unavailable" in txt):
-            failure_note = "The bundled unlocker does not match this PG3D build."
-            break
+        if "render pacing override is active" in txt or "target frame rate override installed" in txt:
+            return "ok"
+        if ("target frame rate binding does not match" in txt or "target frame rate wrapper RVA" in txt
+                or "required Unity binding unavailable" in txt):
+            return "fail"
         if pid is not None:
             try:
                 os.kill(pid, 0)
             except Exception:
-                failure_note = "PG3D exited before the FPS override could be verified."
-                break
+                return "exited"
         time.sleep(0.25)
-    _record_fps_build_result(True if ready else (False if failure_note and "does not match" in failure_note else None))
-    return {
-        "pid": pid, "verified": ready, "log": str(log_path),
-        "message": "FPS override verified active." if ready else (failure_note or "Game launched, but FPS override was not verified within 20 seconds."),
-    }
+    return None
+
+
+def _finish_fps_check(log_path, pid):
+    state = _fps_log_state(log_path, pid, 120)
+    _record_fps_build_result(state == "ok" if state in ("ok", "fail") else None)
+    if state in ("ok", "fail") and STATUS.get("launch_phase") == "idle":
+        set_status(launch_message=_FPS_MESSAGES[state])
 
 
 def _record_fps_build_result(ok):
@@ -3404,9 +3421,9 @@ def _record_fps_build_result(ok):
     if not build or build == "unknown":
         return
     prefs = prefs_payload()
-    results = prefs.get("fps_builds") if isinstance(prefs.get("fps_builds"), dict) else {}
+    results = prefs.get("fps_builds_v2") if isinstance(prefs.get("fps_builds_v2"), dict) else {}
     results[build] = bool(ok)
-    prefs["fps_builds"] = dict(list(results.items())[-20:])
+    prefs["fps_builds_v2"] = dict(list(results.items())[-20:])
     write_json(PREFS_JSON, prefs)
 
 
@@ -3414,7 +3431,7 @@ def fps_build_match(build):
     """True: works on this build, False: failed on it, None: not tried yet."""
     if build in (None, "unknown"):
         return None
-    known = prefs_payload().get("fps_builds") or {}
+    known = prefs_payload().get("fps_builds_v2") or {}
     if str(build) in known:
         return bool(known[str(build)])
     return True if build in FPS_SUPPORTED_BUILDS else None
@@ -3665,6 +3682,7 @@ def _validate_overlay_config(raw):
     if not isinstance(raw, dict):
         return base
     base["enabled"] = bool(raw.get("enabled", True))
+    base["background"] = bool(raw.get("background", True))
     base["hotkey"] = _validate_hotkey(raw.get("hotkey"))
     # v1.7 always renders from saved free positions. The explicit Freemove editor
     # is how positions are changed.
@@ -4038,7 +4056,7 @@ def status_payload():
         "game_update": game_update_info(),
         "reapply_mods": reapply_enabled(),
         "mouse_fix": mouse_fix_enabled(),
-        "job": {k[4:]: s.get(k) for k in ("job_kind", "job_phase", "job_progress", "job_message", "job_error",
+        "job": {k[4:]: s.get(k) for k in ("job_kind", "job_id", "job_phase", "job_progress", "job_message", "job_error",
                                            "job_eta", "job_queue")},
         "overlay": {"config": overlay_config(), "runtime": overlay_runtime()},
     })
@@ -4262,6 +4280,9 @@ def diagnostics_report():
         "", "--- focus.log (front app while PG3D runs) ---", tail(SUPPORT / "focus.log", 40),
         "", f"--- last game run (mouse fix {'on' if mouse_fix_enabled() else 'off'}) ---",
         _game_run_summary(max(FPS_LOG_DIR.glob("run-*.log"), key=lambda p: p.stat().st_mtime, default=SUPPORT / "none.log")),
+        "", "--- recent game-file jobs ---", "\n".join(_JOB_HISTORY) or "(none)",
+        f"now: {STATUS.get('job_phase')} {STATUS.get('job_message')} queue={STATUS.get('job_queue')}",
+        "", "--- applied mods ---", _mods_summary(),
         "", "--- PG3D's own log (Player.log) ---", _unity_log_tail(),
         "", "--- newest PG3D crash report ---", _crash_report_summary(),
     ]
@@ -4271,6 +4292,28 @@ def diagnostics_report():
     except Exception:
         pass
     return {"ok": True, "chars": len(text)}
+
+
+def _mods_summary():
+    m = load_mods()
+    out = []
+    c = m.get("cursor")
+    if c:
+        t = c.get("target") or {}
+        out.append(f"cursor: {c.get('cursor')} -> {Path(str(t.get('source_file', ''))).name} #{t.get('path_id')} {t.get('name', '')}")
+    for key in ("skybox", "loading"):
+        v = m.get(key)
+        if v:
+            names = [f"{x.get('name')} ({Path(str(x.get('source_file', ''))).name})" for x in v.get("targets", [])]
+            out.append(f"{key}: {v.get('name')} on {len(names)} textures: " + ", ".join(names[:25]))
+    if m.get("font"):
+        out.append(f"font: {(m.get('font') or {}).get('name')}")
+    out.append(f"gui edits: {len(m.get('gui') or {})}")
+    cat = customize_catalog()
+    out.append(f"scan: build {cat.get('build')} v{cat.get('scan_v', 1)}, {len(cat.get('sky', []))} sky, "
+               f"{len(cat.get('loading', []))} loading screens: "
+               + ", ".join(x.get("name", "") for x in cat.get("loading", [])[:30]))
+    return "\n".join(out)
 
 
 def _unity_log_tail(lines=40):
@@ -4363,6 +4406,7 @@ JOB_LABELS = {"sky": "Sky", "theme": "Theme", "font": "Font", "scan": "Scanning 
               "reapply": "Re-applying mods", "restore": "Restoring game files", "repair": "Fixing textures"}
 _JOBS = {"queue": [], "seq": 0, "worker": None, "current": None}
 _JOB_COND = threading.Condition()
+_JOB_HISTORY = []  # recent results, for the diagnostic report
 
 
 def jobs_pending():
@@ -4425,16 +4469,20 @@ def _job_worker():
             set_status(job_kind=task["kind"], job_phase="waiting", job_progress=0, job_eta=None, job_error=None,
                        job_message=f"{task['label']}: waiting for PG3D to close…")
             time.sleep(1.0)
-        set_status(job_kind=task["kind"], job_phase="running", job_progress=0, job_eta=None,
+        set_status(job_kind=task["kind"], job_id=task["id"], job_phase="running", job_progress=0, job_eta=None,
                    job_message=f"{task['label']}…", job_error=None)
+        t0 = time.time()
         try:
             msg = task["fn"](_job_progress_fn(task)) or "Done."
             set_status(job_phase="done", job_progress=100, job_eta=0, job_message=msg)
             log(f"Job {task['kind']} finished: {msg}")
+            _JOB_HISTORY.append(f"{datetime.now():%H:%M:%S} {task['label']}: done in {time.time() - t0:.0f}s ({msg})")
         except Exception as e:
             log(traceback.format_exc())
             set_status(job_phase="error", job_error=str(e), job_message="Failed.", job_eta=None)
+            _JOB_HISTORY.append(f"{datetime.now():%H:%M:%S} {task['label']}: FAILED after {time.time() - t0:.0f}s: {e}")
         finally:
+            del _JOB_HISTORY[:-15]
             with _JOB_COND:
                 _JOBS["current"] = None
             _queue_status()
@@ -4452,7 +4500,8 @@ THEME_SAMPLES = RUNTIME / "theme_samples"
 # longer recorded under the wrong file.
 # 3: loading screens / skies matched by whole words and real sky shaders (weapon
 # "Reloading" animations and "SkyHammer" textures were picked up before).
-CUSTOMIZE_SCAN_V = 3
+# 4: loading-screen candidates (map previews etc.) listed, ticked only when named so.
+CUSTOMIZE_SCAN_V = 4
 
 
 def customize_catalog():
@@ -4834,16 +4883,24 @@ def loading_payload():
     cat = customize_catalog()
     cfg = load_mods().get("loading")
     return {"targets": cat.get("loading", []),
-            "active": ({"id": cfg.get("id"), "name": cfg.get("name"), "count": len(cfg.get("targets", []))} if cfg else None)}
+            "active": ({"id": cfg.get("id"), "name": cfg.get("name"), "count": len(cfg.get("targets", [])),
+                        "target_keys": [f"{t['source_file']}:{t['path_id']}" for t in cfg.get("targets", [])]}
+                       if cfg else None)}
 
 
-def apply_loading(sky_id):
+def _loading_default(targets):
+    return [t for t in targets if t.get("suggested", True)]
+
+
+def apply_loading(sky_id, target_ids=None):
     sky = _sky_by_id(sky_id)
 
     def job(progress):
         cat = ensure_catalog(_sub_progress(progress, 0, 0.4))
+        all_t = cat.get("loading", [])
+        chosen = [t for t in all_t if t["id"] in set(target_ids)] if target_ids else _loading_default(all_t)
         picked = [{k: t[k] for k in ("source_file", "relative_file", "path_id", "name", "width", "height")}
-                  for t in cat.get("loading", []) if Path(t["source_file"]).exists()]
+                  for t in chosen if Path(t["source_file"]).exists()]
         if not picked:
             raise RuntimeError("This PG3D build has no loading screen texture the client can find.")
 
@@ -5134,7 +5191,7 @@ def repair_texture_targets():
                     cat = ensure_catalog(_sub_progress(progress, 0, 0.6))
                     keep_sky = {(t["source_file"], int(t["path_id"])) for t in cat.get("sky", [])}
                     loading = [{k: t[k] for k in ("source_file", "relative_file", "path_id", "name", "width", "height")}
-                               for t in cat.get("loading", []) if Path(t["source_file"]).exists()]
+                               for t in _loading_default(cat.get("loading", [])) if Path(t["source_file"]).exists()]
                     report = {}
 
                     def change(state):
@@ -6043,7 +6100,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/sky/reset":
                 return self.send_json(reset_sky())
             if path == "/api/loading/apply":
-                return self.send_json(apply_loading(str(data.get("id", ""))))
+                return self.send_json(apply_loading(str(data.get("id", "")), data.get("targets") or None))
             if path == "/api/loading/reset":
                 return self.send_json(reset_loading())
             if path == "/api/rank/win":
