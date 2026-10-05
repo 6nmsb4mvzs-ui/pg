@@ -50,8 +50,14 @@ QUALITIES = {
     # id: (output height or None for native, fps, video bitrate)
     "720p30": (720, 30, "6M"),
     "1080p60": (1080, 60, "12M"),
+    "1080p120": (1080, 120, "20M"),
     "native60": (None, 60, "20M"),
+    "native120": (None, 120, "30M"),
 }
+# Ways to run the encoder, fastest first. If ffmpeg dies right away in one, the next
+# is tried: "gpu" scales on the GPU (VideoToolbox), "vt" scales on the CPU but still
+# encodes in hardware, "x264" is the software fallback.
+ENCODE_MODES = ("gpu", "vt", "x264")
 CLIP_NAME_RE = re.compile(r"[^/\\\x00]{1,120}\.mp4")
 
 # DOM KeyboardEvent.code -> macOS virtual key code (same table as overlay.py).
@@ -242,8 +248,10 @@ class Recorder:
         self.lock = threading.RLock()
         self.proc = None
         self.proc_started = 0.0
-        self.encoder = "h264_videotoolbox"
+        self.mode = "gpu"
         self.phase = "starting"
+        self._rate_sample = None
+        self.capture_fps = None
         self.message = ""
         self.retry_at = 0.0
         self.saving = 0
@@ -267,20 +275,33 @@ class Recorder:
             screen = screens[0]["index"] if screens else 1
         # Always keep the longest option buffered so changing the clip length never loses footage.
         wrap = math.ceil(max(LENGTHS) / SEGMENT_SECONDS) + 3
-        vf = [f"fps={fps}"]
-        if height:
+        # Constant frame rate comes from the output side (-fps_mode cfr), not an fps
+        # filter: then ffmpeg counts the frames it had to repeat, so the real capture
+        # rate can be measured.
+        vf = []
+        hw = []
+        if self.mode == "gpu" and height:
+            # Scaling a Retina screen on the CPU is what held recordings to ~20 FPS.
+            hw = ["-init_hw_device", "videotoolbox=vt", "-filter_hw_device", "vt"]
+            vf += ["hwupload", f"scale_vt=w=-2:h={height}"]
+        elif height:
             vf.append(f"scale=-2:{height}:flags=fast_bilinear")
-        vf.append("format=yuv420p")
+        if self.mode == "x264":
+            vf.append("format=yuv420p")  # VideoToolbox takes the captured nv12 as is
+        vf = vf or ["null"]
         # stdin stays open so we can send "q" for a clean stop.
-        args = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
-                "-f", "avfoundation", "-capture_cursor", "0", "-framerate", str(fps),
+        args = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", *hw,
+                "-progress", str(BUFFER_DIR / "progress.txt"), "-stats_period", "1",
+                "-f", "avfoundation", "-capture_cursor", "0", "-capture_mouse_clicks", "0",
+                "-framerate", str(fps), "-thread_queue_size", "512",
                 "-pixel_format", "nv12",  # native to screen capture; the default yuv420p isn't offered
                 "-i", f"{screen}:none",
-                "-vf", ",".join(vf), "-c:v", self.encoder, "-b:v", bitrate,
+                "-vf", ",".join(vf), "-fps_mode", "cfr", "-r", str(fps),
+                "-c:v", self.encoder, "-b:v", bitrate,
                 "-g", str(fps * SEGMENT_SECONDS),
                 "-force_key_frames", f"expr:gte(t,n_forced*{SEGMENT_SECONDS})"]
         if self.encoder == "h264_videotoolbox":
-            args += ["-realtime", "1"]
+            args += ["-realtime", "1", "-allow_sw", "0"]
         else:
             args += ["-preset", "ultrafast", "-tune", "zerolatency"]
         args += ["-f", "segment", "-segment_time", str(SEGMENT_SECONDS), "-segment_wrap", str(wrap),
@@ -303,6 +324,34 @@ class Recorder:
         except Exception:
             pass
 
+    @property
+    def encoder(self):
+        return "libx264" if self.mode == "x264" else "h264_videotoolbox"
+
+    def _measure_rate(self):
+        """Frames really captured per second (the fps filter's duplicates don't count),
+        from ffmpeg's -progress output."""
+        try:
+            with open(BUFFER_DIR / "progress.txt", "rb") as f:  # it grows all session: read the end
+                f.seek(0, 2)
+                f.seek(max(0, f.tell() - 4096))
+                txt = f.read().decode(errors="ignore")
+            block = txt.rstrip().rsplit("progress=", 1)[0]
+            vals = dict(l.split("=", 1) for l in block.splitlines() if "=" in l)
+            frames = int(vals["frame"]) - int(vals.get("dup_frames", 0))
+        except Exception:
+            return
+        t, prev = time.time(), self._rate_sample
+        if prev is None or frames < prev[0]:
+            self._rate_sample = (frames, t)
+        elif t - prev[1] >= 2.0:
+            self._rate_sample = (frames, t)
+            self.capture_fps = round((frames - prev[0]) / (t - prev[1]), 1)
+            now = time.time()
+            if now - getattr(self, "_rate_logged", 0) > 60:
+                self._rate_logged = now
+                _log(f"Clips: capturing {self.capture_fps} FPS ({self.mode}).")
+
     def start(self, ffmpeg, cfg):
         if self.shutting_down:
             return
@@ -311,15 +360,16 @@ class Recorder:
         BUFFER_DIR.mkdir(parents=True, exist_ok=True)
         args = self.ffmpeg_args(ffmpeg, cfg)
         log_f = open(FFMPEG_LOG, "a", encoding="utf-8")
-        log_f.write(f"\n[{datetime.now().isoformat(timespec='seconds')}] start encoder={self.encoder}\n")
+        log_f.write(f"\n[{datetime.now().isoformat(timespec='seconds')}] start encoder={self.encoder} mode={self.mode}\n")
         log_f.flush()
         self.proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=log_f)
         log_f.close()
         self.proc_started = time.time()
+        self._rate_sample, self.capture_fps = None, None
         self.phase, self.message = "recording", "Replay buffer is recording."
         if cfg.get("game_audio"):
             self.start_audio()
-        _log(f"Clips: replay buffer started ({self.encoder}, {cfg['quality']}).")
+        _log(f"Clips: replay buffer started ({self.encoder}, {self.mode}, {cfg['quality']}).")
 
     def start_audio(self):
         if self.audio_unavailable or (self.audio_proc and self.audio_proc.poll() is None):
@@ -426,9 +476,10 @@ class Recorder:
                 lived = time.time() - self.proc_started
                 tail = self._ffmpeg_tail()
                 self.proc = None
-                if self.encoder == "h264_videotoolbox" and lived < 5:
-                    self.encoder = "libx264"
-                    _log("Clips: hardware encoder failed, retrying with libx264.")
+                if self.mode != ENCODE_MODES[-1] and lived < 5:
+                    old = self.mode
+                    self.mode = ENCODE_MODES[ENCODE_MODES.index(old) + 1]
+                    _log(f"Clips: encoder mode '{old}' failed ({tail}); retrying with '{self.mode}'.")
                     self.retry_at = 0
                 else:
                     self.last_error = tail or "ffmpeg stopped unexpectedly."
@@ -439,6 +490,7 @@ class Recorder:
                 return
 
             if running:
+                self._measure_rate()
                 if cfg.get("game_audio") and self.audio_state() in ("off", "no_permission"):
                     self.start_audio()
                 elif not cfg.get("game_audio") and self.audio_proc:
@@ -460,7 +512,7 @@ class Recorder:
         """Apply new quality/screen settings."""
         self.stop("restarting for new settings")
         with self.lock:
-            self.encoder = "h264_videotoolbox"
+            self.mode = "gpu"
             self.retry_at = 0
 
     # ----- saving
@@ -747,6 +799,8 @@ class Recorder:
                 "phase": self.phase,
                 "message": self.message,
                 "encoder": self.encoder,
+                "mode": self.mode,
+                "capture_fps": self.capture_fps if self.proc else None,
                 "buffered": self.buffered_seconds(),
                 "saving": self.saving,
                 "last_clip": self.last_clip,

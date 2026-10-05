@@ -1,4 +1,4 @@
-PG3D Mac Client 1.59.0
+PG3D Mac Client 1.60.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,17 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.60
+Clips     Recording is much lighter: the picture is scaled on the GPU and
+          encoded in hardware without extra conversions (scaling a Retina
+          screen on the CPU held clips to about 20 FPS). New 1080p 120 fps and
+          Native 120 fps qualities (120 needs a 120 Hz / ProMotion display;
+          on 60 Hz screens 60 fps is the most there is). The Clips tab shows
+          the frame rate really being captured.
+Lookup    Cleaner layout: name, badges and details in one header row,
+          collection / currencies / last 30 days as even tiles, skins as a
+          tidy grid (first 12, then Show all).
 
 New in 1.59
 Opening   The client opens as one app: the Dock shows only the PG3D Mac Client

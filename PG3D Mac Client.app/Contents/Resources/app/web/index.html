@@ -177,7 +177,23 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .lkGroup+.lkGroup{margin-top:12px}.lkGroupT{font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
 .lkTexRow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
 .lkTex{margin:0;display:flex;flex-direction:column;gap:4px}.lkTex img{image-rendering:pixelated;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 6.5%) 0 25%,hsl(var(--nh) var(--ns) 4.9%) 0 50%) 0 0/10px 10px;border:1px solid var(--border);border-radius:6px}
-.lkTex figcaption{font-size:11px;color:var(--muted)}.lkTex a{color:hsl(var(--ah) calc(100% * var(--as)) 70.8%);text-decoration:none}.lkTex a:hover{text-decoration:underline}
+.lkTex figcaption{font-size:11px;color:var(--muted)}
+/* Lookup, cleaner: one header row, even spacing, uniform tiles */
+.lkCard{padding:20px 22px!important}
+.lkHead{flex-wrap:nowrap;gap:14px}.lkAvatar{width:52px;height:52px}
+.lkWho{flex:1}.lkWho b{font-size:19px}.lkWho small{margin-top:4px}
+#lkBadges{display:inline-flex;flex-wrap:wrap;gap:6px}.lkNameRow{gap:10px;row-gap:6px}
+.lkGroup+.lkGroup{margin-top:22px!important}.lkGroupT{margin-bottom:9px!important}
+.lkBarRow,.lkStatGrid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))!important;gap:8px!important}
+.lkCardS{padding:10px 12px;gap:10px}.lkCardS b{font-size:16px}.lkCardS span{font-size:11px}
+.lkCardS .lkIco.none,.lkSlot .lkIco.none{display:none}
+.lkSlots{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}.lkSlot{width:auto;padding:10px 6px}
+.lkItem{padding:6px 12px}
+.lkTexRow{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;align-items:start}
+.lkTex{align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px}
+.lkTex img{width:100%!important;height:68px;object-fit:contain}
+.lkTex figcaption{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lkMore{margin-top:10px}.lkTex a{color:hsl(var(--ah) calc(100% * var(--as)) 70.8%);text-decoration:none}.lkTex a:hover{text-decoration:underline}
 
 .ovStyle{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}
 .ovChip{height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--border2);background:hsl(var(--nh) var(--ns) 4.1%);color:var(--muted);font-weight:700;font-size:12px;cursor:pointer}
@@ -1556,7 +1572,7 @@ function hudTick(){if(!statusData)return;const ph=statusData.gui_phase;if(guiLas
 
 /* ===== Clips: library ===== */
 let clipsData=null,clipHotkeyRec=false,clipSigs={};
-const CLIP_BUFFER_MAX=180,CLIP_QUALITY={'720p30':['720p','30 fps',6],'1080p60':['1080p','60 fps',12],'native60':['Native','60 fps',20]};
+const CLIP_BUFFER_MAX=180,CLIP_QUALITY={'720p30':['720p','30 fps',6],'1080p60':['1080p','60 fps',12],'1080p120':['1080p','120 fps',20],'native60':['Native','60 fps',20],'native120':['Native','120 fps',30]};
 const clipTime=s=>{s=Math.max(0,Math.round(s||0));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
 const fmtPrecise=s=>{s=Math.max(0,s||0);const m=Math.floor(s/60);return `${m}:${(s-m*60).toFixed(2).padStart(5,'0')}`};
 const clipLenLabel=s=>s>=60?`${s/60} min`:`${s}s`;
@@ -1575,7 +1591,7 @@ function renderClipStatus(){
   if(!st.ffmpeg&&st.install?.failed&&!st.install?.running){t="Recording tools couldn't be downloaded";x=st.install.message;dot.classList.add('warn');acts.append(clipAction('Try again',async()=>{await post('/api/clips/install-ffmpeg');refreshClips()},true))}
   else if(!st.ffmpeg){t='Setting up recording';x=st.install?.message||'Downloading the recording tools. This only happens once.';dot.classList.add('saving')}
   else if(st.saving){t='Saving clip…';x='It will appear below in a moment.';dot.classList.add('saving')}
-  else if(st.phase==='recording'){t='Recording';x=st.buffered>=cfg.length?`Press ${hk} to save the last ${clipLenLabel(cfg.length)}.`:`Building up footage. Press ${hk} any time to save what's recorded so far.`;dot.classList.add('rec')}
+  else if(st.phase==='recording'){t='Recording';x=st.buffered>=cfg.length?`Press ${hk} to save the last ${clipLenLabel(cfg.length)}.`:`Building up footage. Press ${hk} any time to save what's recorded so far.`;if(st.capture_fps)x+=` Capturing ${Math.round(st.capture_fps)} FPS.`;dot.classList.add('rec')}
   else if(st.phase==='error'){t='Recording stopped';x=st.message;dot.classList.add('warn')}
   else if(st.phase==='off'){t='Clips are off';x='Turn on the replay buffer to record while you play.';acts.append(clipAction('Turn on',()=>setClipConfig({enabled:true}),true))}
   else{t='Waiting for Pixel Gun 3D';x='Recording starts by itself once you\'re in the game.'}
@@ -2046,7 +2062,7 @@ function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekl
   $('#lkResult').hidden=false;drawSkinHead(p.skin);$('#lkName').textContent=p.name||'Unknown';
   const badges=$('#lkBadges');badges.innerHTML='';const lv=P.level??F.level;if(lv!=null)badges.append(el('span','lkBadge',`Lv ${lv}`));
   if(F.banned!=null)badges.append(el('span','lkBadge '+(F.banned?'bad':'good'),F.banned?'Banned':'Clean'));
-  if(p.clan){const cb=el('span','lkBadge lkClan');if(p.clan_logo){const im=el('img');im.src='data:image/png;base64,'+p.clan_logo;im.alt='';cb.append(im)}cb.append(document.createTextNode(p.clan_tag?`[${p.clan_tag}] ${p.clan}`:p.clan));badges.append(cb)}
+  if(p.clan){const cb=el('span','lkBadge lkClan');if(p.clan_logo){const im=el('img');im.src='data:image/png;base64,'+p.clan_logo;im.alt='';cb.append(im)}const tag=p.clan_tag&&String(p.clan_tag).length<=12?p.clan_tag:null;cb.append(document.createTextNode(tag?`[${tag}] ${p.clan}`:p.clan));badges.append(cb)}
   for(const k of Object.keys(F.platforms||{}))if(!/^Platform \d+$/.test(k))badges.append(el('span','lkBadge',k));
   const dt=t=>t?new Date(Number(t)*1000).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):null;
   $('#lkMeta').textContent=[`ID ${p.player_id}`,P.registered?`Joined ${dt(P.registered)}`:null,P.last_seen?`Last active ${Date.now()/1000-P.last_seen<86400?ago(P.last_seen):dt(P.last_seen)}`:null].filter(Boolean).join(' · ');
@@ -2057,8 +2073,10 @@ function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekl
    const bar=el('div','lkBarRow');
    for(const [k,label,icon] of [['weapon_count','Weapons','Weapons'],['gadget_count','Gadgets','Gadgets'],['pet_count','Pets','Pets'],['avatar_count','Avatars','Avatars'],['sets_count','Sets','Sets']]){const v=P[k]??F[k];if(v!=null)bar.append(lkCard(lkIcon('Lookup',icon,26),v,label))}
    if(F.xp!=null)bar.append(lkCard(null,F.xp,'XP'));
-   for(const [k,v] of Object.entries(F.currencies||{}))bar.append(lkCard(LK_CURRENCY_ICON[k]?lkIcon('Currency',LK_CURRENCY_ICON[k],22):null,v,k==='GemsCurrency'?'Gems':k));
-   d.append(lkGroup('Collection',bar));
+   if(bar.children.length)d.append(lkGroup('Collection',bar));
+   const cur=el('div','lkBarRow');
+   for(const [k,v] of Object.entries(F.currencies||{}))cur.append(lkCard(LK_CURRENCY_ICON[k]?lkIcon('Currency',LK_CURRENCY_ICON[k],22):null,v,k==='GemsCurrency'?'Gems':k));
+   if(cur.children.length)d.append(lkGroup('Currencies',cur));
    const kd=w.deaths?(w.kills/w.deaths).toFixed(2):(w.kills?'∞':'0'),wr=w.matches?(100*w.wins/w.matches).toFixed(1)+'%':'0%';
    const st=el('div','lkStatGrid');
    for(const [icon,v,l] of [['Kills',w.kills||0,'Kills'],['Deaths',w.deaths||0,'Deaths'],['KD',kd,'K/D'],['Headshots',w.headshots||0,'Headshots'],['Matches',w.matches||0,'Matches'],['Wins',w.wins||0,'Wins'],['Killstreak',w.killstreak||0,'Killstreak'],['Winstreak',w.winstreak||0,'Winstreak'],['Winrate',wr,'Win rate'],['Score',w.score||0,'Score']])st.append(lkCard(lkIcon('Lookup',icon,30),v,l));
@@ -2082,10 +2100,12 @@ function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekl
    if(all.length>1)d.append(filt);d.append(list);draw();panes.weapons={label:`Weapons · ${all.length}`,node:d}}
   // Cosmetics
   {const d=el('div');const tex=el('div','lkTexRow');
-   if(p.skin)tex.append(lkTexture(p.skin,'Skin',3));
-   if(F.cape?.texture)tex.append(lkTexture(F.cape.texture,F.cape.name||'Cape',5));
-   for(const [i,ps] of (F.player_skins||[]).entries())if(ps?.texture&&ps.texture!==p.skin)tex.append(lkTexture(ps.texture,ps.name||`Skin ${i+1}`,3));
-   if(tex.children.length)d.append(lkGroup('Skin & cape',tex));
+   const texs=[];if(p.skin)texs.push([p.skin,'Current skin',3]);
+   if(F.cape?.texture)texs.push([F.cape.texture,F.cape.name||'Cape',5]);
+   for(const [i,ps] of (F.player_skins||[]).entries())if(ps?.texture&&ps.texture!==p.skin)texs.push([ps.texture,ps.name||`Skin ${i+1}`,3]);
+   if(texs.length){const shown=12,g=el('div');const fill=n=>{tex.innerHTML='';for(const t of texs.slice(0,n))tex.append(lkTexture(...t))};fill(shown);g.append(tex);
+     if(texs.length>shown){const m=el('button','btn ghost lkMore',`Show all ${texs.length}`);m.type='button';m.onclick=()=>{fill(texs.length);m.remove()};g.append(m)}
+     d.append(lkGroup('Skins & cape',g,texs.length))}
    for(const [cat,items] of Object.entries(F.wear||{})){if(!items?.length)continue;const l=el('div','lkGridItems');for(const x of items){const c=el('div','lkTile');c.append(lkIcon(cat==='Armor'?'Armor':'Armor',x.id,44),el('span',null,x.name||cat));l.append(c)}d.append(lkGroup(cat,l,items.length))}
    const sk=F.weapon_skins||[];if(sk.length){const l=el('div','lkGridItems');for(const x of sk){const c=el('div','lkTile');c.title=x.name||'';c.append(lkIcon('WeaponSkin',x.id,44),el('span',null,x.name||'Skin'));l.append(c)}d.append(lkGroup('Weapon skins',l,sk.length))}
    if(!d.children.length)d.append(el('div','sub','No cosmetics shared.'));
