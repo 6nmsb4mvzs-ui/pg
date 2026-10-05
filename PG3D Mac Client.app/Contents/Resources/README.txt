@@ -1,4 +1,4 @@
-PG3D Mac Client 1.53.0
+PG3D Mac Client 1.54.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -352,3 +352,16 @@ Finder    Lists every texture in PG3D, not only likely matches: each group
 GUI       Finder's GUI group resizes (10-100%) or hides the textures you
           select, sprites and standalone textures alike; Reset selected
           puts them back. Sizes show on the pictures.
+
+New in 1.54
+Textures  New Textures tab (Sky, Cursor, Loading screen): every texture in
+          PG3D with pictures. Select the right ones and press Use selected:
+          the cursor uses your pick and your current sky or loading picture
+          is re-applied onto exactly the textures you selected.
+GUI       GUI Finder (temporary) only finds and reports GUI pieces, with the
+          ones that cover your view in a match first. Nothing changes yet.
+Detection Sky names: any texture with "sky" in its name counts unless it's a
+          weapon or effect (lobby skies, foggy nights, map skies). Season
+          backgrounds and map previews are ticked as loading screens.
+          GamepadCursor is allowed as the cursor again (it is the one), and
+          a cursor you picked is kept across scans and game updates.

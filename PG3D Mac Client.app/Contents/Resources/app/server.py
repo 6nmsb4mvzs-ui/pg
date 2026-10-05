@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.53.0"
+APP_VERSION = "1.54.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -516,17 +516,14 @@ def obj_dims(data):
     return w, h
 
 
-CURSOR_DETECTOR_V = 2  # 2: controller/touch cursors are never picked (build 156210 put "GamepadCursor" at #3)
+CURSOR_DETECTOR_V = 2  # targets picked by the player ("chosen") are kept across scans
 CURSOR_CANDIDATES_JSON = STATE_DIR / "cursor_candidates.json"
 CURSOR_CANDIDATE_DIR = RUNTIME / "cursor_candidates"
-_NOT_MOUSE_CURSOR = re.compile(r"gamepad|joystick|controller|console|touch|virtual|stick", re.I)
 
 
 def cursor_score(name, w, h, typ):
     n = (name or "").lower()
     score = sum(v for k, v in CURSOR_KEYWORDS.items() if k in n)
-    if _NOT_MOUSE_CURSOR.search(n):
-        score -= 400
     if 4 <= w <= 256 and 4 <= h <= 256:
         score += 25
     if 8 <= w <= 128 and 8 <= h <= 128:
@@ -543,7 +540,7 @@ def scan_cursor_target(force=False):
         try:
             t = json.loads(CURSOR_TARGET_JSON.read_text(encoding="utf-8"))
             if (int(t.get("asset_number", 0)) == CURSOR_ASSET_NUMBER and Path(t["source_file"]).exists()
-                    and int(t.get("detector_v", 1)) >= CURSOR_DETECTOR_V):
+                    and (t.get("chosen") or int(t.get("detector_v", 1)) >= CURSOR_DETECTOR_V)):
                 export_cursor_original(t)
                 set_status(cursor_phase="ready", cursor_progress=100,
                            cursor_message="Cursor asset #3 locked.", cursor_error=None,
@@ -601,6 +598,13 @@ def scan_cursor_target(force=False):
     if len(found) < CURSOR_ASSET_NUMBER:
         raise RuntimeError(f"Only {len(found)} cursor candidates were found; asset #3 does not exist.")
     target = dict(found[CURSOR_ASSET_NUMBER - 1])
+    prev = load_cursor_target() or {}
+    if prev.get("chosen"):
+        # The player picked this texture: after a game update, find it again by name and size.
+        same = next((c for c in found if c["name"] == prev.get("name") and c["object_type"] == prev.get("object_type")
+                     and (c["width"], c["height"]) == (prev.get("width"), prev.get("height"))), None)
+        if same:
+            target = dict(same, chosen=True)
     target.update({
         "asset_number": CURSOR_ASSET_NUMBER,
         "detector_v": CURSOR_DETECTOR_V,
@@ -4601,7 +4605,8 @@ THEME_SAMPLES = RUNTIME / "theme_samples"
 # 3: loading screens / skies matched by whole words and real sky shaders (weapon
 # "Reloading" animations and "SkyHammer" textures were picked up before).
 # 4: loading-screen candidates (map previews etc.) listed, ticked only when named so.
-CUSTOMIZE_SCAN_V = 4
+# 5: sky names: sky word without weapon/effect words; season/preview art ticked as loading.
+CUSTOMIZE_SCAN_V = 5
 
 
 def customize_catalog():
@@ -4651,7 +4656,10 @@ def finder_list(cat, show_all=False, q="", offset=0, limit=240, picked_only=Fals
     q = (q or "").lower().strip()
     out = [x for x in items if (show_all or cat in x["cats"]) and (not q or q in x["name"].lower() or q in x["relative_file"].lower())
            and (not picked_only or x["gid"] in picks)]
-    if show_all and cat in FINDER_CATS:
+    if cat == "gui":
+        # What covers the view in a match first, then the other likely GUI pieces.
+        out.sort(key=lambda x: (-int(x.get("gs", 0)), "gui" not in x["cats"], x["name"].lower()))
+    elif show_all and cat in FINDER_CATS:
         out.sort(key=lambda x: (cat not in x["cats"], x["name"].lower()))  # likely ones first
     return {"total": len(out), "items": out[int(offset):int(offset) + int(limit)]}
 
@@ -4759,7 +4767,23 @@ def finder_use(cat):
     d["used"][cat] = [{**{k: x[k] for k in ("name", "type", "width", "height", "source_file", "relative_file", "path_id")},
                        "preview": f"/api/finder/thumb/{x['gid']}.jpg"} for x in picked]
     write_json(FINDER_PICKS_JSON, d)
-    return {"ok": True, "count": len(picked)}
+    # Your picks are what gets replaced: re-apply the current picture on exactly these.
+    keys = {(x["source_file"], int(x["path_id"])) for x in picked}
+    cat_data = customize_catalog()
+    ids = [t["id"] for t in cat_data.get(cat, []) if (t["source_file"], int(t["path_id"])) in keys]
+    st = load_mods().get("skybox" if cat == "sky" else "loading")
+    applied = False
+    if st and ids:
+        if cat == "sky":
+            apply_sky(st["id"], ids, st.get("yaw", 0), st.get("swap_lr", False), st.get("flip", False))
+        else:
+            apply_loading(st["id"], ids)
+        applied = True
+    return {"ok": True, "count": len(picked), "applied": applied}
+
+
+def finder_used_keys(cat):
+    return [f"{x['source_file']}:{x['path_id']}" for x in (_finder_picks().get("used") or {}).get(cat, [])]
 
 
 def _finder_gui_ops():
@@ -5113,6 +5137,7 @@ def sky_payload():
                    if sky else None),
         "numpy": customize.np is not None,
         "loading": loading_payload(),
+        "picked_keys": {"sky": finder_used_keys("sky"), "loading": finder_used_keys("loading")},
     }
 
 
@@ -5197,7 +5222,8 @@ def loading_payload():
     cfg = load_mods().get("loading")
     return {"targets": cat.get("loading", []),
             "active": ({"id": cfg.get("id"), "name": cfg.get("name"), "count": len(cfg.get("targets", [])),
-                        "target_keys": [f"{t['source_file']}:{t['path_id']}" for t in cfg.get("targets", [])]}
+                        "target_keys": [f"{t['source_file']}:{t['path_id']}" for t in cfg.get("targets", [])],
+                        "custom": bool(cfg.get("custom"))}
                        if cfg else None)}
 
 
@@ -5217,9 +5243,11 @@ def apply_loading(sky_id, target_ids=None):
         if not picked:
             raise RuntimeError("This PG3D build has no loading screen texture the client can find.")
 
+        custom = bool(target_ids) and len(picked) < len([t for t in all_t if Path(t["source_file"]).exists()])
+
         def change(state):
             state["loading"] = {"id": sky["id"], "image": sky["file"], "name": sky["name"], "targets": picked,
-                                "targets_v": CUSTOMIZE_SCAN_V}
+                                "targets_v": CUSTOMIZE_SCAN_V, "custom": custom}
         mutate_state(change, f"Loading screen: {sky['name']}", _sub_progress(progress, 0.4, 1.0))
         return f"“{sky['name']}” is now the loading screen."
     return start_job("sky", job)
@@ -5521,7 +5549,13 @@ def repair_texture_targets():
                             sky["targets_v"] = CUSTOMIZE_SCAN_V
                             report["sky"] = (before, len(sky["targets"]))
                         ld = state.get("loading")
-                        if ld and ld.get("targets"):
+                        keep_ld = {(t["source_file"], int(t["path_id"])) for t in cat.get("loading", [])}
+                        if ld and ld.get("targets") and ld.get("custom"):
+                            # The player's own choice: keep what still exists, never re-pick.
+                            ld["targets"] = [t for t in ld["targets"] if (t["source_file"], int(t["path_id"])) in keep_ld]
+                            ld["targets_v"] = CUSTOMIZE_SCAN_V
+                            report["loading"] = ("custom", len(ld["targets"]))
+                        elif ld and ld.get("targets"):
                             report["loading"] = (len(ld["targets"]), len(loading))
                             if loading:
                                 ld["targets"], ld["targets_v"] = loading, CUSTOMIZE_SCAN_V

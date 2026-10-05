@@ -346,8 +346,8 @@ def is_loading_name(name: str) -> bool:
                 or {"load", "screen"} <= w or {"loader", "bg"} <= w)
 
 
-_LOADING_HINTS = {"map", "maps", "preview", "background", "bg", "lobby", "menu", "art", "banner", "arena", "level",
-                  "mode", "event", "season", "poster", "wallpaper", "screen"}
+_LOADING_HINTS = {"map", "maps", "preview", "previews", "background", "bg", "lobby", "menu", "art", "arts", "banner",
+                  "arena", "level", "mode", "event", "season", "poster", "wallpaper", "screen", "roulette"}
 _NOT_LOADING = {"reload", "reloading", "weapon", "gun", "skin", "icon", "button", "atlas", "font", "normal", "mask",
                 "lightmap", "shadowmask", "noise", "ramp", "lut", "sprite", "sheet", "anim", "fx", "particle"}
 
@@ -356,8 +356,17 @@ def is_loading_candidate(name: str, w: int, h: int) -> bool:
     """Screen-sized art that may be shown while a map loads (map previews and the
     like). Offered in the picker, not ticked by default."""
     words = _words(name)
-    return (w >= 1024 and 1.45 <= w / max(1, h) <= 2.1 and bool(words & _LOADING_HINTS)
+    return (w >= 1024 and 1.45 <= w / max(1, h) <= 2.5 and bool(words & _LOADING_HINTS)
             and not words & _NOT_LOADING)
+
+
+_LOADING_STRONG = {"preview", "season", "bg", "background", "previews"}
+
+
+def loading_suggested(name: str, w: int, h: int) -> bool:
+    """Ticked by default: named as loading, or season/preview/background art at
+    screen size (the player's report showed these are what PG3D shows)."""
+    return is_loading_name(name) or (is_loading_candidate(name, w, h) and w >= 1024 and bool(_words(name) & _LOADING_STRONG))
 
 
 _SKY_WORD = re.compile(r"^(sky|skies|skybox|skydome|skysphere|skymap|skytex)\d*$")
@@ -371,13 +380,18 @@ _SKY_VOCAB = {"night", "day", "dawn", "dusk", "sunset", "sunrise", "evening", "m
               "dome", "map", "bg", "background", "lowres", "hd", "lod", "new", "old", "copy"}
 
 
+_NOT_SKY = {"weapon", "gun", "rifle", "pistol", "shotgun", "sniper", "sword", "blade", "hammer", "axe", "bow", "knife",
+            "launcher", "rocket", "jet", "skin", "icon", "btn", "button", "fx", "vfx", "particle", "particles", "effect",
+            "trail", "bullet", "ammo", "armor", "armour", "pet", "gadget", "fall", "lander", "walker", "rider", "diver",
+            "hook", "mask", "normal", "nrm", "lightmap", "shadow", "decal", "logo", "badge", "avatar", "hat", "cape"}
+
+
 def is_sky_name(name: str, extra=()) -> bool:
-    """A texture named only in sky terms: "Skybox_Front", "sky_03", "NightSky_up".
-    "SkyHammer_diffuse" or "Weapon_SkyFall" carry other words and are not skies."""
+    """A sky-word in the name and nothing that marks a weapon, effect or item:
+    "skybox_26_foggy_night", "26.1_lobby_sky", "infernal_forge_Sky" yes;
+    "SkyHammer_diffuse", "Weapon_SkyFall", "Skyline" no."""
     words = _words(name)
-    if not any(_SKY_WORD.match(x) for x in words):
-        return False
-    return all(_SKY_WORD.match(x) or x.isdigit() or x in _SKY_VOCAB or x in extra for x in words)
+    return any(_SKY_WORD.match(x) for x in words) and not words & _NOT_SKY
 
 
 _SHADER_WORDS = {"custom", "unlit", "mobile", "legacy", "shader", "shaders", "pg", "pg3d", "standard", "simple"}
@@ -413,7 +427,8 @@ def _loading_textures_in(env, p: Path, app: Path, log):
         except ValueError:
             rel = p.name
         out.append({"source_file": str(p), "relative_file": rel, "path_id": int(obj.path_id),
-                    "name": name, "width": w, "height": h, "suggested": sure, "_thumb": thumb})
+                    "name": name, "width": w, "height": h, "suggested": sure or loading_suggested(name, w, h),
+                    "_thumb": thumb})
     return out
 
 
@@ -725,6 +740,28 @@ _FINDER_GUI = {"ui", "hud", "button", "btn", "icon", "panel", "frame", "bar", "h
                "chat", "menu", "lobby", "shop", "gui", "hp", "shield", "reload", "grenade", "gadget", "crosshair"}
 
 
+# How likely a texture is something on screen during a match that covers the view.
+_VIEW_BLOCKERS = {"vignette": 60, "blood": 55, "damage": 45, "hurt": 45, "injury": 45, "overlay": 45, "flash": 40,
+                  "flashbang": 50, "smoke": 35, "scope": 40, "zoom": 30, "fog": 30, "screen": 25, "splash": 25,
+                  "indicator": 35, "direction": 25, "hit": 25, "lowhp": 45, "low": 15, "health": 20, "hp": 20,
+                  "shield": 15, "armor": 15, "frame": 15, "border": 20, "banner": 25, "streak": 30, "killstreak": 35,
+                  "kill": 20, "feed": 20, "notification": 25, "notify": 25, "popup": 20, "hint": 20, "tutorial": 20,
+                  "joystick": 30, "touch": 25, "button": 10, "btn": 10, "crosshair": 15, "reticle": 15, "aim": 15,
+                  "hud": 20, "bar": 10, "ammo": 15, "reload": 15, "timer": 15, "score": 10, "minimap": 20,
+                  "radar": 20, "compass": 20, "chat": 15, "emote": 20, "mvp": 20, "medal": 20, "achievement": 20,
+                  "ui": 5, "gui": 5, "icon": 3}
+
+
+def gui_view_score(name, typ, w, h):
+    words = _words(name)
+    score = sum(v for k, v in _VIEW_BLOCKERS.items() if k in words)
+    if score and max(w, h) >= 512:
+        score += 20  # big: covers more of the screen
+    if score and typ == "Sprite":
+        score += 5
+    return score
+
+
 def _finder_gui(name, typ, w, h):
     words = _words(name)
     return typ == "Sprite" or (typ == "Texture2D" and max(w, h) <= 1024 and bool(words & _FINDER_GUI))
@@ -773,10 +810,12 @@ def finder_scan(files, app: Path, progress=None, log=print):
             cats = _finder_category(name, typ, w, h)
             if int(obj.path_id) in sky_mat and "sky" not in cats:
                 cats.append("sky")
-            if _finder_gui(name, typ, w, h):
+            gs = gui_view_score(name, typ, w, h) if typ != "Cubemap" else 0
+            if gs or _finder_gui(name, typ, w, h):
                 cats.append("gui")
             items.append({"gid": len(items), "name": name, "type": typ, "width": w, "height": h,
-                          "source_file": str(p), "relative_file": rel, "path_id": int(obj.path_id), "cats": cats})
+                          "source_file": str(p), "relative_file": rel, "path_id": int(obj.path_id), "cats": cats,
+                          "gs": gs})
         del env
     return items
 
