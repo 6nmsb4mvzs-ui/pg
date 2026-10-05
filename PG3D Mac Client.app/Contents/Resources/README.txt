@@ -1,4 +1,4 @@
-PG3D Mac Client 1.64.0
+PG3D Mac Client 1.65.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,12 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.65
+HUD       The HUD layout scan also understands NGUI (the UI system PG3D's
+          in-match HUD most likely uses), skips login / popup / tutorial
+          screens, and adds an outline of every UI root in the game files so
+          the HUD can be found even when its names don't match.
 
 New in 1.64
 Permissions Settings > Permissions shows every permission in one place, with

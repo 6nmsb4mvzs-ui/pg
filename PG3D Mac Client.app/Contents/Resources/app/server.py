@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.64.0"
+APP_VERSION = "1.65.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5050,12 +5050,13 @@ def start_hud_scan():
         if not app:
             raise RuntimeError("Pixel Gun 3D.app was not found.")
         files = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files(refresh=True)
-        hits = customize.hud_scan(files, app, progress, log)
+        result = customize.hud_scan(files, app, progress, log)
         build = plist_value(app / "Contents/Info.plist", "CFBundleVersion")
         write_json(HUD_SCAN_JSON, {"generated": datetime.now().isoformat(timespec="seconds"), "build": build,
-                                   "files": len(files), "hits": hits})
-        subprocess.run(["/usr/bin/pbcopy"], input=customize.hud_report(hits, build), text=True, timeout=5)
-        return f"Found {len(hits)} HUD layout objects in {len(files)} files. The report is copied: paste it into your message."
+                                   "files": len(files), **result})
+        subprocess.run(["/usr/bin/pbcopy"], input=customize.hud_report(result, build), text=True, timeout=5)
+        return (f"Found {len(result['hits'])} HUD objects and {len(result['roots'])} UI roots in {len(files)} files. "
+                "The report is copied: paste it into your message.")
     return start_job("scan", job, label="Scanning HUD layout")
 
 
@@ -5063,8 +5064,7 @@ def copy_hud_report():
     d = read_json(HUD_SCAN_JSON, None)
     if not d:
         raise RuntimeError("Run the HUD layout scan first.")
-    subprocess.run(["/usr/bin/pbcopy"], input=customize.hud_report(d.get("hits", []), d.get("build", "")),
-                   text=True, timeout=5)
+    subprocess.run(["/usr/bin/pbcopy"], input=customize.hud_report(d, d.get("build", "")), text=True, timeout=5)
     return {"ok": True, "count": len(d.get("hits", []))}
 
 
