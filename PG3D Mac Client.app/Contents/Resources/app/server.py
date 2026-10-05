@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.51.1"
+APP_VERSION = "1.52.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -516,9 +516,17 @@ def obj_dims(data):
     return w, h
 
 
+CURSOR_DETECTOR_V = 2  # 2: controller/touch cursors are never picked (build 156210 put "GamepadCursor" at #3)
+CURSOR_CANDIDATES_JSON = STATE_DIR / "cursor_candidates.json"
+CURSOR_CANDIDATE_DIR = RUNTIME / "cursor_candidates"
+_NOT_MOUSE_CURSOR = re.compile(r"gamepad|joystick|controller|console|touch|virtual|stick", re.I)
+
+
 def cursor_score(name, w, h, typ):
     n = (name or "").lower()
     score = sum(v for k, v in CURSOR_KEYWORDS.items() if k in n)
+    if _NOT_MOUSE_CURSOR.search(n):
+        score -= 400
     if 4 <= w <= 256 and 4 <= h <= 256:
         score += 25
     if 8 <= w <= 128 and 8 <= h <= 128:
@@ -534,7 +542,8 @@ def scan_cursor_target(force=False):
     if not force and CURSOR_TARGET_JSON.exists():
         try:
             t = json.loads(CURSOR_TARGET_JSON.read_text(encoding="utf-8"))
-            if int(t.get("asset_number", 0)) == CURSOR_ASSET_NUMBER and Path(t["source_file"]).exists():
+            if (int(t.get("asset_number", 0)) == CURSOR_ASSET_NUMBER and Path(t["source_file"]).exists()
+                    and int(t.get("detector_v", 1)) >= CURSOR_DETECTOR_V):
                 export_cursor_original(t)
                 set_status(cursor_phase="ready", cursor_progress=100,
                            cursor_message="Cursor asset #3 locked.", cursor_error=None,
@@ -587,14 +596,18 @@ def scan_cursor_target(force=False):
                 log(f"CURSOR OBJ FAIL {p} {getattr(obj, 'path_id', '?')}: {e}")
 
     found.sort(key=lambda c: (-c["score"], c["width"] * c["height"], c["name"].lower()))
+    found = [c for c in found if c["score"] > 0]
+    _save_cursor_candidates(found[:12])
     if len(found) < CURSOR_ASSET_NUMBER:
         raise RuntimeError(f"Only {len(found)} cursor candidates were found; asset #3 does not exist.")
     target = dict(found[CURSOR_ASSET_NUMBER - 1])
     target.update({
         "asset_number": CURSOR_ASSET_NUMBER,
+        "detector_v": CURSOR_DETECTOR_V,
         "app": str(app),
         "detected_at": datetime.now().isoformat(timespec="seconds"),
     })
+    _retarget_applied_cursor(target)
     write_json(CURSOR_TARGET_JSON, target)
     export_cursor_original(target)
     set_status(cursor_phase="ready", cursor_progress=100,
@@ -604,11 +617,88 @@ def scan_cursor_target(force=False):
     return target
 
 
+def _save_cursor_candidates(cands):
+    """Small previews of the likeliest cursor textures, for the picker."""
+    shutil.rmtree(CURSOR_CANDIDATE_DIR, ignore_errors=True)
+    CURSOR_CANDIDATE_DIR.mkdir(parents=True, exist_ok=True)
+    by_file = {}
+    for i, c in enumerate(cands):
+        c["index"] = i
+        by_file.setdefault(c["source_file"], []).append(c)
+    for src, items in by_file.items():
+        try:
+            env = UnityPy.load(src)
+            for c in items:
+                reader = find_reader(env, c["path_id"])
+                if reader is None:
+                    continue
+                img = reader.parse_as_object().image.convert("RGBA")
+                img.thumbnail((96, 96))
+                img.save(CURSOR_CANDIDATE_DIR / f"{c['index']}.png", "PNG")
+        except Exception as e:
+            log(f"Cursor candidate previews failed for {Path(src).name}: {e}")
+    write_json(CURSOR_CANDIDATES_JSON, {"items": cands, "build": None})
+
+
+def cursor_candidates_payload():
+    data = read_json(CURSOR_CANDIDATES_JSON, {"items": []})
+    cur = load_cursor_target() or {}
+    items = []
+    for c in data.get("items", []):
+        items.append({"index": c["index"], "name": c["name"], "width": c["width"], "height": c["height"],
+                      "file": Path(c["source_file"]).name, "type": c["object_type"],
+                      "preview": f"/api/cursor/candidate/{c['index']}.png",
+                      "current": c["source_file"] == cur.get("source_file") and int(c["path_id"]) == int(cur.get("path_id", -1))})
+    return {"items": items}
+
+
+def choose_cursor_target(index):
+    data = read_json(CURSOR_CANDIDATES_JSON, {"items": []})
+    cand = next((c for c in data.get("items", []) if int(c.get("index", -1)) == int(index)), None)
+    if not cand or not Path(cand["source_file"]).exists():
+        raise RuntimeError("That texture isn't in the list anymore. Use Re-detect cursor first.")
+    target = {k: v for k, v in cand.items() if k != "index"}
+    target.update({"asset_number": CURSOR_ASSET_NUMBER, "detector_v": CURSOR_DETECTOR_V, "chosen": True,
+                   "app": str(find_app()), "detected_at": datetime.now().isoformat(timespec="seconds")})
+    _retarget_applied_cursor(target)
+    write_json(CURSOR_TARGET_JSON, target)
+    export_cursor_original(target)
+    set_status(cursor_phase="ready", cursor_progress=100, cursor_message=f"Cursor texture: {target['name']}.",
+               cursor_error=None, cursor_target=target)
+    log(f"Cursor target chosen: {target['name']} in {Path(target['source_file']).name}")
+    return {"ok": True, "target": target["name"]}
+
+
+def _retarget_applied_cursor(target):
+    """A new cursor texture: its own original preview, and an applied cursor moves onto it."""
+    old = load_cursor_target() or {}
+    if (old.get("source_file"), int(old.get("path_id", -1))) == (target["source_file"], int(target["path_id"])):
+        return
+    for p in (ORIGINAL_CURSOR_BASELINE, RUNTIME / "original_cursor.png"):
+        try:
+            p.unlink()
+        except OSError:
+            pass
+    _CURSOR_FRESH["on"] = True
+    mods = load_mods()
+    if mods.get("cursor"):
+        def change(state):
+            if state.get("cursor"):
+                state["cursor"]["target"] = target
+        try:
+            mutate_state(change, f"Cursor moved to {target['name']}")
+        except Exception as e:
+            log(f"Moving the applied cursor failed: {e}")
+
+
+_CURSOR_FRESH = {"on": False}
+
+
 def load_cursor_target():
     try:
         if CURSOR_TARGET_JSON.exists():
             t = json.loads(CURSOR_TARGET_JSON.read_text(encoding="utf-8"))
-            if Path(t["source_file"]).exists():
+            if Path(t["source_file"]).exists() and (t.get("chosen") or int(t.get("detector_v", 1)) >= CURSOR_DETECTOR_V):
                 return t
     except Exception:
         pass
@@ -629,7 +719,7 @@ def export_cursor_original(target):
         # If an old build says a cursor mod is active, its stored original preview
         # is safer than reading the currently modified game asset. Otherwise read
         # the live target so 100% calibrates to the actual stock PG3D cursor.
-        old_cursor_mod = bool(read_json(MODS_JSON, {}).get("cursor"))
+        old_cursor_mod = bool(read_json(MODS_JSON, {}).get("cursor")) and not _CURSOR_FRESH["on"]
         if not ORIGINAL_CURSOR_BASELINE.exists() and old_cursor_mod and runtime_original.exists():
             try:
                 Image.open(runtime_original).convert("RGBA").save(ORIGINAL_CURSOR_BASELINE, "PNG")
@@ -3391,8 +3481,7 @@ def _fps_log_state(log_path, pid, timeout):
             txt = ""
         if "render pacing override is active" in txt or "target frame rate override installed" in txt:
             return "ok"
-        if ("target frame rate binding does not match" in txt or "target frame rate wrapper RVA" in txt
-                or "required Unity binding unavailable" in txt):
+        if "timed out waiting for Unity initialization" in txt or "required Unity binding unavailable" in txt:
             return "fail"
         if pid is not None:
             try:
@@ -3421,9 +3510,9 @@ def _record_fps_build_result(ok):
     if not build or build == "unknown":
         return
     prefs = prefs_payload()
-    results = prefs.get("fps_builds_v2") if isinstance(prefs.get("fps_builds_v2"), dict) else {}
+    results = prefs.get("fps_builds_v3") if isinstance(prefs.get("fps_builds_v3"), dict) else {}
     results[build] = bool(ok)
-    prefs["fps_builds_v2"] = dict(list(results.items())[-20:])
+    prefs["fps_builds_v3"] = dict(list(results.items())[-20:])
     write_json(PREFS_JSON, prefs)
 
 
@@ -3431,7 +3520,7 @@ def fps_build_match(build):
     """True: works on this build, False: failed on it, None: not tried yet."""
     if build in (None, "unknown"):
         return None
-    known = prefs_payload().get("fps_builds_v2") or {}
+    known = prefs_payload().get("fps_builds_v3") or {}
     if str(build) in known:
         return bool(known[str(build)])
     return True if build in FPS_SUPPORTED_BUILDS else None
@@ -4505,7 +4594,129 @@ CUSTOMIZE_SCAN_V = 4
 
 
 def customize_catalog():
-    return read_json(CUSTOMIZE_CATALOG_JSON, {"generated": None, "app": None, "build": None, "gui": {}, "sky": [], "loading": []})
+    cat = read_json(CUSTOMIZE_CATALOG_JSON, {"generated": None, "app": None, "build": None, "gui": {}, "sky": [], "loading": []})
+    return _merge_finder_picks(cat)
+
+
+# ------------------------------------------------------------- finder (temporary)
+FINDER_JSON = STATE_DIR / "finder.json"
+FINDER_THUMBS = RUNTIME / "finder"
+FINDER_CATS = ("sky", "cursor", "loading")
+
+
+def finder_payload():
+    data = read_json(FINDER_JSON, {})
+    return {"generated": data.get("generated"), "build": data.get("build"),
+            "items": {c: data.get(c, []) for c in FINDER_CATS},
+            "picks": data.get("picks") or {c: [] for c in FINDER_CATS},
+            "used": data.get("used") or {}}
+
+
+def start_finder_scan():
+    def job(progress):
+        app = find_app()
+        if not app:
+            raise RuntimeError("Pixel Gun 3D.app was not found.")
+        files = candidate_files(app / "Contents/Resources/Data", deep=True)
+        shutil.rmtree(FINDER_THUMBS, ignore_errors=True)
+        FINDER_THUMBS.mkdir(parents=True, exist_ok=True)
+        found = customize.finder_scan(files, app, FINDER_THUMBS, progress, log)
+        old = read_json(FINDER_JSON, {})
+        data = {"generated": datetime.now().isoformat(timespec="seconds"),
+                "build": plist_value(app / "Contents/Info.plist", "CFBundleVersion"), **found,
+                "picks": {c: [] for c in FINDER_CATS}, "used": old.get("used") or {}}
+        write_json(FINDER_JSON, data)
+        return (f"Found {len(found['sky'])} sky, {len(found['cursor'])} cursor and "
+                f"{len(found['loading'])} loading-screen textures.")
+    return start_job("scan", job, label="Finding textures")
+
+
+def set_finder_picks(cat, ids):
+    if cat not in FINDER_CATS:
+        raise RuntimeError("Unknown category.")
+    data = read_json(FINDER_JSON, {})
+    valid = {x["id"] for x in data.get(cat, [])}
+    picks = data.get("picks") or {c: [] for c in FINDER_CATS}
+    picks[cat] = sorted({int(i) for i in (ids or []) if int(i) in valid})
+    data["picks"] = picks
+    write_json(FINDER_JSON, data)
+    return {"ok": True, "picks": picks}
+
+
+def _finder_picked(data, cat):
+    ids = set((data.get("picks") or {}).get(cat) or [])
+    return [x for x in data.get(cat, []) if x["id"] in ids]
+
+
+def finder_report():
+    data = read_json(FINDER_JSON, {})
+    lines = [f"PG3D Mac Client {APP_VERSION} texture report, PG3D build {data.get('build')}"]
+    cat = read_json(CUSTOMIZE_CATALOG_JSON, {})
+    known = {c: {(t["source_file"], int(t["path_id"])) for t in cat.get(c, [])} for c in ("sky", "loading")}
+    cur = load_cursor_target() or {}
+    for c in FINDER_CATS:
+        picked = _finder_picked(data, c)
+        lines.append(f"\n[{c}] {len(picked)} picked of {len(data.get(c, []))} found")
+        for x in picked:
+            if c == "cursor":
+                flag = "current target" if (x["source_file"], x["path_id"]) == (cur.get("source_file"), cur.get("path_id")) else ""
+            else:
+                flag = "detected" if (x["source_file"], x["path_id"]) in known.get(c, set()) else "NOT detected"
+            lines.append(f"  {x['name']} | {x['type']} {x['width']}x{x['height']} | {x['relative_file']} #{x['path_id']} {flag}")
+    text = "\n".join(lines)
+    try:
+        subprocess.run(["/usr/bin/pbcopy"], input=text, text=True, timeout=5)
+    except Exception:
+        pass
+    return {"ok": True, "text": text}
+
+
+def finder_use(cat):
+    """Make the client use the picked textures: the cursor target, or extra
+    sky / loading-screen targets."""
+    data = read_json(FINDER_JSON, {})
+    picked = _finder_picked(data, cat)
+    if not picked:
+        raise RuntimeError("Pick at least one texture first.")
+    if cat == "cursor":
+        x = picked[0]
+        cands = read_json(CURSOR_CANDIDATES_JSON, {"items": []})
+        items = [c for c in cands.get("items", []) if (c["source_file"], int(c["path_id"])) != (x["source_file"], x["path_id"])]
+        entry = {"source_file": x["source_file"], "relative_file": x["relative_file"], "object_type": x["type"],
+                 "path_id": x["path_id"], "name": x["name"], "width": x["width"], "height": x["height"], "score": 999}
+        items = [entry] + items
+        for i, c in enumerate(items):
+            c["index"] = i
+        write_json(CURSOR_CANDIDATES_JSON, {"items": items})
+        return choose_cursor_target(0)
+    used = data.get("used") or {}
+    used[cat] = [{**{k: x[k] for k in ("name", "type", "width", "height", "source_file", "relative_file", "path_id")},
+                  "preview": f"/api/finder/thumb/{cat}/{x['id']}.jpg"} for x in picked]
+    data["used"] = used
+    write_json(FINDER_JSON, data)
+    return {"ok": True, "count": len(picked)}
+
+
+def _merge_finder_picks(cat):
+    """Sky / loading textures the player marked in Finder join the catalog (ticked)."""
+    used = (read_json(FINDER_JSON, {}) or {}).get("used") or {}
+    for c in ("sky", "loading"):
+        lst = cat.setdefault(c, [])
+        have = {(t["source_file"], int(t["path_id"])) for t in lst}
+        nxt = max([int(t.get("id", 0)) for t in lst] + [0]) + 1
+        for x in used.get(c, []):
+            if (x["source_file"], int(x["path_id"])) in have or not Path(x["source_file"]).exists():
+                continue
+            t = dict(x, id=nxt, finder=True)
+            nxt += 1
+            if c == "sky":
+                t["face"] = "cube" if x["type"] == "Cubemap" else (customize._face_from_name(x["name"]) or
+                                                                    ("panorama" if x["width"] >= 1.7 * x["height"] else "flat"))
+                t["from_material"] = False
+            else:
+                t["suggested"] = True
+            lst.append(t)
+    return cat
 
 
 def _catalog_fresh(cat):
@@ -4580,7 +4791,7 @@ def ensure_catalog(progress, force=False):
     if not force and _catalog_fresh(cat):
         progress(1.0, "Using the saved scan.")
         return cat
-    return scan_customize(progress)
+    return _merge_finder_picks(scan_customize(progress))
 
 
 def theme_payload():
@@ -4796,7 +5007,8 @@ def sky_payload():
         "scan": {"generated": cat.get("generated"), "fresh": _catalog_fresh(cat)},
         "active": ({k: sky.get(k) for k in ("id", "name", "yaw", "swap_lr", "flip")} |
                    {"count": len(sky.get("targets", [])),
-                    "target_keys": [f"{t['source_file']}:{t['path_id']}" for t in sky.get("targets", [])]}
+                    "target_keys": [f"{t['source_file']}:{t['path_id']}" for t in sky.get("targets", [])],
+                    "custom": bool(sky.get("custom"))}
                    if sky else None),
         "numpy": customize.np is not None,
         "loading": loading_payload(),
@@ -4960,10 +5172,12 @@ def apply_sky(sky_id, target_ids=None, yaw=0, swap_lr=False, flip=False):
         if not picked:
             raise RuntimeError("None of the selected sky textures exist anymore. Scan again.")
 
+        custom = bool(target_ids) and len(picked) < len([t for t in all_targets if Path(t["source_file"]).exists()])
+
         def change(state):
             state["skybox"] = {"id": sky["id"], "image": sky["file"], "name": sky["name"], "yaw": yaw,
                                "swap_lr": bool(swap_lr), "flip": bool(flip), "targets": picked,
-                               "targets_v": CUSTOMIZE_SCAN_V}
+                               "targets_v": CUSTOMIZE_SCAN_V, "custom": custom}
         mutate_state(change, f"Sky: {sky['name']}", _sub_progress(progress, 0.4, 1.0))
         return f"“{sky['name']}” applied to {len(picked)} sky textures."
     return start_job("sky", job)
@@ -5993,6 +6207,20 @@ class Handler(BaseHTTPRequestHandler):
             if not re.fullmatch(r"[0-9a-f]{16}\.jpg", name):
                 return self.send_error(403)
             return self.send_file(SKY_PREVIEWS / name, cache=True)
+        if path == "/api/finder":
+            return self.send_json(finder_payload())
+        if path.startswith("/api/finder/thumb/"):
+            parts = path.split("/")
+            if len(parts) != 6 or parts[4] not in FINDER_CATS or not re.fullmatch(r"\d{1,4}\.jpg", parts[5]):
+                return self.send_error(403)
+            return self.send_file(FINDER_THUMBS / parts[4] / parts[5])
+        if path == "/api/cursor/candidates":
+            return self.send_json(cursor_candidates_payload())
+        if path.startswith("/api/cursor/candidate/"):
+            name = Path(path).name
+            if not re.fullmatch(r"\d{1,2}\.png", name):
+                return self.send_error(403)
+            return self.send_file(CURSOR_CANDIDATE_DIR / name)
         if path.startswith("/api/sky/target/"):
             name = Path(path).name
             if not re.fullmatch(r"\d{1,5}\.jpg", name):
@@ -6057,6 +6285,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(reset_cursor())
             if path == "/api/cursor/custom":
                 return self.send_json(import_custom_cursor(data.get("data", "")))
+            if path == "/api/finder/scan":
+                return self.send_json(start_finder_scan())
+            if path == "/api/finder/picks":
+                return self.send_json(set_finder_picks(data.get("cat"), data.get("ids")))
+            if path == "/api/finder/report":
+                return self.send_json(finder_report())
+            if path == "/api/finder/use":
+                return self.send_json(finder_use(data.get("cat")))
+            if path == "/api/cursor/choose":
+                return self.send_json(choose_cursor_target(int(data.get("index", -1))))
             if path == "/api/cursor/redetect":
                 start_cursor_init(force=True)
                 return self.send_json({"ok": True})

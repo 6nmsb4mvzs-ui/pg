@@ -693,3 +693,93 @@ def write_cubemap(cube, faces, flip=True):
 def safe_sky_name(raw: str):
     s = re.sub(r"[^A-Za-z0-9 _.-]+", "", str(raw or "")).strip()[:48]
     return s or "Custom sky"
+
+
+# ------------------------------------------------------------------ finder
+# A broad, temporary look through the game files for the three things the client
+# replaces, so the player can point at the right textures. Errs on showing too
+# much: the player chooses.
+_FINDER_CURSOR = {"cursor", "pointer", "mouse", "arrow", "hand", "crosshair", "reticle", "aim", "sight", "scope",
+                  "click", "pointer"}
+_FINDER_SKY = {"cloud", "clouds", "horizon", "space", "stars", "galaxy", "panorama", "pano", "backdrop", "hdri",
+               "nebula", "aurora", "sun", "moon", "night", "skydome", "skybox"}
+_FINDER_LOADING = _LOADING_HINTS | {"loading", "splash", "load", "loadscreen", "preloader", "intro", "title"}
+
+
+def _finder_category(name, typ, w, h):
+    words = _words(name)
+    low = (name or "").lower()
+    out = []
+    if typ in ("Texture2D", "Sprite") and max(w, h) <= 512 and (words & _FINDER_CURSOR or "cursor" in low):
+        out.append("cursor")
+    if typ == "Cubemap" or (max(w, h) >= 256 and (any(x.startswith("sky") for x in words) or words & _FINDER_SKY)):
+        out.append("sky")
+    if (typ == "Texture2D" and w >= 512 and h >= 256 and 1.2 <= w / max(1, h) <= 2.5
+            and words & _FINDER_LOADING and not words & {"reload", "reloading"}):
+        out.append("loading")
+    return out
+
+
+def finder_scan(files, app: Path, thumb_dir: Path, progress=None, log=print, limit=500):
+    import UnityPy
+
+    found = {"sky": [], "cursor": [], "loading": []}
+    total = max(1, len(files))
+    for idx, p in enumerate(files, 1):
+        if progress:
+            progress(idx / total, f"Looking through game files ({idx}/{total})…")
+        try:
+            env = UnityPy.load(str(p))
+            env._pg3d_own_files = {id(o.assets_file) for o in env.objects}
+        except Exception as e:
+            log(f"FINDER LOAD FAIL {p}: {e}")
+            continue
+        # Textures used by skybox materials count as sky even with plain names.
+        try:
+            sky_mat = {t["path_id"] for t in _sky_textures_in(env, Path(p), app, lambda *_: None) if t.get("from_material")}
+        except Exception:
+            sky_mat = set()
+        for obj in _own_objects(env):
+            typ = obj.type.name
+            if typ not in ("Texture2D", "Sprite", "Cubemap"):
+                continue
+            name = _name(obj) or ""
+            try:
+                data = obj.parse_as_object()
+                if typ == "Sprite":
+                    r = data.m_Rect
+                    w, h = int(r.width), int(r.height)
+                else:
+                    w, h = int(data.m_Width), int(data.m_Height)
+            except Exception:
+                continue
+            cats = _finder_category(name, typ, w, h)
+            if int(obj.path_id) in sky_mat and "sky" not in cats:
+                cats.append("sky")
+            if not cats:
+                continue
+            thumb = None
+            for cat in cats:
+                if len(found[cat]) >= limit:
+                    continue
+                i = len(found[cat])
+                if thumb is None:
+                    try:
+                        thumb = data.image.convert("RGBA")
+                        thumb.thumbnail((180, 180))
+                    except Exception:
+                        thumb = False
+                if thumb:
+                    (thumb_dir / cat).mkdir(parents=True, exist_ok=True)
+                    bg = Image.new("RGB", thumb.size, (24, 24, 30))
+                    bg.paste(thumb, mask=thumb.split()[3])
+                    bg.save(thumb_dir / cat / f"{i}.jpg", "JPEG", quality=80)
+                try:
+                    rel = str(Path(p).relative_to(app))
+                except ValueError:
+                    rel = Path(p).name
+                found[cat].append({"id": i, "name": name, "type": typ, "width": w, "height": h,
+                                   "source_file": str(p), "relative_file": rel, "path_id": int(obj.path_id),
+                                   "thumb": bool(thumb), "from_material": int(obj.path_id) in sky_mat})
+        del env
+    return found

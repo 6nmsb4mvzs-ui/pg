@@ -255,7 +255,7 @@ static bool prepare_override(Override *override) {
         wrapper_address = scan_for_wrapper(override->binding_name);
         if (wrapper_address == 0) {
             if (!override->binding_was_invalid) {
-                log_message("%s binding does not match this game build; no override applied.",
+                log_message("%s wrapper not found in this build; using enforcement instead.",
                             override->description);
                 override->binding_was_invalid = true;
             }
@@ -299,20 +299,21 @@ static double seconds_between(struct timespec start, struct timespec end) {
            (double)(end.tv_nsec - start.tv_nsec) / 1000000000.0;
 }
 
+static bool g_enforce_only;  // no hookable wrapper: keep re-setting the values instead
+
 static bool initialize_bindings(void) {
-    // Validate BOTH wrappers before modifying either. A warm target cache proves
-    // Unity registered its icalls, even when the game never calls the v-sync
-    // wrapper. Resolve that cold callback explicitly after this readiness check.
-    if (!prepare_override(&g_target_frame_rate)) {
+    // Preferred: redirect the icall wrappers so the game can't lower the target.
+    // Builds compiled differently have no wrapper we recognise; then the values are
+    // set through Unity's own setters (looked up by name, build independent) and
+    // re-applied on every 250 ms tick, which works just as well for pacing.
+    const bool have_hook = prepare_override(&g_target_frame_rate);
+    if (g_resolve_icall == NULL) {
         return false;
     }
-    // V-sync is a bonus: newer builds may not expose its wrapper the same way, and the
-    // frame-rate target alone already unlocks the game (vSyncCount is usually 0 on macOS).
-    const bool have_vsync = prepare_override(&g_vsync_count);
-    if (__atomic_load_n(g_target_frame_rate.cache_slot, __ATOMIC_ACQUIRE) == NULL ||
-        g_resolve_icall == NULL) {
-        return false;
+    if (have_hook && __atomic_load_n(g_target_frame_rate.cache_slot, __ATOMIC_ACQUIRE) == NULL) {
+        return false;  // Unity hasn't registered its icalls yet
     }
+    const bool have_vsync = have_hook && prepare_override(&g_vsync_count);
 
     g_get_target = (int (*)(void))g_resolve_icall("UnityEngine.Application::get_targetFrameRate");
     g_get_vsync = (int (*)(void))g_resolve_icall("UnityEngine.QualitySettings::get_vSyncCount");
@@ -326,30 +327,33 @@ static bool initialize_bindings(void) {
     if (g_get_target == NULL || g_get_vsync == NULL || g_get_frames == NULL ||
         g_get_rendered == NULL || g_get_focused == NULL ||
         g_target_frame_rate.original == NULL || g_vsync_count.original == NULL) {
-        log_message("required Unity binding unavailable; no override applied.");
-        dispatch_source_cancel(g_retry_timer);
-        return false;
+        return false;  // not registered yet; the retry timer tries again
     }
     if (g_get_frames() < 3) {
         return false;
     }
-    log_message("before override: target=%d, vSyncCount=%d, v-sync cache=%s.",
-                g_get_target(), g_get_vsync(),
-                !have_vsync ? "unavailable" : (*g_vsync_count.cache_slot == NULL ? "cold" : "initialized"));
+    log_message("before override: target=%d, vSyncCount=%d, mode=%s.",
+                g_get_target(), g_get_vsync(), have_hook ? "hook" : "enforce");
     if (!g_observe_only) {
-        if (have_vsync) {
-            install_override(&g_vsync_count);
-        } else if (g_get_vsync() != 0) {
-            g_vsync_count.original(0);  // one-time set; the game may change it back
-            log_message("v-sync wrapper not found in this build; set vSyncCount=0 once.");
+        if (have_hook) {
+            if (have_vsync) {
+                install_override(&g_vsync_count);
+            } else {
+                g_vsync_count.original(0);
+            }
+            install_override(&g_target_frame_rate);
+        } else {
+            g_enforce_only = true;
+            g_vsync_count.original(0);
+            g_target_frame_rate.original(g_requested_frame_rate);
         }
-        install_override(&g_target_frame_rate);
-        if (g_get_target() != g_target_frame_rate.forced_value || (have_vsync && g_get_vsync() != 0)) {
-            log_message("Unity readback did not match requested values; override unverified.");
+        if (g_get_target() != g_requested_frame_rate) {
+            log_message("Unity readback did not match requested values; retrying.");
             return false;
         }
-        log_message("render pacing override is active: target=%d, vSyncCount=%d (read back from Unity).",
-                    g_get_target(), g_get_vsync());
+        log_message("render pacing override is active: target=%d, vSyncCount=%d (%s).",
+                    g_get_target(), g_get_vsync(),
+                    have_hook ? "read back from Unity" : "enforced every 250 ms");
     } else {
         log_message("frame pacing observation is active: no values changed.");
     }
@@ -364,12 +368,13 @@ static void measure_frames(void) {
     if (!g_observe_only) {
         // The game can bypass a wrapper through an inlined icall site or change
         // quality levels. Read back pacing values and reapply only if necessary.
+        static unsigned resets;
         if (g_get_vsync() != 0) {
-            log_message("game changed vSyncCount to %d; restoring 0.", g_get_vsync());
+            if (++resets <= 10) log_message("game changed vSyncCount to %d; restoring 0.", g_get_vsync());
             g_vsync_count.original(0);
         }
         if (g_get_target() != g_requested_frame_rate) {
-            log_message("game changed target to %d; restoring %d.", g_get_target(), g_requested_frame_rate);
+            if (++resets <= 10) log_message("game changed target to %d; restoring %d.", g_get_target(), g_requested_frame_rate);
             g_target_frame_rate.original(g_requested_frame_rate);
         }
     }
@@ -401,9 +406,7 @@ static void retry_installation(void) {
         g_active = true;
         return;
     }
-    if (g_target_frame_rate.binding_was_invalid) {
-        dispatch_source_cancel(g_retry_timer);
-    } else if (g_retry_count >= kRetryLimit) {
+    if (g_retry_count >= kRetryLimit) {
         log_message("timed out waiting for Unity initialization; override not active.");
         dispatch_source_cancel(g_retry_timer);
     }

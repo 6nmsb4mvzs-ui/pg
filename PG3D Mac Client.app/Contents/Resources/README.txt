@@ -1,4 +1,4 @@
-PG3D Mac Client 1.51.1
+PG3D Mac Client 1.52.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -330,3 +330,17 @@ New in 1.51.1
 Mouse     The mouse fix also catches the macOS arrow appearing in the middle
           of a match (not only after switching apps) and hides it again. It
           is the system cursor, which is why clips never show it.
+
+New in 1.52
+Finder    A temporary Finder tab looks through PG3D's files for every texture
+          that could be a sky, your mouse cursor or a loading screen, with
+          pictures. Pick the right ones, then Copy report (to send back) or
+          Use selected (the client uses them right away).
+FPS       The FPS unlocker works on builds where it can't find the old hook
+          (like 156210): it then sets the frame rate through Unity directly
+          and keeps it there.
+Cursor    Controller ("Gamepad") cursors are never picked as your mouse
+          cursor any more; detection runs again once and an applied cursor
+          moves onto the right texture.
+Sky       Applying a sky covers all sky textures again unless you untick
+          some yourself (1.49.1 left it on only 6).

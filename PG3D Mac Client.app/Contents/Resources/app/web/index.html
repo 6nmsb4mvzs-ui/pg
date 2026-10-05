@@ -865,6 +865,11 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .uiStyle .sv.noble em{position:absolute;left:12px;top:10px;font:700 12px 'Cinzel',serif;letter-spacing:.12em;color:#c8aa6e;font-style:normal}
 .uiStyle .sv.noble i{position:absolute;left:12px;right:40%;bottom:12px;height:18px;background:linear-gradient(180deg,#0a323c,#091428);border:1px solid #0ac8b9;box-shadow:0 0 0 1px #c8aa6e}
 .uiThemes.locked{opacity:.4;pointer-events:none}
+.fdGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:560px;overflow:auto}
+.fdItem{background:hsl(var(--nh) var(--ns) 7%);border:1px solid var(--border);border-radius:10px;padding:6px;text-align:left;color:var(--text);cursor:pointer;position:relative}
+.fdItem img{width:100%;height:96px;object-fit:contain;border-radius:6px;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 9%) 0 25%,hsl(var(--nh) var(--ns) 6%) 0 50%) 0 0/14px 14px}
+.fdItem b{display:block;font-size:11px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fdItem small{display:block;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fdItem.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}.fdItem.sel::after{content:"✓";position:absolute;top:8px;right:10px;color:var(--accent);font-weight:900}
 </style>
 </head>
 <body>
@@ -881,6 +886,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
       <button data-tab="theme"><span class="ico">Aa</span><span class="label">Font</span></button>
       <button data-tab="sky"><span class="ico">☁</span><span class="label">Sky</span></button>
+      <button data-tab="finder"><span class="ico">⌖</span><span class="label">Finder</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1148,6 +1154,19 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
+    <section class="page" id="page-finder">
+      <div class="xPage">
+        <div class="crCard">
+          <div class="crCardHead"><div class="curSeg" id="fdSeg"><button data-c="sky" class="active">Sky</button><button data-c="cursor">Cursor</button><button data-c="loading">Loading screen</button></div><button class="btn" id="fdScan">Scan game files</button></div>
+          <p class="xNote" id="fdNote">Finder looks through PG3D's files for every texture that could be a sky, your mouse cursor or a loading screen. Click the right ones (a few per group), then Copy report and paste it in the chat, or Use selected.</p>
+          <div class="xJob" id="fdJob"><div class="msg"></div><div class="bar"><i></i></div></div>
+          <input class="search" id="fdSearch" placeholder="Filter by name" spellcheck="false" style="margin:10px 0">
+          <div class="fdGrid" id="fdGrid"></div>
+          <div class="xRow" style="margin-top:14px"><span class="sub" id="fdCount"></span><button class="btn" id="fdReport">Copy report</button><button class="btn primary" id="fdUse">Use selected</button></div>
+        </div>
+      </div>
+    </section>
+
     <section class="page" id="page-sky">
       <div class="xPage">
         <div class="crCard">
@@ -1246,12 +1265,12 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',sky:'Sky & loading screen',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',sky:'Sky & loading screen',finder:'Finder (temporary)',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 async function api(path,opts={}){const r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Math.round(sec/60)} min`}
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
-function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='sky')loadSky()}
+function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='sky')loadSky();if(tab==='finder')loadFinder()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -1762,11 +1781,11 @@ let lastJobPhase=null;
 function jobLine(j){const q=j.queue||[];let t=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');
   if(j.phase==='running'&&j.eta!=null&&j.eta>0)t+=` · about ${fmtEta(j.eta)} left`;if(q.length)t+=` · then: ${q.join(', ')}`;return t}
 function renderJob(){const j=statusData?.job;if(!j)return;const active=j.phase==='running'||j.phase==='waiting';
-  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#skJob',['sky','scan','change','reapply','restore','repair']]]){const box=$(id);if(!box)continue;
+  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#fdJob',['scan']]]){const box=$(id);if(!box)continue;
     const mine=(kinds.includes(j.kind)&&(active||j.phase==='error'))||(j.queue||[]).length>0;box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
     box.querySelector('.msg').textContent=jobLine(j);box.querySelector('.bar i').style.width=(j.phase==='running'?j.progress||0:0)+'%'}
   const hint=$('#skHint');if(hint)hint.textContent=statusData.game_stuck?'PG3D is stuck in the background: quit it on the Play tab, then this applies.':statusData.game_running?'PG3D is open: your change is applied as soon as it closes.':active?'Changes you click now are queued and run one after another.':'';
-  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}}
+  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='finder')loadFinder()}
   if(fin||lastJobId===undefined)lastJobId=fin?j.id:null;lastJobPhase=j.phase}
 let lastJobId;
 
@@ -1941,7 +1960,7 @@ $('#rescanGame').onclick=async()=>{const b=$('#rescanGame');b.disabled=true;try{
 // Sky
 let loadTargetsOn=null;let skyData=null,skySel=null,skyTargetsOff=new Set(),skMode=localStorage.pg3dSkMode==='loading'?'loading':'sky';
 let loadKeysSig=null;async function loadSky(){try{skyData=await api('/api/sky');{const sig=JSON.stringify([skyData.loading?.active?.target_keys||null,(skyData.loading?.targets||[]).length]);if(sig!==loadKeysSig){loadKeysSig=sig;loadTargetsOn=null}}const act=skyData.active;if(!skySel)skySel=act?.id||skyData.library[0]?.id||null;if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=0;setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip);
-    const keys=new Set(act.target_keys||[]);skyTargetsOff=new Set(skyData.targets.filter(t=>!keys.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id))}renderSky()}catch(e){console.error(e)}}
+    const keys=new Set(act.target_keys||[]);skyTargetsOff=act.custom?new Set(skyData.targets.filter(t=>!keys.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id)):new Set()}renderSky()}catch(e){console.error(e)}}
 function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.innerHTML='';
   if(!d.library.find(s=>s.id===skySel))skySel=d.library[0]?.id||null;
   for(const s of d.library){const b=el('button','skItem'+(s.id===skySel?' sel':''));const im=el('img');im.src=s.thumb;im.alt='';const cap=el('div',null,s.name);cap.append(el('small',null,`${s.width}×${s.height}${s.panorama&&skMode==='sky'?' · panorama':''}`));b.append(im,cap);
@@ -2147,6 +2166,21 @@ $$('#setTabs button').forEach(b=>b.onclick=()=>showSettingsPane(b.dataset.p));
 let _uiThemeSynced=false;
 
 (async function init(){setTab(localStorage.pg3dTab||'play');await refreshStatus();selectedCursor=localStorage.pg3dCursor||statusData?.mods?.cursor?.cursor||'clean_dot';cursorSize=Math.max(8,Math.min(100,Number(localStorage.pg3dCursorSize||statusData?.mods?.cursor?.size||45)));cursorColor=(localStorage.pg3dCursorColor||statusData?.mods?.cursor?.color||'#FFFFFF').toUpperCase();cursorOutline=(localStorage.pg3dCursorOutline||statusData?.mods?.cursor?.outline||'#000000').toUpperCase();cursorOutlineWidth=Number(localStorage.pg3dCursorOW!=null?localStorage.pg3dCursorOW:(statusData?.mods?.cursor?.outline_width||0));$('#cursorSize').value=cursorSize;$('#fpsSelect').value=statusData?.prefs?.fps_target||'uncapped';renderCursorGrid();updateCursorPanel();await refreshPlayerCount();scheduleStatus();setInterval(refreshPlayerCount,30000)})();
+
+/* ===== Finder (temporary): pick the real sky / cursor / loading textures ===== */
+let fdData=null,fdCat='sky',fdPicks={sky:new Set(),cursor:new Set(),loading:new Set()};
+async function loadFinder(){try{const prev=fdData?.generated;fdData=await api('/api/finder');if(prev!==fdData.generated)for(const c of ['sky','cursor','loading'])fdPicks[c]=new Set(fdData.picks?.[c]||[]);renderFinder()}catch(e){console.error(e)}}
+function renderFinder(){const d=fdData;if(!d)return;$$('#fdSeg button').forEach(b=>b.classList.toggle('active',b.dataset.c===fdCat));
+  const g=$('#fdGrid');g.innerHTML='';const q=($('#fdSearch').value||'').toLowerCase();const items=(d.items[fdCat]||[]).filter(x=>!q||x.name.toLowerCase().includes(q));
+  if(!d.generated){g.append(el('div','xEmpty','Press Scan game files. It takes a few minutes.'))}
+  for(const x of items){const b=el('button','fdItem'+(fdPicks[fdCat].has(x.id)?' sel':''));b.type='button';const im=el('img');im.loading='lazy';if(x.thumb)im.src=`/api/finder/thumb/${fdCat}/${x.id}.jpg`;b.append(im,el('b',null,x.name||`#${x.path_id}`),el('small',null,`${x.type} ${x.width}×${x.height} · ${x.relative_file}`));b.title=`${x.name}\n${x.relative_file} #${x.path_id}`;
+    b.onclick=()=>{const s=fdPicks[fdCat];s.has(x.id)?s.delete(x.id):s.add(x.id);b.classList.toggle('sel',s.has(x.id));savePicks()};g.append(b)}
+  const n=fdPicks[fdCat].size;$('#fdCount').textContent=d.generated?`${items.length} shown · ${n} selected${fdCat==='cursor'?' (the first one is used)':''}`:'';$('#fdUse').disabled=!n;$('#fdReport').disabled=!d.generated}
+let fdSaveT;function savePicks(){const c=fdCat,ids=[...fdPicks[c]];$('#fdCount').textContent=$('#fdCount').textContent.replace(/\d+ selected/,`${ids.length} selected`);$('#fdUse').disabled=!ids.length;clearTimeout(fdSaveT);fdSaveT=setTimeout(()=>post('/api/finder/picks',{cat:c,ids}).catch(()=>{}),300)}
+$$('#fdSeg button').forEach(b=>b.onclick=()=>{fdCat=b.dataset.c;renderFinder()});$('#fdSearch').oninput=()=>renderFinder();
+$('#fdScan').onclick=async()=>{try{await post('/api/finder/scan',{});toast('Scanning PG3D\'s files… this takes a few minutes.')}catch(e){toast(e.message,true)}};
+$('#fdReport').onclick=async()=>{try{await post('/api/finder/picks',{cat:fdCat,ids:[...fdPicks[fdCat]]});const r=await post('/api/finder/report',{});try{await navigator.clipboard?.writeText(r.text)}catch{}toast('Report copied. Paste it in the chat.')}catch(e){toast(e.message,true)}};
+$('#fdUse').onclick=async()=>{try{await post('/api/finder/picks',{cat:fdCat,ids:[...fdPicks[fdCat]]});const r=await post('/api/finder/use',{cat:fdCat});toast(fdCat==='cursor'?`Cursor texture set to ${r.target}. Apply your cursor again.`:`${r.count} textures added. Apply your ${fdCat==='sky'?'sky':'loading screen'} again in the Sky tab.`);loadSky()}catch(e){toast(e.message,true)}};
 </script>
 </body>
 </html>
