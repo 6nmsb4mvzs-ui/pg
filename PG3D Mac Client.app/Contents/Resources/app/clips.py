@@ -255,6 +255,7 @@ class Recorder:
         self.trim_job = None
         self.audio_proc = None
         self.audio_unavailable = False
+        self.audio_denied_at = 0.0   # helper exited because Screen Recording isn't allowed
 
     # ----- lifecycle
     def ffmpeg_args(self, ffmpeg, cfg):
@@ -272,6 +273,7 @@ class Recorder:
         # stdin stays open so we can send "q" for a clean stop.
         args = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
                 "-f", "avfoundation", "-capture_cursor", "0", "-framerate", str(fps),
+                "-pixel_format", "nv12",  # native to screen capture; the default yuv420p isn't offered
                 "-i", f"{screen}:none",
                 "-vf", ",".join(vf), "-c:v", self.encoder, "-b:v", bitrate,
                 "-g", str(fps * SEGMENT_SECONDS),
@@ -321,6 +323,12 @@ class Recorder:
     def start_audio(self):
         if self.audio_unavailable or (self.audio_proc and self.audio_proc.poll() is None):
             return
+        if self.audio_denied_at:
+            # Try again only once macOS reports the permission, or every few minutes
+            # in case it can't tell.
+            if screen_permission() is not True and time.time() - self.audio_denied_at < 300:
+                return
+            self.audio_denied_at = 0.0
         try:
             log_f = open(FFMPEG_LOG, "a", encoding="utf-8")
             self.audio_proc = subprocess.Popen([sys.executable, str(AUDIO_HELPER)], stdin=subprocess.DEVNULL,
@@ -353,6 +361,10 @@ class Recorder:
         if code == 3:  # ScreenCaptureKit missing (older macOS or framework not installed)
             self.audio_unavailable = True
             return "unavailable"
+        if code == 4:  # Screen Recording permission missing
+            if not self.audio_denied_at:
+                self.audio_denied_at = time.time()
+            return "no_permission"
         return "off"
 
     def stop(self, reason="stopped"):
@@ -420,7 +432,7 @@ class Recorder:
                 return
 
             if running:
-                if cfg.get("game_audio") and self.audio_state() == "off":
+                if cfg.get("game_audio") and self.audio_state() in ("off", "no_permission"):
                     self.start_audio()
                 elif not cfg.get("game_audio") and self.audio_proc:
                     self.stop_audio()

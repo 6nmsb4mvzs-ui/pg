@@ -1,4 +1,4 @@
-PG3D Mac Client 1.45.0
+PG3D Mac Client 1.46.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -208,3 +208,19 @@ Sounds    Settings > Sounds > Button sounds: pick the sound for each control
           + Add file for your own sounds (MP3, WAV, M4A, OGG or FLAC, up to
           3 MB) and Reset to defaults to go back. 131 recordings by Kenney
           (kenney.nl), CC0; see web/sounds.
+
+New in 1.46
+Fixes     Session reports no longer show huge fake gains after switching
+          Steam accounts: PG3D keeps the previous account's player ID saved
+          until it signs in, so the client now waits for a stable ID that
+          isn't another account's before linking it.
+          Starting PG3D waits up to 5 minutes (the first start after a game
+          update can be slow) instead of failing after 2.
+          Clips: game sound stops retrying every 2 seconds without Screen
+          Recording permission and says so on the Game sound switch; the
+          screen is captured in its native pixel format.
+          Saved logins move into the Keychain one at a time (parallel moves
+          failed at startup).
+          Settings > Updates points to GitHub instead of asking for
+          Downloads access; the diagnostic report now includes the mouse
+          fix lines and how long PG3D was focused.

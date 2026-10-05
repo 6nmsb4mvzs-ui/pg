@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.45.0"
+APP_VERSION = "1.46.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1868,11 +1868,23 @@ def atomic_vdf_dump(path: Path, data):
 
 
 
+_CRED_LOCK = threading.RLock()
+_CRED_WARNED = []
+_CRED_RETRY_AT = {}
+_KEYCHAIN_ERR = []
+
+
 def _keychain_set(steamid64, password):
-    r = subprocess.run(
-        ["/usr/bin/security", "add-generic-password", "-U", "-s", KEYCHAIN_SERVICE,
-         "-a", str(steamid64), "-l", f"PG3D Mac Client — Steam {steamid64}", "-w", password],
-        capture_output=True, text=True, timeout=10)
+    try:
+        r = subprocess.run(
+            ["/usr/bin/security", "add-generic-password", "-U", "-s", KEYCHAIN_SERVICE,
+             "-a", str(steamid64), "-l", f"PG3D Mac Client — Steam {steamid64}", "-w", password],
+            capture_output=True, text=True, timeout=10)
+    except Exception as e:
+        _KEYCHAIN_ERR[:] = [str(e)]
+        return False
+    if r.returncode != 0:
+        _KEYCHAIN_ERR[:] = [(r.stderr or r.stdout or f"exit {r.returncode}").strip()[:200]]
     return r.returncode == 0
 
 
@@ -1900,22 +1912,34 @@ def load_steam_credentials():
     Older versions stored passwords in plain JSON; those are moved into the
     Keychain the first time this runs and removed from the file.
     """
-    data = read_json(CREDENTIALS_JSON, {})
-    if not isinstance(data, dict):
-        data = {}
-    migrated = False
-    for sid, entry in list(data.items()):
-        if isinstance(entry, dict) and entry.get("password"):
-            if _keychain_set(sid, str(entry["password"])):
-                entry.pop("password", None)
-                entry["keychain"] = True
-                migrated = True
-            else:
-                log(f"Keychain migration failed for {sid}; leaving the saved login in place.")
-    if migrated:
-        save_steam_credentials(data)
-        log("Moved saved Steam passwords into the macOS Keychain.")
-    return data
+    # Several threads read credentials at startup; one migration at a time, or
+    # parallel `security` calls trip over each other and fail.
+    with _CRED_LOCK:
+        data = read_json(CREDENTIALS_JSON, {})
+        if not isinstance(data, dict):
+            data = {}
+        migrated, failed = 0, []
+        for sid, entry in list(data.items()):
+            if isinstance(entry, dict) and entry.get("password") and time.time() >= _CRED_RETRY_AT.get(sid, 0):
+                ok = _keychain_set(sid, str(entry["password"]))
+                if not ok:
+                    time.sleep(0.5)
+                    ok = _keychain_set(sid, str(entry["password"]))
+                if ok and _keychain_get(sid) == str(entry["password"]):
+                    entry.pop("password", None)
+                    entry["keychain"] = True
+                    migrated += 1
+                else:
+                    failed.append(sid)
+                    _CRED_RETRY_AT[sid] = time.time() + 600  # don't stall every read on a refusing Keychain
+        if migrated:
+            save_steam_credentials(data)
+            log(f"Moved {migrated} saved Steam password(s) into the macOS Keychain.")
+        if failed and not _CRED_WARNED:
+            _CRED_WARNED.append(True)
+            log(f"Keychain refused {len(failed)} saved login(s); they stay in the client's file for now. "
+                f"Last error: {_KEYCHAIN_ERR[0] if _KEYCHAIN_ERR else 'unknown'}")
+        return data
 
 
 def save_steam_credentials(data):
@@ -3403,10 +3427,17 @@ def _launch_job(kind, fps):
             else:
                 subprocess.Popen(["open", f"steam://run/{STEAM_APP_ID}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 message = "PG3D is running."
-        deadline = time.time() + 120
+        # The first start after a game update can take a few minutes while Steam
+        # finishes up, so wait patiently and say what's going on.
+        deadline = time.time() + 300
+        nudged = False
         while not _game_running_uncached():
             if time.time() > deadline:
-                raise RuntimeError("Steam was asked to start PG3D, but the game didn't open within 2 minutes.")
+                raise RuntimeError("Steam was asked to start PG3D, but the game didn't open within 5 minutes. "
+                                   "Check Steam for a prompt or a running update.")
+            if not nudged and time.time() - t0 > 75:
+                nudged = True
+                set_status(launch_message="Still waiting for Steam to open PG3D… check Steam if a prompt is showing.")
             time.sleep(0.5)
         _learn_launch_time(start_key, time.time() - t0)
         _LAUNCH["stage"] = None
@@ -3876,8 +3907,10 @@ def _playtime_account():
 def _rank_snapshot(account):
     try:
         r = rank_payload(account)
+        ember = (wins_data()["accounts"].get(str(account), {}).get("ember") or {})
         return {"step": r["step"], "tier": r["tier"], "name": r["tier_name"], "xp": r["xp"], "wins": r["wins"],
-                "progress": round(float(r["progress"]), 4), "next": r.get("next_name"), "color": r["color"]}
+                "progress": round(float(r["progress"]), 4), "next": r.get("next_name"), "color": r["color"],
+                "player": ember.get("player_id")}
     except Exception as e:
         log(f"Rank snapshot failed: {e}")
         return None
@@ -3903,6 +3936,8 @@ def _clips_since(start):
 def _finish_session_report(session, length):
     after = _rank_snapshot(session["account"]) or {}
     before = session.get("rank") or {}
+    if before.get("player") != after.get("player"):
+        before = {}  # numbers from two different PG3D players can't be compared
     report = {
         "account": session["account"], "start": int(session["start"]), "seconds": int(length),
         "wins": max(0, int(after.get("wins", 0)) - int(before.get("wins", after.get("wins", 0)))),
@@ -3919,6 +3954,8 @@ def last_session_payload():
     rep = read_json(LAST_SESSION_JSON, None)
     if not isinstance(rep, dict) or not rep.get("seconds"):
         return None
+    if int(rep.get("wins", 0)) > rep["seconds"] / 60 + 2:
+        return None  # impossible (a wrong-account mix-up from before 1.46)
     return {**rep, "duration": _fmt_duration(rep["seconds"])}
 
 
@@ -3952,7 +3989,9 @@ def playtime_watch():
                 session = None
             if running and now - last_rank_write >= 30:
                 last_rank_write = now
-                write_overlay_rank(session["account"] if session else _playtime_account())
+                snap = write_overlay_rank(session["account"] if session else _playtime_account())
+                if session and snap and (session.get("rank") or {}).get("player") != snap.get("player"):
+                    session["rank"] = snap  # linked to another PG3D ID mid-session: count from here
         except Exception as e:
             log(f"Playtime tracker error: {e}")
         time.sleep(5)
@@ -4045,12 +4084,12 @@ def diagnostics_report():
         f"Game: {find_app()} build {status_payload().get('game_build')}",
         f"Clips: {json.dumps(clips.RECORDER.status(), default=str)}",
         f"Update: {json.dumps(updater.UPDATER.state() if updater.UPDATER else None, default=str)}",
-        "", "--- launcher.log ---", tail(SUPPORT / "launcher.log", 60),
+        "", "--- launcher.log ---", tail(SUPPORT / "launcher.log", 25),
         "", "--- client.log ---", tail(LOG, 80),
         "", "--- ffmpeg.log ---", tail(SUPPORT / "ffmpeg.log", 20),
         "", "--- focus.log (front app while PG3D runs) ---", tail(SUPPORT / "focus.log", 40),
         "", f"--- last game run (mouse fix {'on' if mouse_fix_enabled() else 'off'}) ---",
-        tail(max(FPS_LOG_DIR.glob("run-*.log"), key=lambda p: p.stat().st_mtime, default=SUPPORT / "none.log"), 30),
+        _game_run_summary(max(FPS_LOG_DIR.glob("run-*.log"), key=lambda p: p.stat().st_mtime, default=SUPPORT / "none.log")),
     ]
     text = "\n".join(lines)
     try:
@@ -4058,6 +4097,22 @@ def diagnostics_report():
     except Exception:
         pass
     return {"ok": True, "chars": len(text)}
+
+
+def _game_run_summary(path):
+    """The game-run log without its 5-second FPS samples drowning everything else."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return "(missing)"
+    samples = [l for l in text if "engine measurement:" in l or "presentation sample:" in l or "presentation screen:" in l]
+    events = [l for l in text if l not in samples]
+    focused = sum(1 for l in samples if "focused=yes" in l)
+    unfocused = sum(1 for l in samples if "focused=no" in l)
+    out = events[-40:]
+    if samples:
+        out += [f"(FPS samples: {focused} with PG3D focused, {unfocused} in the background; last ones:)"] + samples[-3:]
+    return "\n".join(out) or "(empty)"
 
 
 def refocus_game():
@@ -5069,19 +5124,41 @@ def lookup_suggestions():
     return {"ok": True, "accounts": out}
 
 
+def _trusted_player_id(account, pid, running, running_for):
+    """The detected PG3D ID, or None while it can't be trusted for this Steam account."""
+    if not pid:
+        return None
+    if running and running_for < 45:
+        return None  # the game hasn't signed in yet; the saved ID may be stale
+    owner = next((sid for sid, v in (wins_data().get("pg3d_ids") or {}).items()
+                  if sid != str(account) and (v or {}).get("player_id") == str(pid)), None)
+    if owner:
+        return None  # that ID belongs to another Steam account on this Mac
+    return pid
+
+
 def ember_sync_watch():
     """Keep the active Steam account linked to the PG3D ID that is signed in,
     and refresh its Ember wins every minute while the game runs."""
     was_running = False
     last_detect = 0.0
+    run_start = 0.0
+    seen = (None, None, 0)  # (account, pid, consecutive sightings)
     while True:
         try:
             running = _game_running_uncached()
             account = _playtime_account()
             now = time.time()
+            if running and not was_running:
+                run_start, seen = now, (None, None, 0)
             if account != "unknown" and (running or was_running) and now - last_detect > 30:
                 last_detect = now
-                pid = detect_pg3d_player_id()
+                pid = _trusted_player_id(account, detect_pg3d_player_id(), running, now - run_start)
+                seen = (account, pid, seen[2] + 1) if pid and seen[:2] == (account, pid) else (account, pid, 1)
+                # Right after a switch PG3D still has the previous account's ID saved
+                # until it signs in, so only trust an ID that stays put.
+                if seen[2] < 2:
+                    pid = None
                 if pid:
                     remember_pg3d_id(account, pid)
                 acc = wins_data()["accounts"].get(str(account), {})

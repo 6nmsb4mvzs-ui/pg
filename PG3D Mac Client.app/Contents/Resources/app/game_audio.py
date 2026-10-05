@@ -137,7 +137,7 @@ class Output(NSObject, protocols=[StreamOutput, StreamDelegate]):
         STATE["stream"] = None
 
 
-STATE = {"stream": None, "pending": False, "output": Output.alloc().init()}
+STATE = {"stream": None, "pending": False, "denied": False, "output": Output.alloc().init()}
 
 
 def _start_stream():
@@ -146,7 +146,13 @@ def _start_stream():
     def got_content(content, error):
         try:
             if error is not None or content is None:
-                log(f"no shareable content: {error}")
+                if error is not None and int(error.code()) == -3801:
+                    # Screen Recording permission is missing. Asking again every two
+                    # seconds only fills the log; the client restarts us once it's granted.
+                    log("Screen Recording permission is missing; game audio is off until it's allowed.")
+                    STATE["denied"] = True
+                else:
+                    log(f"no shareable content: {error}")
                 return
             apps = [a for a in content.applications() if "pixel gun" in str(a.applicationName() or "").lower()]
             displays = content.displays()
@@ -209,6 +215,10 @@ def main():
         last_check = now
         if os.getppid() != parent:  # the client went away
             break
+        if STATE["denied"]:
+            _stop_stream()
+            PIDFILE.unlink(missing_ok=True)
+            sys.exit(4)
         running = pg3d_running()
         if running and STATE["stream"] is None and not STATE["pending"]:
             _start_stream()

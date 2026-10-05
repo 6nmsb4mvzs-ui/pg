@@ -1629,13 +1629,13 @@ function renderClipStatus(){
   const err=$('#clipErr');err.hidden=!(st.last_error&&st.phase==='error');if(!err.hidden)err.textContent=st.last_error;
 }
 function renderClipSettings(force=false){
-  if(clipHotkeyRec)return;const cfg=clipsData.config,sig=JSON.stringify([cfg,clipsData.screens,clipsData.status?.audio==='unavailable']);if(!force&&sig===clipSigs.settings)return;clipSigs.settings=sig;
+  if(clipHotkeyRec)return;const cfg=clipsData.config,sig=JSON.stringify([cfg,clipsData.screens,clipsData.status?.audio]);if(!force&&sig===clipSigs.settings)return;clipSigs.settings=sig;
   const lm=$('#clipLengthMode');lm.innerHTML='';for(const n of clipsData.lengths){const b=document.createElement('button');b.textContent=clipLenLabel(n);b.classList.toggle('active',cfg.length===n);b.setAttribute('aria-pressed',cfg.length===n);b.onclick=()=>setClipConfig({length:n});lm.appendChild(b)}
   const qm=$('#clipQualityMode');qm.innerHTML='';for(const q of clipsData.qualities){const [res,fps]=CLIP_QUALITY[q]||[q,''];const b=document.createElement('button');b.textContent=`${res} ${fps.replace(' fps','')}`;b.title=`${res}, ${fps}`;b.classList.toggle('active',cfg.quality===q);b.setAttribute('aria-pressed',cfg.quality===q);b.onclick=()=>setClipConfig({quality:q});qm.appendChild(b)}
   const mb=Math.round((CLIP_QUALITY[cfg.quality]?.[2]||12)*CLIP_BUFFER_MAX/8);$('#clipDiskHint').textContent=`Keeps the last 3 minutes on disk, about ${mb} MB. Changing quality restarts the buffer.`;
   $('#clipHotkey').textContent=cfg.hotkey.display;
   const sw=$('#clipScreenWrap'),sel=$('#clipScreen');sw.hidden=(clipsData.screens||[]).length<2;sel.innerHTML='';for(const sc of clipsData.screens||[]){const o=document.createElement('option');o.value=sc.index;o.textContent=sc.name.replace('Capture screen','Display').replace(/(\d+)/,n=>String(+n+1));sel.appendChild(o)}if(cfg.screen!=null)sel.value=cfg.screen;
-  const tg=$('#clipToggles');tg.innerHTML='';for(const [key,label,sub] of [['enabled','Replay buffer','Record in the background while you play'],['only_while_playing','Only while PG3D runs','Stops recording when the game closes'],['notify','Notify when saved','Shows a macOS notification with a sound'],['game_audio','Game sound',clipsData.status?.audio==='unavailable'?'Needs macOS 13 or newer':'Records PG3D only, no music or other apps'],['copy_after_save','Copy after saving','Ready to paste into Discord or Messages']])tg.appendChild(toggleRow(label,sub,cfg[key],()=>setClipConfig({[key]:!cfg[key]})));
+  const tg=$('#clipToggles');tg.innerHTML='';for(const [key,label,sub] of [['enabled','Replay buffer','Record in the background while you play'],['only_while_playing','Only while PG3D runs','Stops recording when the game closes'],['notify','Notify when saved','Shows a macOS notification with a sound'],['game_audio','Game sound',clipsData.status?.audio==='unavailable'?'Needs macOS 13 or newer':clipsData.status?.audio==='no_permission'?'Needs Screen Recording permission':'Records PG3D only, no music or other apps'],['copy_after_save','Copy after saving','Ready to paste into Discord or Messages']])tg.appendChild(toggleRow(label,sub,cfg[key],()=>setClipConfig({[key]:!cfg[key]})));
 }
 function toggleRow(label,sub,on,onclick){const b=document.createElement('button');b.className='clipToggle'+(on?' on':'');b.setAttribute('role','switch');b.setAttribute('aria-checked',!!on);b.innerHTML='<div><span></span><small></small></div><span class="pill"></span>';b.querySelector(':scope>div>span').textContent=label;b.querySelector('small').textContent=sub;b.onclick=onclick;return b}
 function renderClipGrid(){
@@ -1778,9 +1778,9 @@ function renderSettings(){
   const box=$('#updState');
   if(u.phase==='installing'||u.phase==='restarting')setStateBox(box,'saving',u.message,'The client will reopen by itself.');
   else if(u.phase==='error')setStateBox(box,'warn','Update failed',u.message,clipAction('Try again',installUpdate,true));
-  else if(u.phase==='no_access')setStateBox(box,'warn',"Can't check Downloads",'Allow PG3D Mac Client in System Settings › Privacy & Security › Files and Folders.');
   else if(u.available)setStateBox(box,'rec',`Version ${u.available.version} is ready`,u.message||(/update-downloads/.test(u.available.path||'')?'Downloaded from GitHub.':'Found in your Downloads folder.'),clipAction('Install and restart',installUpdate,true));
-  else setStateBox(box,'',"You're up to date",u.github?.connected?'New versions arrive from GitHub by themselves.':'Connect GitHub below, or drop a new version into Downloads.');
+  else if(u.github?.connected)setStateBox(box,'',"You're up to date",'New versions arrive from GitHub by themselves.');
+  else setStateBox(box,'warn','Updates need GitHub',u.phase==='no_access'?'Connect GitHub below so new versions download by themselves.':'Connect GitHub below, or drop a new version into Downloads.');
   renderGithubRow(u.github||{});
   const tg=$('#updToggles');tg.innerHTML='';const pr=u.prefs||{};
   tg.append(toggleRow('Install updates automatically','New versions install and restart the client, never mid-game',pr.auto_install,async()=>{settingsData=await post('/api/settings/updates',{auto_install:!pr.auto_install});renderSettings()}));
@@ -1793,7 +1793,7 @@ function renderSettings(){
   const fi=s.ffmpeg_install||{};
   rows.append(s.ffmpeg?setRow('Recording tools','Ready','ok'):fi.running?setRow('Recording tools','Downloading…'):setRow('Recording tools',fi.failed?'Download failed':'Not installed yet','warn',smallBtn(fi.failed?'Retry':'Install',async()=>{await post('/api/clips/install-ffmpeg');refreshSettings()})));
   rows.append(setRow('Screen recording',s.screen_permission===true?'Allowed':s.screen_permission===false?'Not allowed':'Asked when clips first record',s.screen_permission===true?'ok':s.screen_permission===false?'warn':'',s.screen_permission===true?null:smallBtn('Allow',()=>post('/api/clips/permission'))));
-  rows.append(setRow('Downloads access',s.downloads_access?'Allowed':'Not allowed',s.downloads_access?'ok':'warn'));
+  if(!u.github?.connected||s.downloads_access)rows.append(setRow('Downloads access',s.downloads_access?'Allowed':'Not allowed (only needed without GitHub)',s.downloads_access?'ok':''));
   const st=d.storage||{},sr=$('#storageRows');sr.innerHTML='';
   sr.append(setRow('Clips',`${st.clips_count||0} ${st.clips_count===1?'clip':'clips'}, ${clipBytes(st.clips_bytes||0)}`,'',smallBtn('Open folder',()=>post('/api/settings/reveal',{what:'clips'}))));
   sr.append(setRow('App data',clipBytes(st.support_bytes||0),'',smallBtn('Show',()=>post('/api/settings/reveal',{what:'support'}))));
