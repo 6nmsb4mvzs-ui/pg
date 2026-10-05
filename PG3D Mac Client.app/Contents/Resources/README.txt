@@ -1,4 +1,4 @@
-PG3D Mac Client 1.46.0
+PG3D Mac Client 1.47.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -224,3 +224,19 @@ Fixes     Session reports no longer show huge fake gains after switching
           Settings > Updates points to GitHub instead of asking for
           Downloads access; the diagnostic report now includes the mouse
           fix lines and how long PG3D was focused.
+
+New in 1.47
+Removed   In-game themes and HUD resizing. Anything still applied is taken
+          out of the game files once, the next time PG3D is closed. The
+          Theme tab is now just the Font tab.
+Fixes     File pickers work in the client window: Add image (sky and
+          loading screen), Import PNG, font Import and button sounds now
+          open a file dialog. The account nickname box works again too.
+          Player Lookup: the clan shows its emblem instead of a giant line
+          of image data.
+          Clips record only while PG3D is really running: the client now
+          checks the game's own process (helpers that mention the game's
+          path no longer count), waits until it has been up for 10 seconds,
+          and the "Only while PG3D runs" switch is gone.
+          Every normal start now loads the mouse fix, including the start
+          after a Steam Guard code.

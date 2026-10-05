@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.46.0"
+APP_VERSION = "1.47.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -372,10 +372,13 @@ def game_running():
 
 
 def _game_running_uncached():
+    # Match the game's own executable, not any command line that merely mentions
+    # its path (helpers inspecting the binary made the game look "running" for a
+    # moment, which started and stopped the replay buffer).
     try:
-        r = subprocess.run(["pgrep", "-f", "/Contents/MacOS/Pixel Gun 3D"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return r.returncode == 0
+        r = subprocess.run(["/bin/ps", "-axo", "comm="], capture_output=True, text=True, timeout=5)
+        return any(c.strip().endswith("/Contents/MacOS/Pixel Gun 3D") or c.strip() == "Pixel Gun 3D"
+                   for c in r.stdout.splitlines())
     except Exception:
         return False
 
@@ -3074,8 +3077,7 @@ def submit_steam_guard_code(raw_code):
         return {'ok': True, 'launched': True, 'needs_guard': False, **result}
 
     set_status(launch_phase='launching', launch_message='Starting PG3D normally…', launch_error=None)
-    subprocess.Popen(['open', f'steam://run/{STEAM_APP_ID}'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    set_status(launch_phase='idle', launch_message='PG3D launch requested through Steam.', launch_error=None)
+    set_status(launch_phase='idle', launch_message=start_game_normally(), launch_error=None)
     return {'ok': True, 'launched': True, 'needs_guard': False}
 
 def launch_normal():
@@ -3092,8 +3094,7 @@ def launch_normal():
         set_status(launch_phase="needs_login", launch_message=msg, launch_error=None)
         return {"ok": True, "needs_login": True, "message": msg + " PG3D was not launched."}
     set_status(launch_phase="launching", launch_message="Starting PG3D normally…", launch_error=None)
-    subprocess.Popen(["open", f"steam://run/{STEAM_APP_ID}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    set_status(launch_phase="idle", launch_message="PG3D launch requested through Steam.", launch_error=None)
+    set_status(launch_phase="idle", launch_message=start_game_normally(), launch_error=None)
     return {"ok": True, "needs_login": False}
 
 
@@ -3118,9 +3119,10 @@ def binary_arches(path: Path):
     except OSError:
         return set()
     magic = int.from_bytes(head[:4], "big")
-    if magic == 0xCAFEBABE:
+    if magic in (0xCAFEBABE, 0xCAFEBABF):  # universal (32- or 64-bit offsets)
         count = int.from_bytes(head[4:8], "big")
-        return {names.get(int.from_bytes(head[8 + i * 20:12 + i * 20], "big"), "?") for i in range(min(count, 10))}
+        step = 20 if magic == 0xCAFEBABE else 32
+        return {names.get(int.from_bytes(head[8 + i * step:12 + i * step], "big"), "?") for i in range(min(count, 10))}
     if head[:4] == b"\xcf\xfa\xed\xfe":
         return {names.get(int.from_bytes(head[4:8], "little"), "?")}
     return set()
@@ -3178,6 +3180,27 @@ def ensure_steam_running(timeout=60):
             return True
         time.sleep(1)
     return False
+
+
+def start_game_normally():
+    """Start PG3D at its own frame rate: directly with the mouse fix when it can
+    be used, otherwise through Steam. Returns the message to show."""
+    game = find_app()
+    binary = game / "Contents/MacOS/Pixel Gun 3D" if game else None
+    if binary and mouse_fix_usable(binary) and FPS_LAUNCHER.is_file():
+        if ensure_steam_running():
+            try:
+                launch_with_mouse_fix(game)
+                return "PG3D is running with the mouse fix."
+            except Exception as e:
+                log(f"Mouse-fix start failed, starting through Steam instead: {e}")
+        else:
+            log("Mouse-fix start skipped: Steam didn't come up in time.")
+    elif binary:
+        log(f"Mouse fix not used: enabled={mouse_fix_enabled()} dylib={MOUSEFIX_DYLIB.is_file()} "
+            f"launcher={FPS_LAUNCHER.is_file()} arches={sorted(binary_arches(binary))}")
+    subprocess.Popen(["open", f"steam://run/{STEAM_APP_ID}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return "PG3D is running."
 
 
 def launch_with_mouse_fix(game: Path):
@@ -3419,14 +3442,7 @@ def _launch_job(kind, fps):
             message = result["message"]
             set_status(last_fps={**result, "at": datetime.now().isoformat(timespec="seconds")})
         else:
-            game = find_app()
-            if (game and FPS_LAUNCHER.is_file() and mouse_fix_usable(game / "Contents/MacOS/Pixel Gun 3D")
-                    and ensure_steam_running()):
-                launch_with_mouse_fix(game)
-                message = "PG3D is running with the mouse fix."
-            else:
-                subprocess.Popen(["open", f"steam://run/{STEAM_APP_ID}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                message = "PG3D is running."
+            message = start_game_normally()
         # The first start after a game update can take a few minutes while Steam
         # finishes up, so wait patiently and say what's going on.
         deadline = time.time() + 300
@@ -4794,6 +4810,32 @@ def set_reapply_pref(on):
     return {"ok": True, "reapply_mods": bool(on)}
 
 
+def _has_retired_mods(state):
+    return bool(state.get("theme") or state.get("hud_set") or state.get("hud_disabled")
+                or any(not v.get("role") for v in (state.get("gui") or {}).values()))
+
+
+def retire_removed_mods():
+    """1.47 removed in-game themes and HUD resizing: take any that are still
+    applied out of the game files once, as soon as PG3D is closed."""
+    while True:
+        try:
+            if not _has_retired_mods(load_mods()):
+                return
+            if not _game_running_uncached() and STATUS.get("job_phase") != "running":
+                def change(state):
+                    state["theme"] = None
+                    state["hud_set"] = {}
+                    state["hud_disabled"] = False
+                    state["gui"] = {k: v for k, v in (state.get("gui") or {}).items() if v.get("role")}
+                mutate_state(change, "Remove in-game theme and HUD changes")
+                log("Removed the in-game theme / HUD changes (features retired in 1.47).")
+                return
+        except Exception as e:
+            log(f"Retiring theme/HUD changes failed, retrying: {e}")
+        time.sleep(30)
+
+
 def mods_reapply_watch():
     """Put the client's mods back by themselves after Steam updates or repairs PG3D."""
     while True:
@@ -4897,7 +4939,9 @@ def _ember_fetch(player_id, full=False):
                                                "killstreak", "winstreak", "score")},
         "banned": data.get("banned"),
         "clan": profile.get("clan_name") or None,
-        "clan_tag": profile.get("clan_tag") or None,
+        # Ember's "clan_tag" is the clan emblem as a base64 PNG, not text.
+        "clan_logo": _png_b64(profile.get("clan_tag")),
+        "clan_tag": None if _png_b64(profile.get("clan_tag")) else (str(profile.get("clan_tag") or "")[:12] or None),
         "registered": profile.get("registered"),
         "last_seen": profile.get("last_seen"),
         "items": {k: profile.get(f"{k}_count") for k in ("weapon", "gadget", "pet", "avatar", "sets")},
@@ -5087,6 +5131,12 @@ def ember_icon(folder, name):
         return path
     except Exception:
         return None
+
+
+def _png_b64(value):
+    """value if it is a base64-encoded PNG (small), else None."""
+    v = str(value or "")
+    return v if v.startswith("iVBORw0KGgo") and len(v) < 200_000 else None
 
 
 def lookup_player(pid):
@@ -5632,26 +5682,19 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/gui/scan":
                 start_gui_scan(bool(data.get("deep", False)))
                 return self.send_json({"ok": True})
-            if path == "/api/gui/apply":
-                return self.send_json(apply_gui_asset(data.get("asset_id"), data.get("scale", 100), data.get("hidden", False)))
+            if path in ("/api/gui/apply", "/api/gui/hud-member", "/api/gui/hud-disabled",
+                        "/api/gui/import-hud-selection", "/api/theme/apply"):
+                raise RuntimeError("In-game themes and HUD resizing were removed in 1.47.")
             if path == "/api/gui/reset":
                 return self.send_json(reset_gui_asset(data.get("asset_id")))
-            if path == "/api/gui/hud-member":
-                return self.send_json(set_hud_member(data.get("asset_id"), bool(data.get("enabled"))))
-            if path == "/api/gui/hud-disabled":
-                return self.send_json(set_hud_disabled(bool(data.get("enabled"))))
             if path == "/api/gui/reset-all":
                 return self.send_json(reset_all_gui())
             if path == "/api/gui/clear-hud-set":
                 return self.send_json(clear_hud_set())
-            if path == "/api/gui/import-hud-selection":
-                return self.send_json(import_hud_selector_selection())
             if path == "/api/font/apply":
                 return self.send_json(apply_font(str(data.get("id") or "")))
             if path == "/api/font/upload":
                 return self.send_json(upload_font(data.get("data"), data.get("name")))
-            if path == "/api/theme/apply":
-                return self.send_json(apply_theme(data.get("preset"), data.get("strength", 0.85)))
             if path == "/api/theme/reset":
                 return self.send_json(reset_theme())
             if path == "/api/customize/scan":
@@ -5847,6 +5890,7 @@ def main():
     threading.Thread(target=playtime_watch, daemon=True).start()
     threading.Thread(target=ember_sync_watch, daemon=True).start()
     threading.Thread(target=mods_reapply_watch, daemon=True).start()
+    threading.Thread(target=retire_removed_mods, daemon=True).start()
     global WIN_WATCHER
     WIN_WATCHER = ranks.WinWatcher(win_config, _on_auto_win, game_running, log)
     WIN_WATCHER.start()

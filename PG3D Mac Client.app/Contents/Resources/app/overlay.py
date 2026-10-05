@@ -236,9 +236,12 @@ def activate_pg3d():
 
 def pg3d_pid():
     try:
-        r=subprocess.run(['/usr/bin/pgrep','-f','Pixel Gun 3D.app/Contents/MacOS/Pixel Gun 3D'],capture_output=True,text=True,timeout=1)
+        # the game's own executable only, not helpers that mention its path
+        r=subprocess.run(['/bin/ps','-axo','pid=,comm='],capture_output=True,text=True,timeout=2)
         for line in r.stdout.splitlines():
-            if line.strip().isdigit(): return int(line.strip())
+            pid,_,comm=line.strip().partition(' ')
+            comm=comm.strip()
+            if pid.isdigit() and (comm.endswith('/Contents/MacOS/Pixel Gun 3D') or comm=='Pixel Gun 3D'): return int(pid)
     except Exception: pass
     return None
 

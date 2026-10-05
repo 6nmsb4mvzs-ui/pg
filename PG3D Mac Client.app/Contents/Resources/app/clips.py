@@ -34,6 +34,7 @@ CONFIG_JSON = STATE_DIR / "clips_config.json"
 INDEX_JSON = STATE_DIR / "clips_index.json"
 FFMPEG_LOG = SUPPORT / "ffmpeg.log"
 AUDIO_DIR = SUPPORT / "replay_audio"
+PLAY_SETTLE_SECONDS = 10
 AUDIO_HELPER = Path(__file__).resolve().parent / "game_audio.py"
 AUDIO_RATE = 48000
 
@@ -410,8 +411,14 @@ class Recorder:
                 if cfg["enabled"]:
                     self.install_ffmpeg()
                 return
-            playing = self._game_running()
-            wanted = cfg["enabled"] and (playing or not cfg["only_while_playing"])
+            # Only record while PG3D is actually running, and only once it has
+            # been up for a few seconds (a game that quits right away isn't play).
+            if self._game_running():
+                self._seen_since = getattr(self, "_seen_since", None) or time.time()
+            else:
+                self._seen_since = None
+            playing = self._seen_since is not None and time.time() - self._seen_since >= PLAY_SETTLE_SECONDS
+            wanted = cfg["enabled"] and playing
             running = self.proc is not None and self.proc.poll() is None
 
             if self.proc is not None and not running:
@@ -443,6 +450,7 @@ class Recorder:
             elif not wanted and running:
                 self.stop("paused")
                 self.phase = "idle"
+                self.message = "Waiting for Pixel Gun 3D to start."
             elif not wanted:
                 self.phase = "off" if not cfg["enabled"] else "idle"
                 self.message = ("Clips are turned off." if not cfg["enabled"]

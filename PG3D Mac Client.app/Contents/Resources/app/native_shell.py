@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from Cocoa import (
+    NSAlert, NSAlertFirstButtonReturn, NSModalResponseOK, NSOpenPanel, NSTextField,
     NSApplication, NSApplicationActivationPolicyRegular, NSBackingStoreBuffered,
     NSColor, NSMakeRect, NSObject, NSScreen, NSWindow, NSWindowStyleMaskClosable,
     NSWindowStyleMaskMiniaturizable, NSWindowStyleMaskResizable, NSWindowStyleMaskTitled,
@@ -28,7 +29,13 @@ class MessageHandler(NSObject):
         pass
 
 
-class Shell(NSObject):
+try:  # adopting the protocol gives PyObjC the completion-handler block signatures
+    _UI_PROTOCOLS = [objc.protocolNamed("WKUIDelegate")]
+except Exception:
+    _UI_PROTOCOLS = []
+
+
+class Shell(NSObject, protocols=_UI_PROTOCOLS):
     window = objc.ivar()
     web = objc.ivar()
     handler = objc.ivar()
@@ -68,6 +75,9 @@ class Shell(NSObject):
             self.web.setValue_forKey_(False, "drawsBackground")
         except Exception:
             pass
+        # Without a UI delegate WKWebView silently ignores <input type=file>,
+        # alert(), confirm() and prompt().
+        self.web.setUIDelegate_(self)
         cv.addSubview_(self.web)
         self.web.loadRequest_(NSURLRequest.requestWithURL_(NSURL.URLWithString_(url)))
         self.pending_activate = False
@@ -83,6 +93,41 @@ class Shell(NSObject):
         if self.pending_activate:
             self.pending_activate = False
             self.activate()
+
+    # ----- WKUIDelegate
+    def webView_runOpenPanelWithParameters_initiatedByFrame_completionHandler_(self, web, params, frame, done):
+        panel = NSOpenPanel.openPanel()
+        panel.setCanChooseFiles_(True)
+        panel.setCanChooseDirectories_(bool(params.allowsDirectories()))
+        panel.setAllowsMultipleSelection_(bool(params.allowsMultipleSelection()))
+        NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+        if panel.runModal() == NSModalResponseOK:
+            done(panel.URLs())
+        else:
+            done(None)
+
+    def _alert(self, message, buttons, field=None):
+        alert = NSAlert.alloc().init()
+        alert.setMessageText_(str(message or ""))
+        for title in buttons:
+            alert.addButtonWithTitle_(title)
+        if field is not None:
+            alert.setAccessoryView_(field)
+            alert.window().setInitialFirstResponder_(field)
+        return alert.runModal() == NSAlertFirstButtonReturn
+
+    def webView_runJavaScriptAlertPanelWithMessage_initiatedByFrame_completionHandler_(self, web, message, frame, done):
+        self._alert(message, ["OK"])
+        done()
+
+    def webView_runJavaScriptConfirmPanelWithMessage_initiatedByFrame_completionHandler_(self, web, message, frame, done):
+        done(self._alert(message, ["OK", "Cancel"]))
+
+    def webView_runJavaScriptTextInputPanelWithPrompt_defaultText_initiatedByFrame_completionHandler_(
+            self, web, prompt, default, frame, done):
+        field = NSTextField.alloc().initWithFrame_(NSMakeRect(0, 0, 260, 24))
+        field.setStringValue_(str(default or ""))
+        done(field.stringValue() if self._alert(prompt, ["OK", "Cancel"], field) else None)
 
     def windowWillClose_(self, note):
         NSApplication.sharedApplication().terminate_(None)

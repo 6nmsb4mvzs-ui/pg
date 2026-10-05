@@ -148,6 +148,8 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .lkWho{min-width:0;margin-right:auto}.lkWho b{display:block;font-size:17px;color:#f5f5ff;letter-spacing:-.01em;line-height:1.2}.lkWho small{display:block;font-size:11.5px;color:var(--muted)}
 .lkHead .btn{height:28px}
 .lkNameRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lkBadge{font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;background:hsl(var(--nh) var(--ns) 10.0%);color:#d6d6e1;border:1px solid var(--border2)}
+.lkClan{display:inline-flex;align-items:center;gap:5px}.lkClan img{width:14px;height:14px;image-rendering:pixelated;border-radius:2px}
+#lkBadges,#lkMeta{overflow-wrap:anywhere;min-width:0}
 .lkBadge.good{background:#0d1d15;border-color:#1f5b3c;color:#9be7bd}.lkBadge.bad{background:#2a0d12;border-color:#7a2a35;color:#ff8e9c}
 .lkIco{object-fit:contain;flex:none}.lkIco.none{visibility:hidden}
 .lkCardS{display:flex;align-items:center;gap:9px;background:hsl(var(--nh) var(--ns) 4.1%);border:1px solid var(--border);border-radius:10px;padding:8px 10px;min-width:0}
@@ -336,15 +338,6 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .curOutlineRow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .curSeg{display:inline-grid;grid-auto-flow:column;gap:4px;background:hsl(var(--nh) var(--ns) 3.1%);border:1px solid var(--line);border-radius:9px;padding:4px}
 .curSeg button{border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer}
-.hudGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;max-height:640px;overflow:auto;align-content:start}
-.hudCard{background:hsl(var(--nh) var(--ns) 7.6%);border:1px solid var(--border);border-radius:10px;padding:6px;cursor:pointer;color:var(--text);position:relative;text-align:left}
-.hudCard:hover{border-color:hsl(var(--nh) var(--ns) 30%)}.hudCard.selected{border-color:var(--accent);box-shadow:0 0 0 1px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .35)}
-.hudCard .ht{height:64px;display:grid;place-items:center;border-radius:7px;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 9%) 0 25%,hsl(var(--nh) var(--ns) 6%) 0 50%) 0 0/14px 14px}
-.hudCard .ht img{max-width:76px;max-height:56px;object-fit:contain}.hudCard small{display:block;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:5px}
-.hudCard.changed::after{content:"";position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
-.hudPrev{height:200px;border-radius:13px;border:1px solid var(--border);display:grid;place-items:center;overflow:hidden;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 9%) 0 25%,hsl(var(--nh) var(--ns) 6%) 0 50%) 0 0/18px 18px}
-.hudPrev img{max-width:85%;max-height:85%;object-fit:contain;transition:transform .15s,opacity .15s;image-rendering:auto}
-.hudEmpty{grid-column:1/-1;padding:36px 20px;text-align:center;color:var(--muted);display:grid;gap:12px;justify-items:center}
 .fnRow{display:flex;gap:8px;flex-wrap:wrap}
 .fnChip{border:1px solid var(--border);background:hsl(var(--nh) var(--ns) 6%);color:var(--text);border-radius:10px;padding:10px 14px;cursor:pointer;font-size:15px;min-width:96px;text-align:center;position:relative}
 .fnChip:hover:not(:disabled){border-color:hsl(var(--nh) var(--ns) 30%)}.fnChip.sel{border-color:var(--accent);box-shadow:0 0 0 1px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .35)}
@@ -885,8 +878,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <div class="navLabel">Customize</div>
       <button data-tab="cursor"><span class="ico">＋</span><span class="label">Cursor</span></button>
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
-      <button data-tab="hud"><span class="ico">▦</span><span class="label">HUD</span></button>
-      <button data-tab="theme"><span class="ico">◈</span><span class="label">Theme</span></button>
+      <button data-tab="theme"><span class="ico">Aa</span><span class="label">Font</span></button>
       <button data-tab="sky"><span class="ico">☁</span><span class="label">Sky</span></button>
     </nav>
     <nav class="nav navBottom">
@@ -1141,42 +1133,13 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <section class="page" id="page-hud">
-      <div class="cursorLayout">
-        <div class="card pad">
-          <div class="sectionHead"><div class="curSeg" id="hudFilter"><button data-f="all" class="active">All</button><button data-f="changed">Changed</button></div><div class="toolbar"><input class="search" id="hudSearch" placeholder="Search" spellcheck="false"></div></div>
-          <div class="hudGrid" id="hudGrid"></div>
-        </div>
-        <div class="card previewPanel">
-          <div class="sectionHead"><h2 id="hudSelName">Pick a HUD piece</h2></div>
-          <div class="hudPrev" id="hudPrev"><img id="hudPrevImg" alt="" hidden></div>
-          <div class="curField"><div class="xLabel">Size</div><div class="rangeRow"><input type="range" id="hudScale" min="10" max="100" value="100"><div class="rangeVal" id="hudScaleVal">100%</div></div></div>
-          <div class="xRow"><button class="ovChip" id="hudHide" type="button">Hide in game</button></div>
-          <div class="xRow"><button class="btn primary xBig" id="hudApply">Apply</button><button class="btn" id="hudReset">Reset</button></div>
-          <button class="btn ghost" id="hudResetAll">Reset all HUD changes</button>
-        </div>
-      </div>
-    </section>
-
     <section class="page" id="page-theme">
       <div class="xPage">
-        <div class="crCard">
-          <div class="crCardHead"><h3>In-game theme</h3><span class="xPill" id="thActive"></span></div>
-          <div class="thPresets" id="thPresets"><div class="sub">Loading…</div></div>
-          <div class="thShot" id="thShot">
-            <figure><img id="thShotOrig" alt=""><figcaption>ORIGINAL</figcaption></figure>
-            <figure><img id="thShotNew" alt=""><figcaption id="thShotCap">THEME</figcaption></figure>
-          </div>
-          <div class="thPreview" id="thPreview" hidden></div>
-          <p class="xNote">Preview: the Armory from Steam, recolored. In game every menu, HUD and icon texture changes the same way; maps and characters in matches keep their colors.</p>
-          <div class="xJob" id="thJob" style="margin-top:12px"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <div class="xRow" style="margin-top:14px"><button class="btn primary xBig" id="thApply">Apply theme</button><button class="btn" id="thReset">Restore original</button></div>
-          <div hidden><input type="range" id="thStrength" min="30" max="100" value="85"><b id="thStrengthVal"></b><button id="thPrev"></button><button id="thNext"></button><span id="thSampleIdx"></span></div>
-        </div>
         <div class="crCard">
           <div class="crCardHead"><h3>Game font</h3><span class="xPill" id="fnActive"></span></div>
           <div class="fnRow" id="fnRow"></div>
           <input type="file" id="fnFile" accept=".ttf,.otf,font/ttf,font/otf" hidden>
+          <div class="xJob" id="thJob" style="margin-top:12px"><div class="msg"></div><div class="bar"><i></i></div></div>
         </div>
       </div>
     </section>
@@ -1279,11 +1242,11 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Theme',sky:'Sky & loading screen',accounts:'Accounts',gui:'Overlay',hud:'HUD',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',sky:'Sky & loading screen',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 async function api(path,opts={}){const r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)})}
-function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='sky')loadSky();if(tab==='hud')loadHud()}
+function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='sky')loadSky()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -1553,45 +1516,9 @@ async function openPlacement(){const grouped=!!overlayConfig.group.enabled;if(!o
 $('#guiPlace').onclick=openPlacement;
 async function refreshPlayerCount(){try{const d=await api('/api/steam-player-count');$('#steamPlayerCount').textContent=d.count==null?'—':Number(d.count).toLocaleString()}catch{$('#steamPlayerCount').textContent='—'}}
 
-/* ===== HUD: resize / hide PG3D's own HUD sprites ===== */
-let hudAutoScan=false,hudCat=null,hudSel=null,hudFilter='all',hudScale=100,hudHidden=false,hudLastPhase=null,hudLoading=false;
-async function loadHud(force=false){if(hudLoading)return;if(hudCat&&!force){renderHud();return}hudLoading=true;try{hudCat=await api('/api/gui-assets')}catch(e){toast(e.message,true)}finally{hudLoading=false}renderHud()}
-function hudOps(){const g=statusData?.mods?.gui||{};const o={};for(const[k,v]of Object.entries(g))if(!v.role)o[k]=v;return o}
-function renderHud(){const grid=$('#hudGrid');if(!grid||!statusData)return;const scanning=statusData.gui_phase==='scanning';
-  $$('#hudFilter button').forEach(b=>b.classList.toggle('active',b.dataset.f===hudFilter));
-  const items=hudCat?.items||[];const ops=hudOps();
-  if(scanning||!items.length){const sig='e'+scanning+(statusData.gui_progress||0)+(statusData.gui_error||'');if(grid.__sig===sig)return renderHudPanel();grid.__sig=sig;
-    grid.innerHTML=scanning?`<div class="hudEmpty"><b>Looking through PG3D's HUD…</b><div class="xJob" style="width:240px"><div class="bar"><i style="width:${statusData.gui_progress||0}%"></i></div></div></div>`
-      :!statusData.app_found?`<div class="hudEmpty"><b>Pixel Gun 3D wasn't found</b><span>Install it through Steam, then come back.</span></div>`
-      :statusData.gui_error?`<div class="hudEmpty"><b>Couldn't read PG3D's HUD</b><span style="color:var(--bad)">${esc(statusData.gui_error)}</span><span>Try again from Settings › Rescan game files.</span></div>`
-      :`<div class="hudEmpty"><b>Looking through PG3D's HUD…</b></div>`;
-    if(!scanning&&!items.length&&hudCat&&statusData.app_found&&!statusData.gui_error&&!hudAutoScan){hudAutoScan=true;startHudScan()}
-    return renderHudPanel()}
-  const q=($('#hudSearch').value||'').toLowerCase().trim();
-  const list=items.filter(x=>(hudFilter!=='changed'||ops[x.key])&&(!q||(x.name||'').toLowerCase().includes(q)));
-  const sig=JSON.stringify([hudCat.generated,q,hudFilter,Object.keys(ops).sort(),hudSel?.key]);if(grid.__sig===sig)return renderHudPanel();grid.__sig=sig;
-  grid.innerHTML='';
-  if(!list.length)grid.innerHTML=`<div class="hudEmpty">${hudFilter==='changed'?'Nothing changed yet.':'No HUD pieces match.'}</div>`;
-  const frag=document.createDocumentFragment();
-  for(const x of list.slice(0,600)){const b=document.createElement('button');b.className='hudCard'+(hudSel?.key===x.key?' selected':'')+(ops[x.key]?' changed':'');b.title=`${x.name||'Unnamed'} · ${x.width}×${x.height}`;
-    b.innerHTML=`<div class="ht"><img loading="lazy" src="${x.preview}" alt=""></div><small>${esc(x.name||'Unnamed')}</small>`;
-    b.onclick=()=>{hudSel=x;const op=ops[x.key];hudScale=op?Math.round(op.scale||100):100;hudHidden=!!op?.hidden;grid.__sig='';renderHud()};frag.append(b)}
-  grid.append(frag);renderHudPanel()}
-function renderHudPanel(){const has=!!hudSel,ops=hudOps(),op=has&&ops[hudSel.key],busy=statusData.game_running;
-  $('#hudSelName').textContent=has?(hudSel.name||'Unnamed'):'Pick a HUD piece';
-  const im=$('#hudPrevImg');im.hidden=!has;if(has){if(im.dataset.src!==hudSel.preview){im.src=hudSel.preview;im.dataset.src=hudSel.preview}im.style.transform=`scale(${hudScale/100})`;im.style.opacity=hudHidden?.12:1}
-  $('#hudScale').value=hudScale;$('#hudScaleVal').textContent=hudScale+'%';$('#hudScale').disabled=!has||hudHidden;
-  $('#hudHide').classList.toggle('on',hudHidden);$('#hudHide').disabled=!has;
-  $('#hudApply').disabled=!has||busy;$('#hudReset').disabled=!has||!op||busy;$('#hudResetAll').hidden=!Object.keys(ops).length;$('#hudResetAll').disabled=busy}
-async function startHudScan(){try{await post('/api/gui/scan',{});await refreshStatus();renderHud()}catch(e){toast(e.message,true)}}
-$('#hudSearch').oninput=()=>renderHud();
-$$('#hudFilter button').forEach(b=>b.onclick=()=>{hudFilter=b.dataset.f;renderHud()});
-$('#hudScale').oninput=e=>{hudScale=Number(e.target.value);renderHudPanel()};
-$('#hudHide').onclick=()=>{hudHidden=!hudHidden;renderHudPanel()};
-$('#hudApply').onclick=async()=>{if(!hudSel)return;const b=$('#hudApply');b.disabled=true;try{await post('/api/gui/apply',{asset_id:hudSel.id,scale:hudScale,hidden:hudHidden});toast(hudHidden?'Hidden in game.':`Set to ${hudScale}%.`);await refreshStatus();renderHud()}catch(e){toast(e.message,true);renderHudPanel()}};
-$('#hudReset').onclick=async()=>{if(!hudSel)return;try{await post('/api/gui/reset',{asset_id:hudSel.id});hudScale=100;hudHidden=false;toast('Back to original.');await refreshStatus();renderHud()}catch(e){toast(e.message,true)}};
-$('#hudResetAll').onclick=async()=>{try{await post('/api/gui/reset-all',{});hudScale=100;hudHidden=false;toast('All HUD changes undone.');await refreshStatus();renderHud()}catch(e){toast(e.message,true)}};
-function hudTick(){if(!statusData)return;const ph=statusData.gui_phase;if(hudLastPhase==='scanning'&&ph!=='scanning'){loadHud(true);loadSprites()}hudLastPhase=ph;if(localStorage.pg3dTab==='hud')renderHud()}
+/* Reload hit marker / kill icon sprites after a GUI scan */
+let guiLastPhase=null;
+function hudTick(){if(!statusData)return;const ph=statusData.gui_phase;if(guiLastPhase==='scanning'&&ph!=='scanning')loadSprites();guiLastPhase=ph}
 
 
 /* ===== Clips: library ===== */
@@ -1618,7 +1545,7 @@ function renderClipStatus(){
   else if(st.phase==='recording'){t='Recording';x=st.buffered>=cfg.length?`Press ${hk} to save the last ${clipLenLabel(cfg.length)}.`:`Building up footage. Press ${hk} any time to save what's recorded so far.`;dot.classList.add('rec')}
   else if(st.phase==='error'){t='Recording stopped';x=st.message;dot.classList.add('warn')}
   else if(st.phase==='off'){t='Clips are off';x='Turn on the replay buffer to record while you play.';acts.append(clipAction('Turn on',()=>setClipConfig({enabled:true}),true))}
-  else{t='Waiting for Pixel Gun 3D';x=cfg.only_while_playing?'Recording starts by itself when the game opens.':'Starting the replay buffer…'}
+  else{t='Waiting for Pixel Gun 3D';x='Recording starts by itself once you\'re in the game.'}
   if(st.ffmpeg&&(st.permission===false||st.phase==='error'))acts.append(clipAction('Allow screen recording',async()=>{await post('/api/clips/permission');toast('Turn on PG3D Mac Client in Screen Recording, then reopen the client.')}));
   $('#clipStateTitle').textContent=t;$('#clipStateText').textContent=x||'';
   const buf=st.phase==='recording'?Math.min(st.buffered||0,CLIP_BUFFER_MAX):0;
@@ -1635,7 +1562,7 @@ function renderClipSettings(force=false){
   const mb=Math.round((CLIP_QUALITY[cfg.quality]?.[2]||12)*CLIP_BUFFER_MAX/8);$('#clipDiskHint').textContent=`Keeps the last 3 minutes on disk, about ${mb} MB. Changing quality restarts the buffer.`;
   $('#clipHotkey').textContent=cfg.hotkey.display;
   const sw=$('#clipScreenWrap'),sel=$('#clipScreen');sw.hidden=(clipsData.screens||[]).length<2;sel.innerHTML='';for(const sc of clipsData.screens||[]){const o=document.createElement('option');o.value=sc.index;o.textContent=sc.name.replace('Capture screen','Display').replace(/(\d+)/,n=>String(+n+1));sel.appendChild(o)}if(cfg.screen!=null)sel.value=cfg.screen;
-  const tg=$('#clipToggles');tg.innerHTML='';for(const [key,label,sub] of [['enabled','Replay buffer','Record in the background while you play'],['only_while_playing','Only while PG3D runs','Stops recording when the game closes'],['notify','Notify when saved','Shows a macOS notification with a sound'],['game_audio','Game sound',clipsData.status?.audio==='unavailable'?'Needs macOS 13 or newer':clipsData.status?.audio==='no_permission'?'Needs Screen Recording permission':'Records PG3D only, no music or other apps'],['copy_after_save','Copy after saving','Ready to paste into Discord or Messages']])tg.appendChild(toggleRow(label,sub,cfg[key],()=>setClipConfig({[key]:!cfg[key]})));
+  const tg=$('#clipToggles');tg.innerHTML='';for(const [key,label,sub] of [['enabled','Replay buffer','Record in the background while you play'],['notify','Notify when saved','Shows a macOS notification with a sound'],['game_audio','Game sound',clipsData.status?.audio==='unavailable'?'Needs macOS 13 or newer':clipsData.status?.audio==='no_permission'?'Needs Screen Recording permission':'Records PG3D only, no music or other apps'],['copy_after_save','Copy after saving','Ready to paste into Discord or Messages']])tg.appendChild(toggleRow(label,sub,cfg[key],()=>setClipConfig({[key]:!cfg[key]})));
 }
 function toggleRow(label,sub,on,onclick){const b=document.createElement('button');b.className='clipToggle'+(on?' on':'');b.setAttribute('role','switch');b.setAttribute('aria-checked',!!on);b.innerHTML='<div><span></span><small></small></div><span class="pill"></span>';b.querySelector(':scope>div>span').textContent=label;b.querySelector('small').textContent=sub;b.onclick=onclick;return b}
 function renderClipGrid(){
@@ -1784,7 +1711,7 @@ function renderSettings(){
   renderGithubRow(u.github||{});
   const tg=$('#updToggles');tg.innerHTML='';const pr=u.prefs||{};
   tg.append(toggleRow('Install updates automatically','New versions install and restart the client, never mid-game',pr.auto_install,async()=>{settingsData=await post('/api/settings/updates',{auto_install:!pr.auto_install});renderSettings()}));
-  tg.append(toggleRow('Re-apply mods after PG3D updates','Puts your cursor, HUD, theme, sky and font back by themselves',statusData?.reapply_mods!==false,async()=>{try{await post('/api/prefs/reapply',{on:statusData?.reapply_mods===false});await refreshStatus();renderSettings()}catch(e){toast(e.message,true)}}));
+  tg.append(toggleRow('Re-apply mods after PG3D updates','Puts your cursor, sky, loading screen and font back by themselves',statusData?.reapply_mods!==false,async()=>{try{await post('/api/prefs/reapply',{on:statusData?.reapply_mods===false});await refreshStatus();renderSettings()}catch(e){toast(e.message,true)}}));
   tg.append(toggleRow('Clean up downloads','Moves downloaded installers and old versions to the Trash',pr.auto_clean,async()=>{settingsData=await post('/api/settings/updates',{auto_clean:!pr.auto_clean});renderSettings()}));
   $('#updCleaned').textContent=(u.cleaned||[]).length?`Recently moved to the Trash: ${u.cleaned.slice(0,3).join(', ')}${u.cleaned.length>3?` and ${u.cleaned.length-3} more`:''}.`:'';
   const s=d.setup||{},rows=$('#setupRows');rows.innerHTML='';
@@ -1825,7 +1752,7 @@ function renderJob(){const j=statusData?.job;if(!j)return;
   for(const [id,kinds] of [['#thJob',['theme','scan','font']],['#skJob',['sky','scan']]]){const box=$(id);if(!box)continue;
     const mine=kinds.includes(j.kind)&&(j.phase==='running'||j.phase==='error');box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
     box.querySelector('.msg').textContent=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');box.querySelector('.bar i').style.width=(j.phase==='error'?0:j.progress||0)+'%'}
-  const busy=j.phase==='running';$$('.fnChip').forEach(b=>b.disabled=busy||statusData.game_running);['#thApply','#thReset','#skApply','#skReset'].forEach(s=>{const b=$(s);if(b)b.disabled=busy||statusData.game_running});
+  const busy=j.phase==='running';$$('.fnChip').forEach(b=>b.disabled=busy||statusData.game_running);['#skApply','#skReset'].forEach(s=>{const b=$(s);if(b)b.disabled=busy||statusData.game_running});
   if(lastJobPhase==='running'&&j.phase!=='running'){if(j.phase==='done')toast(j.message||'Done.');else if(j.phase==='error')toast(j.error||'Failed.',true);loadTheme();loadSky()}
   lastJobPhase=j.phase}
 
@@ -1991,27 +1918,8 @@ function renderFonts(){const f=themeData?.font;const row=$('#fnRow');if(!f||!row
   const cur=f.fonts.find(x=>x.id===f.active);const pa=$('#fnActive');pa.textContent=cur?`${cur.name} in game`:'Original font';pa.className='xPill'+(cur?' on':'')}
 $('#fnFile').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});
   try{await post('/api/font/upload',{data,name:file.name});await loadTheme();toast('Font added. Click it to use it in game.')}catch(err){toast(err.message,true)}};
-async function loadTheme(){try{themeData=await api('/api/theme');if(!themePreset)themePreset=themeData.active?.preset||localStorage.pg3dThemePreset||'crimson';if(themeData.active&&!$('#thStrength').dataset.touched){$('#thStrength').value=Math.round(themeData.active.strength*100)}renderTheme()}catch(e){console.error(e)}}
-function renderTheme(){const d=themeData;if(!d)return;const host=$('#thPresets');host.innerHTML='';
-  const opts=[...d.presets,{id:'original',name:'Original',desc:'Pixel Gun 3D’s own colors.',stops:null}];
-  for(const p of opts){const b=el('button','thCard'+(themePreset===p.id?' sel':''));const sw=el('div','thSwatch');sw.style.background=p.stops?themeGradient(p.stops):'linear-gradient(90deg,#1b3a6b,#3d8bd6 30%,#f2c94c 55%,#e0503a 78%,#7ad36b)';b.title=p.desc;b.append(sw,el('b',null,p.name));
-    const active=d.active?d.active.preset===p.id:p.id==='original';if(active)b.append(el('span','tag','Active'));b.onclick=()=>{themePreset=p.id;try{localStorage.pg3dThemePreset=p.id}catch{}renderTheme()};host.append(b)}
-  const ta=$('#thActive');ta.textContent=d.active?`${d.presets.find(p=>p.id===d.active.preset)?.name||d.active.preset} in game`:'Original colors';ta.className='xPill'+(d.active?' on':'');
-  $('#thStrengthVal').textContent=$('#thStrength').value+'%';
-  const selName=opts.find(p=>p.id===themePreset)?.name||'theme',orig=themePreset==='original';
-  $('#thApply').textContent=orig?'Restore original':`Apply ${selName}`;
-  $('#thReset').hidden=!d.active||orig;
-  renderThemePreview();renderFonts()}
-function renderThemePreview(){const d=themeData;if(!d)return;const orig=themePreset==='original',name=orig?'Original':(d.presets.find(p=>p.id===themePreset)?.name||'');
-  const a=$('#thShotOrig'),b=$('#thShotNew');if(!a.dataset.set){a.dataset.set='1';a.src='/api/theme/shot.jpg?preset=original'}
-  b.src=`/api/theme/shot.jpg?preset=${orig?'original':themePreset}`;$('#thShotCap').textContent=name.toUpperCase();
-  a.onerror=b.onerror=()=>{$('#thShot').hidden=true;const host=$('#thPreview');host.hidden=false;host.innerHTML='';const n=d.samples?.length||0;
-    if(!n){host.append(el('div','xEmpty','Preview needs an internet connection or one scan of the game files.'));return}
-    for(const [cap,pr] of [['ORIGINAL',''],[name.toUpperCase(),orig?'':themePreset]]){const f=el('figure');const im=el('img');im.src=`/api/theme/preview.png?i=0&preset=${pr}&strength=${(d.presets.find(p=>p.id===pr)||{}).strength||0.8}`;f.append(im,el('figcaption',null,cap));host.append(f)}}}
-
-$('#thStrength').oninput=e=>{e.target.dataset.touched='1';$('#thStrengthVal').textContent=e.target.value+'%';clearTimeout(e.target._t);e.target._t=setTimeout(renderThemePreview,180)};
-$('#thApply').onclick=async()=>{try{if(themePreset==='original')await post('/api/theme/reset');else await post('/api/theme/apply',{preset:themePreset,strength:$('#thStrength').value/100});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
-$('#thReset').onclick=async()=>{try{await post('/api/theme/reset');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
+async function loadTheme(){try{themeData=await api('/api/theme');renderTheme()}catch(e){console.error(e)}}
+function renderTheme(){renderFonts()}
 $('#mouseFixSw').onclick=async()=>{try{await post('/api/prefs/mouse-fix',{on:statusData?.mouse_fix===false});await refreshStatus();setSwitch('#mouseFixSw',statusData?.mouse_fix!==false)}catch(e){toast(e.message,true)}};
 $('#fixMouse').onclick=async()=>{try{await post('/api/game/refocus',{});toast('Switched back to PG3D. In game you can also press Ctrl+Shift+M.')}catch(e){toast(e.message,true)}};
 $('#rescanGame').onclick=async()=>{const b=$('#rescanGame');b.disabled=true;try{await post('/api/gui/scan',{deep:false});try{await post('/api/customize/scan')}catch(e){if(!/running/.test(e.message))throw e}toast('Rescanning PG3D. This takes about a minute.');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}finally{setTimeout(()=>b.disabled=false,3000)}};
@@ -2096,8 +2004,8 @@ function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekl
   $('#lkResult').hidden=false;drawSkinHead(p.skin);$('#lkName').textContent=p.name||'Unknown';
   const badges=$('#lkBadges');badges.innerHTML='';const lv=P.level??F.level;if(lv!=null)badges.append(el('span','lkBadge',`Lv ${lv}`));
   if(F.banned!=null)badges.append(el('span','lkBadge '+(F.banned?'bad':'good'),F.banned?'Banned':'Clean'));
-  if(p.clan)badges.append(el('span','lkBadge',p.clan_tag?`[${p.clan_tag}] ${p.clan}`:p.clan));
-  for(const k of Object.keys(F.platforms||{}))badges.append(el('span','lkBadge',k));
+  if(p.clan){const cb=el('span','lkBadge lkClan');if(p.clan_logo){const im=el('img');im.src='data:image/png;base64,'+p.clan_logo;im.alt='';cb.append(im)}cb.append(document.createTextNode(p.clan_tag?`[${p.clan_tag}] ${p.clan}`:p.clan));badges.append(cb)}
+  for(const k of Object.keys(F.platforms||{}))if(!/^Platform \d+$/.test(k))badges.append(el('span','lkBadge',k));
   const dt=t=>t?new Date(Number(t)*1000).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):null;
   $('#lkMeta').textContent=[`ID ${p.player_id}`,P.registered?`Joined ${dt(P.registered)}`:null,P.last_seen?`Last active ${Date.now()/1000-P.last_seen<86400?ago(P.last_seen):dt(P.last_seen)}`:null].filter(Boolean).join(' · ');
   $('#lkCopy').onclick=()=>{navigator.clipboard?.writeText(String(p.player_id)).then(()=>toast('ID copied.'),()=>{})};
