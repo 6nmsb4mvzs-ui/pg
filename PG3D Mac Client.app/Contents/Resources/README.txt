@@ -1,4 +1,4 @@
-PG3D Mac Client 1.41.1
+PG3D Mac Client 1.42.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -180,3 +180,10 @@ Sounds    Click, switch, slider and tab sounds are now soft taps instead of
           rank-up charge sound.
 Launch    Start and Start with FPS Unlocker open Steam first if it isn't
           running (the direct launch used for the mouse fix needs it).
+
+New in 1.42
+Sounds    New button sounds that follow your style (Settings › Appearance):
+          Modern sounds like an ASMR mechanical keyboard (crisp keycap click,
+          deep thock, lighter clack on the way back up); Noble sounds like the
+          League client (glassy metallic tinks, a magic whoosh on tabs, a
+          brighter chime on main buttons).

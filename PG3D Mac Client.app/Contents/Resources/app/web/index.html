@@ -1226,26 +1226,66 @@ let __uiAudio=null;
 let SND={enabled:true,rankup:true,volume:70};
 try{Object.assign(SND,JSON.parse(localStorage.pg3dSound||'{}'))}catch{}
 function sndCtx(){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;if(!__uiAudio)__uiAudio=new AC();if(__uiAudio.state==='suspended')__uiAudio.resume();return __uiAudio}
-// UI sounds: soft, tactile taps (a tiny filtered noise transient over a short warm body),
-// like a modern app, instead of plain beeps. Level sits well below the rank-up sound.
-let __uiNoise=null;
-function uiNoiseBuf(ac){if(__uiNoise&&__uiNoise.sampleRate===ac.sampleRate)return __uiNoise;const len=Math.ceil(ac.sampleRate*.08),b=ac.createBuffer(1,len,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;return __uiNoise=b}
-function uiTap(ac,{at=0,freq=3200,q=1.2,len=.018,gain=.3,body=0,bodyTo=0,bodyLen=.05,bodyGain=.25}={}){
-  const t=ac.currentTime+at,v=SND.volume/100;
-  const n=ac.createBufferSource(),bp=ac.createBiquadFilter(),g=ac.createGain();n.buffer=uiNoiseBuf(ac);bp.type='bandpass';bp.frequency.value=freq;bp.Q.value=q;
-  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,gain*v),t+.0015);g.gain.exponentialRampToValueAtTime(.0001,t+len);
-  n.connect(bp);bp.connect(g);g.connect(ac.destination);n.start(t);n.stop(t+len+.02);
-  if(body){const o=ac.createOscillator(),og=ac.createGain();o.type='sine';o.frequency.setValueAtTime(body,t);o.frequency.exponentialRampToValueAtTime(bodyTo||body*.7,t+bodyLen);
-    og.gain.setValueAtTime(.0001,t);og.gain.exponentialRampToValueAtTime(Math.max(.0002,bodyGain*v),t+.004);og.gain.exponentialRampToValueAtTime(.0001,t+bodyLen);
-    o.connect(og);og.connect(ac.destination);o.start(t);o.stop(t+bodyLen+.02)}}
+// UI sounds, built sample by sample and cached per style:
+//  Modern: ASMR mechanical keyboard - keycap click, deep "thock" body, case ring, upstroke clack.
+//  Noble:  League-style client - glassy metallic tinks, magic air, short shimmer echo.
+const UIS={cache:{},rate:0};
+function uisFilter(x,type,f,q,rate){const w=2*Math.PI*Math.min(f,rate*.45)/rate,cs=Math.cos(w),al=Math.sin(w)/(2*q);let b0,b1,b2;
+  if(type==='bp'){b0=al;b1=0;b2=-al}else if(type==='lp'){b0=(1-cs)/2;b1=1-cs;b2=(1-cs)/2}else{b0=(1+cs)/2;b1=-(1+cs);b2=(1+cs)/2}
+  const a0=1+al,a1=-2*cs/a0,a2=(1-al)/a0;b0/=a0;b1/=a0;b2/=a0;const y=new Float32Array(x.length);let x1=0,x2=0,y1=0,y2=0;
+  for(let i=0;i<x.length;i++){const v=b0*x[i]+b1*x1+b2*x2-a1*y1-a2*y2;x2=x1;x1=x[i];y2=y1;y1=v;y[i]=v}return y}
+function uisNoise(n,decay,rate,at=0){const x=new Float32Array(n),s0=Math.floor(at*rate);for(let i=s0;i<n;i++){const t=(i-s0)/rate;x[i]=(Math.random()*2-1)*Math.exp(-t/decay)}return x}
+function uisAdd(out,x,g){for(let i=0;i<out.length&&i<x.length;i++)out[i]+=x[i]*g}
+function uisNorm(out,peak){let m=0;for(const v of out)m=Math.max(m,Math.abs(v));const k=m?peak/m:0;for(let i=0;i<out.length;i++)out[i]*=k;
+  const f=Math.min(out.length,96);for(let i=0;i<f;i++)out[out.length-1-i]*=i/f;return out}
+// One mechanical key: down = click + thock + ring; up = lighter, higher clack.
+function uisKey(rate,{f0=210,thock=1,click=.55,ring=.18,decay=.014,up=0,upAt=.075,upGain=.35,len=.16}={}){
+  const n=Math.floor(rate*len),out=new Float32Array(n),j=1+(Math.random()-.5)*.1;
+  uisAdd(out,uisFilter(uisFilter(uisNoise(n,.0007,rate),'hp',1600,.7,rate),'bp',3400*j,.8,rate),click*4);
+  const body=uisFilter(uisFilter(uisNoise(n,decay,rate),'bp',f0*j,5,rate),'bp',f0*j,4,rate);uisAdd(out,body,thock*14);
+  for(let i=0;i<n;i++){const t=i/rate;out[i]+=Math.sin(2*Math.PI*f0*.92*j*t*(1-t*1.5))*Math.exp(-t/(decay*1.4))*thock*.22}
+  uisAdd(out,uisFilter(uisNoise(n,.004,rate),'bp',1250*j,16,rate),ring*10);
+  if(up){uisAdd(out,uisFilter(uisFilter(uisNoise(n,.0006,rate,upAt),'hp',2200,.7,rate),'bp',4300*j,.9,rate),click*2.2*upGain);
+    uisAdd(out,uisFilter(uisNoise(n,decay*.6,rate,upAt),'bp',f0*1.55*j,5,rate),thock*6*upGain)}
+  return out}
+// One League-style tink: inharmonic FM strike + air puff + soft body, with a short shimmer echo.
+function uisTink(rate,{f=2350,ratio=2.76,index=3,decay=.07,air=.35,airF=6200,body=0,bodyF=260,len=.32,at=0,echo=.32,out=null}={}){
+  const n=Math.floor(rate*len),o=out||new Float32Array(n),s0=Math.floor(at*rate);
+  for(let i=s0;i<n;i++){const t=(i-s0)/rate,ix=index*Math.exp(-t/(decay*.35));o[i]+=Math.sin(2*Math.PI*f*t+ix*Math.sin(2*Math.PI*f*ratio*t))*Math.exp(-t/decay)*.5}
+  if(air)uisAdd(o,uisFilter(uisNoise(n,.012,rate,at),'bp',airF,1.2,rate),air*3);
+  if(body)for(let i=s0;i<n;i++){const t=(i-s0)/rate;o[i]+=Math.sin(2*Math.PI*bodyF*t)*Math.exp(-t/.03)*body}
+  if(echo&&!out){const d1=Math.floor(rate*.043),d2=Math.floor(rate*.097);for(let i=n-1;i>=d1;i--)o[i]+=o[i-d1]*echo;for(let i=n-1;i>=d2;i--)o[i]+=o[i-d2]*echo*.5}
+  return o}
+function uisWhoosh(rate,{from=900,to=4200,dur=.09,gain=.6,len=.2}={}){const n=Math.floor(rate*len),o=new Float32Array(n),steps=8,seg=Math.floor(dur*rate/steps);
+  for(let k=0;k<steps;k++){const f=from*Math.pow(to/from,k/(steps-1)),x=new Float32Array(n);for(let i=k*seg;i<(k+1)*seg&&i<n;i++){const t=i/(dur*rate);x[i]=(Math.random()*2-1)*Math.sin(Math.PI*Math.min(1,t))}uisAdd(o,uisFilter(x,'bp',f,1.6,rate),gain*2)}return o}
+const UIS_MAKE={
+  modern:{
+    click:r=>uisNorm(uisKey(r,{f0:215}),.9),
+    primary:r=>uisNorm(uisKey(r,{f0:150,decay:.022,thock:1.25,click:.45,ring:.12,len:.2}),.95),
+    on:r=>uisNorm(uisKey(r,{f0:230,up:1,upAt:.07,len:.18}),.85),
+    off:r=>uisNorm(uisKey(r,{f0:190,up:1,upAt:.05,upGain:.5,len:.16}),.85),
+    tick:r=>uisNorm(uisKey(r,{f0:520,thock:.25,click:.9,ring:.05,decay:.004,len:.04}),.55),
+    tab:r=>uisNorm(uisKey(r,{f0:260,thock:.8,click:.4,ring:.1,decay:.01,len:.12}),.7)},
+  noble:{
+    click:r=>uisNorm(uisTink(r,{f:2350,body:.25}),.75),
+    primary:r=>{const o=uisTink(r,{f:1318,ratio:3.5,index:2.5,decay:.12,body:.5,bodyF:196,len:.5,echo:0});uisTink(r,{f:1975,ratio:2.76,index:2,decay:.1,at:.045,air:.25,len:.5,out:o});
+      const d=Math.floor(r*.06);for(let i=o.length-1;i>=d;i--)o[i]+=o[i-d]*.3;return uisNorm(o,.9)},
+    on:r=>{const o=uisTink(r,{f:1760,decay:.05,air:.2,len:.3,echo:0});uisTink(r,{f:2637,decay:.06,at:.06,air:.25,len:.3,out:o});return uisNorm(o,.75)},
+    off:r=>{const o=uisTink(r,{f:2637,decay:.05,air:.2,len:.3,echo:0});uisTink(r,{f:1760,decay:.06,at:.06,air:.2,len:.3,out:o});return uisNorm(o,.7)},
+    tick:r=>uisNorm(uisTink(r,{f:3100,index:1.5,decay:.012,air:.1,len:.05,echo:0}),.5),
+    tab:r=>{const o=uisWhoosh(r,{gain:.5,len:.28});uisTink(r,{f:2093,index:1.6,decay:.05,at:.07,air:0,len:.28,out:o});return uisNorm(o,.65)}}};
+function uisBuffer(ac,style,kind){if(UIS.rate!==ac.sampleRate){UIS.cache={};UIS.rate=ac.sampleRate}
+  const key=style+':'+kind,pool=UIS.cache[key]||(UIS.cache[key]=[]);
+  // A few variants each, so repeated presses don't sound copy-pasted.
+  if(pool.length<4){const data=UIS_MAKE[style][kind](ac.sampleRate),b=ac.createBuffer(1,data.length,ac.sampleRate);b.getChannelData(0).set(data);pool.push(b);return b}
+  return pool[Math.floor(Math.random()*pool.length)]}
+const UIS_LEVEL={click:.32,primary:.38,on:.32,off:.3,tick:.22,tab:.28};
 // kind: click | primary | on | off | tick | tab
 function uiSound(kind='click',x=0.5){if(!SND.enabled)return;try{const ac=sndCtx();if(!ac)return;
-  if(kind==='primary'){uiTap(ac,{freq:2600,q:1,len:.022,gain:.24,body:330,bodyTo:220,bodyLen:.09,bodyGain:.2})}
-  else if(kind==='on'){uiTap(ac,{freq:2400,len:.016,gain:.24,body:520,bodyTo:600,bodyLen:.05,bodyGain:.16});uiTap(ac,{at:.055,freq:3400,len:.016,gain:.22,body:780,bodyTo:880,bodyLen:.06,bodyGain:.14})}
-  else if(kind==='off'){uiTap(ac,{freq:3200,len:.016,gain:.22,body:700,bodyTo:620,bodyLen:.05,bodyGain:.14});uiTap(ac,{at:.055,freq:2200,len:.016,gain:.2,body:460,bodyTo:380,bodyLen:.06,bodyGain:.14})}
-  else if(kind==='tick'){uiTap(ac,{freq:1800+2600*x,q:2,len:.009,gain:.42})}
-  else if(kind==='tab'){uiTap(ac,{freq:2000,q:.8,len:.03,gain:.18,body:420,bodyTo:360,bodyLen:.04,bodyGain:.1})}
-  else{uiTap(ac,{freq:3400,q:1.4,len:.014,gain:.28,body:900,bodyTo:600,bodyLen:.025,bodyGain:.1})}}catch{}}
+  const style=document.documentElement.dataset.uiStyle==='noble'?'noble':'modern';if(!UIS_MAKE[style][kind])kind='click';
+  const src=ac.createBufferSource(),g=ac.createGain();src.buffer=uisBuffer(ac,style,kind);
+  src.playbackRate.value=kind==='tick'?.85+.35*x:1+(Math.random()-.5)*.04;g.gain.value=UIS_LEVEL[kind]*(SND.volume/100)*(kind==='tick'?.8:1);
+  src.connect(g);g.connect(ac.destination);src.start(ac.currentTime)}catch{}}
 function protectedPath(event,card){
   const selector='button,input,select,textarea,a,label,[role="button"],[contenteditable="true"],[data-no-toggle],.hexColorControl,.hexText,.spectrumSlider,.ratingControl,.ratingSlider,.optionTile,.dragHandle';
   const path=typeof event.composedPath==='function'?event.composedPath():[];
