@@ -1,4 +1,4 @@
-PG3D Mac Client 1.52.0
+PG3D Mac Client 1.53.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -344,3 +344,11 @@ Cursor    Controller ("Gamepad") cursors are never picked as your mouse
           moves onto the right texture.
 Sky       Applying a sky covers all sky textures again unless you untick
           some yourself (1.49.1 left it on only 6).
+
+New in 1.53
+Finder    Lists every texture in PG3D, not only likely matches: each group
+          (Sky, Cursor, Loading screen, GUI) has Suggested, All textures
+          and Selected. Pictures load as you scroll; Show more pages on.
+GUI       Finder's GUI group resizes (10-100%) or hides the textures you
+          select, sprites and standalone textures alike; Reset selected
+          puts them back. Sizes show on the pictures.

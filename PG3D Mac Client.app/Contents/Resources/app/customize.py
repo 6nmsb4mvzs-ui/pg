@@ -720,25 +720,40 @@ def _finder_category(name, typ, w, h):
     return out
 
 
-def finder_scan(files, app: Path, thumb_dir: Path, progress=None, log=print, limit=500):
+_FINDER_GUI = {"ui", "hud", "button", "btn", "icon", "panel", "frame", "bar", "health", "armor", "ammo", "slot",
+               "window", "popup", "tab", "badge", "arrow", "joystick", "minimap", "map", "kill", "score", "timer",
+               "chat", "menu", "lobby", "shop", "gui", "hp", "shield", "reload", "grenade", "gadget", "crosshair"}
+
+
+def _finder_gui(name, typ, w, h):
+    words = _words(name)
+    return typ == "Sprite" or (typ == "Texture2D" and max(w, h) <= 1024 and bool(words & _FINDER_GUI))
+
+
+def finder_scan(files, app: Path, progress=None, log=print):
+    """Every texture, sprite and cubemap in the game (names and sizes only; pictures
+    are made when they're looked at). Each carries the groups it probably fits."""
     import UnityPy
 
-    found = {"sky": [], "cursor": [], "loading": []}
+    items = []
     total = max(1, len(files))
     for idx, p in enumerate(files, 1):
         if progress:
-            progress(idx / total, f"Looking through game files ({idx}/{total})…")
+            progress(idx / total, f"Listing textures ({idx}/{total})…")
         try:
             env = UnityPy.load(str(p))
             env._pg3d_own_files = {id(o.assets_file) for o in env.objects}
         except Exception as e:
             log(f"FINDER LOAD FAIL {p}: {e}")
             continue
-        # Textures used by skybox materials count as sky even with plain names.
         try:
             sky_mat = {t["path_id"] for t in _sky_textures_in(env, Path(p), app, lambda *_: None) if t.get("from_material")}
         except Exception:
             sky_mat = set()
+        try:
+            rel = str(Path(p).relative_to(app))
+        except ValueError:
+            rel = Path(p).name
         for obj in _own_objects(env):
             typ = obj.type.name
             if typ not in ("Texture2D", "Sprite", "Cubemap"):
@@ -753,33 +768,38 @@ def finder_scan(files, app: Path, thumb_dir: Path, progress=None, log=print, lim
                     w, h = int(data.m_Width), int(data.m_Height)
             except Exception:
                 continue
+            if w < 4 or h < 4:
+                continue
             cats = _finder_category(name, typ, w, h)
             if int(obj.path_id) in sky_mat and "sky" not in cats:
                 cats.append("sky")
-            if not cats:
-                continue
-            thumb = None
-            for cat in cats:
-                if len(found[cat]) >= limit:
-                    continue
-                i = len(found[cat])
-                if thumb is None:
-                    try:
-                        thumb = data.image.convert("RGBA")
-                        thumb.thumbnail((180, 180))
-                    except Exception:
-                        thumb = False
-                if thumb:
-                    (thumb_dir / cat).mkdir(parents=True, exist_ok=True)
-                    bg = Image.new("RGB", thumb.size, (24, 24, 30))
-                    bg.paste(thumb, mask=thumb.split()[3])
-                    bg.save(thumb_dir / cat / f"{i}.jpg", "JPEG", quality=80)
-                try:
-                    rel = str(Path(p).relative_to(app))
-                except ValueError:
-                    rel = Path(p).name
-                found[cat].append({"id": i, "name": name, "type": typ, "width": w, "height": h,
-                                   "source_file": str(p), "relative_file": rel, "path_id": int(obj.path_id),
-                                   "thumb": bool(thumb), "from_material": int(obj.path_id) in sky_mat})
+            if _finder_gui(name, typ, w, h):
+                cats.append("gui")
+            items.append({"gid": len(items), "name": name, "type": typ, "width": w, "height": h,
+                          "source_file": str(p), "relative_file": rel, "path_id": int(obj.path_id), "cats": cats})
         del env
-    return found
+    return items
+
+
+def finder_thumb(source_file, path_id, out: Path, env_cache):
+    """A small JPEG of one texture, made on demand. env_cache keeps the last files open."""
+    import UnityPy
+
+    env = env_cache.get(source_file)
+    if env is None:
+        env = UnityPy.load(source_file)
+        env_cache[source_file] = env
+        while len(env_cache) > 2:
+            env_cache.pop(next(iter(env_cache)))
+    reader = next((o for o in env.objects if int(o.path_id) == int(path_id)), None)
+    if reader is None:
+        raise FileNotFoundError(path_id)
+    data = reader.parse_as_object()
+    if reader.type.name == "Cubemap":
+        raise ValueError("cubemap")
+    img = data.image.convert("RGBA")
+    img.thumbnail((180, 180))
+    bg = Image.new("RGB", img.size, (24, 24, 30))
+    bg.paste(img, mask=img.split()[3])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    bg.save(out, "JPEG", quality=78)

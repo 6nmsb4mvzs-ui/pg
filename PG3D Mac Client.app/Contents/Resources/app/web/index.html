@@ -869,6 +869,8 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .fdItem{background:hsl(var(--nh) var(--ns) 7%);border:1px solid var(--border);border-radius:10px;padding:6px;text-align:left;color:var(--text);cursor:pointer;position:relative}
 .fdItem img{width:100%;height:96px;object-fit:contain;border-radius:6px;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 9%) 0 25%,hsl(var(--nh) var(--ns) 6%) 0 50%) 0 0/14px 14px}
 .fdItem b{display:block;font-size:11px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fdItem small{display:block;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fdItem .fdTag{position:absolute;top:8px;left:10px;font-size:10px;font-weight:800;background:rgba(0,0,0,.6);color:#fff;border-radius:5px;padding:1px 5px}
+.fdGui{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
 .fdItem.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}.fdItem.sel::after{content:"✓";position:absolute;top:8px;right:10px;color:var(--accent);font-weight:900}
 </style>
 </head>
@@ -1157,11 +1159,16 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <section class="page" id="page-finder">
       <div class="xPage">
         <div class="crCard">
-          <div class="crCardHead"><div class="curSeg" id="fdSeg"><button data-c="sky" class="active">Sky</button><button data-c="cursor">Cursor</button><button data-c="loading">Loading screen</button></div><button class="btn" id="fdScan">Scan game files</button></div>
-          <p class="xNote" id="fdNote">Finder looks through PG3D's files for every texture that could be a sky, your mouse cursor or a loading screen. Click the right ones (a few per group), then Copy report and paste it in the chat, or Use selected.</p>
+          <div class="crCardHead"><div class="curSeg" id="fdSeg"><button data-c="sky" class="active">Sky</button><button data-c="cursor">Cursor</button><button data-c="loading">Loading screen</button><button data-c="gui">GUI</button></div><button class="btn" id="fdScan">Scan game files</button></div>
+          <p class="xNote" id="fdNote">Finder lists every texture in PG3D. Click the right ones in each group, then Copy report and paste it in the chat, or Use selected. In GUI, pick textures and change their size.</p>
           <div class="xJob" id="fdJob"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <input class="search" id="fdSearch" placeholder="Filter by name" spellcheck="false" style="margin:10px 0">
+          <div class="xRow" style="margin:10px 0;gap:8px"><input class="search" id="fdSearch" placeholder="Filter by name or file" spellcheck="false" style="flex:1"><div class="curSeg" id="fdScope"><button data-s="sug" class="active">Suggested</button><button data-s="all">All textures</button><button data-s="sel">Selected</button></div></div>
           <div class="fdGrid" id="fdGrid"></div>
+          <div class="xRow" style="justify-content:center;margin-top:8px"><button class="btn ghost" id="fdMore" hidden>Show more</button></div>
+          <div class="fdGui" id="fdGui" hidden>
+            <div class="curField"><div class="xLabel">Size of the selected GUI textures</div><div class="rangeRow"><input type="range" id="fdScale" min="10" max="100" value="80"><div class="rangeVal" id="fdScaleVal">80%</div></div></div>
+            <div class="xRow"><button class="btn primary" id="fdGuiApply">Apply size</button><button class="btn" id="fdGuiHide">Hide</button><button class="btn ghost" id="fdGuiReset">Reset selected</button></div>
+          </div>
           <div class="xRow" style="margin-top:14px"><span class="sub" id="fdCount"></span><button class="btn" id="fdReport">Copy report</button><button class="btn primary" id="fdUse">Use selected</button></div>
         </div>
       </div>
@@ -2167,18 +2174,30 @@ let _uiThemeSynced=false;
 
 (async function init(){setTab(localStorage.pg3dTab||'play');await refreshStatus();selectedCursor=localStorage.pg3dCursor||statusData?.mods?.cursor?.cursor||'clean_dot';cursorSize=Math.max(8,Math.min(100,Number(localStorage.pg3dCursorSize||statusData?.mods?.cursor?.size||45)));cursorColor=(localStorage.pg3dCursorColor||statusData?.mods?.cursor?.color||'#FFFFFF').toUpperCase();cursorOutline=(localStorage.pg3dCursorOutline||statusData?.mods?.cursor?.outline||'#000000').toUpperCase();cursorOutlineWidth=Number(localStorage.pg3dCursorOW!=null?localStorage.pg3dCursorOW:(statusData?.mods?.cursor?.outline_width||0));$('#cursorSize').value=cursorSize;$('#fpsSelect').value=statusData?.prefs?.fps_target||'uncapped';renderCursorGrid();updateCursorPanel();await refreshPlayerCount();scheduleStatus();setInterval(refreshPlayerCount,30000)})();
 
-/* ===== Finder (temporary): pick the real sky / cursor / loading textures ===== */
-let fdData=null,fdCat='sky',fdPicks={sky:new Set(),cursor:new Set(),loading:new Set()};
-async function loadFinder(){try{const prev=fdData?.generated;fdData=await api('/api/finder');if(prev!==fdData.generated)for(const c of ['sky','cursor','loading'])fdPicks[c]=new Set(fdData.picks?.[c]||[]);renderFinder()}catch(e){console.error(e)}}
-function renderFinder(){const d=fdData;if(!d)return;$$('#fdSeg button').forEach(b=>b.classList.toggle('active',b.dataset.c===fdCat));
-  const g=$('#fdGrid');g.innerHTML='';const q=($('#fdSearch').value||'').toLowerCase();const items=(d.items[fdCat]||[]).filter(x=>!q||x.name.toLowerCase().includes(q));
-  if(!d.generated){g.append(el('div','xEmpty','Press Scan game files. It takes a few minutes.'))}
-  for(const x of items){const b=el('button','fdItem'+(fdPicks[fdCat].has(x.id)?' sel':''));b.type='button';const im=el('img');im.loading='lazy';if(x.thumb)im.src=`/api/finder/thumb/${fdCat}/${x.id}.jpg`;b.append(im,el('b',null,x.name||`#${x.path_id}`),el('small',null,`${x.type} ${x.width}×${x.height} · ${x.relative_file}`));b.title=`${x.name}\n${x.relative_file} #${x.path_id}`;
-    b.onclick=()=>{const s=fdPicks[fdCat];s.has(x.id)?s.delete(x.id):s.add(x.id);b.classList.toggle('sel',s.has(x.id));savePicks()};g.append(b)}
-  const n=fdPicks[fdCat].size;$('#fdCount').textContent=d.generated?`${items.length} shown · ${n} selected${fdCat==='cursor'?' (the first one is used)':''}`:'';$('#fdUse').disabled=!n;$('#fdReport').disabled=!d.generated}
-let fdSaveT;function savePicks(){const c=fdCat,ids=[...fdPicks[c]];$('#fdCount').textContent=$('#fdCount').textContent.replace(/\d+ selected/,`${ids.length} selected`);$('#fdUse').disabled=!ids.length;clearTimeout(fdSaveT);fdSaveT=setTimeout(()=>post('/api/finder/picks',{cat:c,ids}).catch(()=>{}),300)}
-$$('#fdSeg button').forEach(b=>b.onclick=()=>{fdCat=b.dataset.c;renderFinder()});$('#fdSearch').oninput=()=>renderFinder();
-$('#fdScan').onclick=async()=>{try{await post('/api/finder/scan',{});toast('Scanning PG3D\'s files… this takes a few minutes.')}catch(e){toast(e.message,true)}};
+/* ===== Finder (temporary): every texture, sorted into sky / cursor / loading / GUI ===== */
+let fdData=null,fdCat='sky',fdScope='sug',fdPicks={sky:new Set(),cursor:new Set(),loading:new Set(),gui:new Set()},fdItems=[],fdTotal=0,fdGen=null,fdReq=0;
+async function loadFinder(){try{const prev=fdData?.generated;fdData=await api('/api/finder');if(prev!==fdData.generated)for(const c of ['sky','cursor','loading','gui'])fdPicks[c]=new Set(fdData.picks?.[c]||[]);await fdFetch(true)}catch(e){console.error(e)}}
+async function fdFetch(reset){const q=encodeURIComponent($('#fdSearch').value||'');const off=reset?0:fdItems.length;const req=++fdReq;
+  const r=await api(`/api/finder/list?cat=${fdCat}&all=${fdScope==='all'?1:0}&picked=${fdScope==='sel'?1:0}&q=${q}&offset=${off}&limit=240`);if(req!==fdReq)return;
+  fdItems=reset?r.items:fdItems.concat(r.items);fdTotal=r.total;renderFinder(reset)}
+function fdCard(x){const b=el('button','fdItem'+(fdPicks[fdCat].has(x.gid)?' sel':''));b.type='button';const im=el('img');im.loading='lazy';im.alt='';if(x.type!=='Cubemap')im.src=`/api/finder/thumb/${x.gid}.jpg`;
+  b.append(im,el('b',null,x.name||`#${x.path_id}`),el('small',null,`${x.type} ${x.width}×${x.height} · ${x.relative_file.split('/').pop()}`));b.title=`${x.name}\n${x.relative_file} #${x.path_id}`;
+  const op=fdData?.gui_ops?.[x.gid];if(op)b.append(el('span','fdTag',op.hidden?'hidden':`${Math.round(op.scale)}%`));
+  b.onclick=()=>{const s=fdPicks[fdCat];s.has(x.gid)?s.delete(x.gid):s.add(x.gid);b.classList.toggle('sel',s.has(x.gid));fdCountText();savePicks()};return b}
+function renderFinder(reset){const d=fdData;if(!d)return;$$('#fdSeg button').forEach(b=>b.classList.toggle('active',b.dataset.c===fdCat));$$('#fdScope button').forEach(b=>b.classList.toggle('active',b.dataset.s===fdScope));
+  const g=$('#fdGrid');if(reset){g.innerHTML='';g.scrollTop=0}
+  if(!d.generated){g.innerHTML='';g.append(el('div','xEmpty','Press Scan game files first. It takes a few minutes.'))}
+  else{const have=g.querySelectorAll('.fdItem').length;fdItems.slice(have).forEach(x=>g.append(fdCard(x)));if(!fdItems.length)g.append(el('div','xEmpty',fdScope==='sug'?'No suggestions here. Try All textures.':'Nothing matches.'))}
+  $('#fdMore').hidden=fdItems.length>=fdTotal;$('#fdMore').textContent=`Show more (${fdTotal-fdItems.length} left)`;
+  $('#fdGui').hidden=fdCat!=='gui';$('#fdUse').hidden=fdCat==='gui';$('#fdReport').disabled=!d.generated;fdCountText()}
+function fdCountText(){const n=fdPicks[fdCat].size;$('#fdCount').textContent=fdData?.generated?`${fdTotal} textures · ${n} selected${fdCat==='cursor'?' (the first one is used)':''}`:'';$('#fdUse').disabled=!n;['#fdGuiApply','#fdGuiHide','#fdGuiReset'].forEach(id=>$(id).disabled=!n)}
+let fdSaveT;function savePicks(){const c=fdCat,ids=[...fdPicks[c]];clearTimeout(fdSaveT);fdSaveT=setTimeout(()=>post('/api/finder/picks',{cat:c,ids}).catch(()=>{}),300)}
+$$('#fdSeg button').forEach(b=>b.onclick=()=>{fdCat=b.dataset.c;fdFetch(true)});$$('#fdScope button').forEach(b=>b.onclick=()=>{fdScope=b.dataset.s;fdFetch(true)});
+let fdQT;$('#fdSearch').oninput=()=>{clearTimeout(fdQT);fdQT=setTimeout(()=>fdFetch(true),250)};$('#fdMore').onclick=()=>fdFetch(false);
+$('#fdScale').oninput=e=>{$('#fdScaleVal').textContent=e.target.value+'%'};
+async function fdGui(body){try{await post('/api/finder/picks',{cat:'gui',ids:[...fdPicks.gui]});await post('/api/finder/gui',{ids:[...fdPicks.gui],...body});await refreshStatus();scheduleStatus();setTimeout(loadFinder,1500)}catch(e){toast(e.message,true)}}
+$('#fdGuiApply').onclick=()=>fdGui({scale:Number($('#fdScale').value)});$('#fdGuiHide').onclick=()=>fdGui({hidden:true});$('#fdGuiReset').onclick=()=>fdGui({reset:true});
+$('#fdScan').onclick=async()=>{try{await post('/api/finder/scan',{});toast('Listing PG3D\'s textures… this takes a few minutes.')}catch(e){toast(e.message,true)}};
 $('#fdReport').onclick=async()=>{try{await post('/api/finder/picks',{cat:fdCat,ids:[...fdPicks[fdCat]]});const r=await post('/api/finder/report',{});try{await navigator.clipboard?.writeText(r.text)}catch{}toast('Report copied. Paste it in the chat.')}catch(e){toast(e.message,true)}};
 $('#fdUse').onclick=async()=>{try{await post('/api/finder/picks',{cat:fdCat,ids:[...fdPicks[fdCat]]});const r=await post('/api/finder/use',{cat:fdCat});toast(fdCat==='cursor'?`Cursor texture set to ${r.target}. Apply your cursor again.`:`${r.count} textures added. Apply your ${fdCat==='sky'?'sky':'loading screen'} again in the Sky tab.`);loadSky()}catch(e){toast(e.message,true)}};
 </script>

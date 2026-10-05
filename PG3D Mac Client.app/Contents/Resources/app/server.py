@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.52.0"
+APP_VERSION = "1.53.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1338,6 +1338,17 @@ def rebuild_sources(source_strings, state=None, progress=None):
                 merged[int(op["path_id"])] = op
             for path_id, op in merged.items():
                 reader = find_reader(env, path_id)
+                if reader is not None and reader.type.name == "Texture2D" and op.get("finder"):
+                    # A standalone GUI texture (picked in Finder): shrink or hide it in place.
+                    tex = reader.parse_as_object()
+                    img = tex.image.convert("RGBA")
+                    if op.get("hidden"):
+                        img = Image.new("RGBA", img.size, (0, 0, 0, 0))
+                    else:
+                        img = scale_sprite_about_pivot(img, max(10.0, min(100.0, float(op.get("scale", 100)))), 0.5, 0.5)
+                    tex.image = img
+                    save_parsed_object(tex, reader)
+                    continue
                 if reader is None or reader.type.name != "Sprite":
                     log(f"GUI asset path {path_id} moved or is not a Sprite; skipped")
                     continue
@@ -4599,17 +4610,67 @@ def customize_catalog():
 
 
 # ------------------------------------------------------------- finder (temporary)
-FINDER_JSON = STATE_DIR / "finder.json"
+FINDER_JSON = STATE_DIR / "finder.json"            # every texture (large)
+FINDER_PICKS_JSON = STATE_DIR / "finder_picks.json"  # picks + what is in use (small)
 FINDER_THUMBS = RUNTIME / "finder"
-FINDER_CATS = ("sky", "cursor", "loading")
+FINDER_CATS = ("sky", "cursor", "loading", "gui")
+_FINDER_MEM = {"mtime": None, "data": None}
+_FINDER_THUMB_LOCK = threading.Lock()
+_FINDER_ENVS = {}
+
+
+def _finder_data():
+    try:
+        m = FINDER_JSON.stat().st_mtime
+    except OSError:
+        return {"items": []}
+    if _FINDER_MEM["mtime"] != m:
+        _FINDER_MEM.update(mtime=m, data=read_json(FINDER_JSON, {"items": []}))
+    return _FINDER_MEM["data"]
+
+
+def _finder_picks():
+    d = read_json(FINDER_PICKS_JSON, {})
+    d.setdefault("picks", {})
+    d.setdefault("used", {})
+    for c in FINDER_CATS:
+        d["picks"].setdefault(c, [])
+    return d
 
 
 def finder_payload():
-    data = read_json(FINDER_JSON, {})
-    return {"generated": data.get("generated"), "build": data.get("build"),
-            "items": {c: data.get(c, []) for c in FINDER_CATS},
-            "picks": data.get("picks") or {c: [] for c in FINDER_CATS},
-            "used": data.get("used") or {}}
+    data = _finder_data()
+    counts = {c: sum(1 for x in data.get("items", []) if c in x["cats"]) for c in FINDER_CATS}
+    return {"generated": data.get("generated"), "build": data.get("build"), "total": len(data.get("items", [])),
+            "suggested": counts, "picks": _finder_picks()["picks"], "gui_ops": _finder_gui_ops()}
+
+
+def finder_list(cat, show_all=False, q="", offset=0, limit=240, picked_only=False):
+    items = _finder_data().get("items", [])
+    picks = set(_finder_picks()["picks"].get(cat, []))
+    q = (q or "").lower().strip()
+    out = [x for x in items if (show_all or cat in x["cats"]) and (not q or q in x["name"].lower() or q in x["relative_file"].lower())
+           and (not picked_only or x["gid"] in picks)]
+    if show_all and cat in FINDER_CATS:
+        out.sort(key=lambda x: (cat not in x["cats"], x["name"].lower()))  # likely ones first
+    return {"total": len(out), "items": out[int(offset):int(offset) + int(limit)]}
+
+
+def finder_thumb_path(gid):
+    items = _finder_data().get("items", [])
+    if not 0 <= gid < len(items):
+        return None
+    out = FINDER_THUMBS / f"{gid}.jpg"
+    if out.exists():
+        return out
+    x = items[gid]
+    with _FINDER_THUMB_LOCK:
+        if not out.exists():
+            try:
+                customize.finder_thumb(x["source_file"], x["path_id"], out, _FINDER_ENVS)
+            except Exception:
+                return None
+    return out
 
 
 def start_finder_scan():
@@ -4618,50 +4679,52 @@ def start_finder_scan():
         if not app:
             raise RuntimeError("Pixel Gun 3D.app was not found.")
         files = candidate_files(app / "Contents/Resources/Data", deep=True)
+        items = customize.finder_scan(files, app, progress, log)
         shutil.rmtree(FINDER_THUMBS, ignore_errors=True)
-        FINDER_THUMBS.mkdir(parents=True, exist_ok=True)
-        found = customize.finder_scan(files, app, FINDER_THUMBS, progress, log)
-        old = read_json(FINDER_JSON, {})
-        data = {"generated": datetime.now().isoformat(timespec="seconds"),
-                "build": plist_value(app / "Contents/Info.plist", "CFBundleVersion"), **found,
-                "picks": {c: [] for c in FINDER_CATS}, "used": old.get("used") or {}}
-        write_json(FINDER_JSON, data)
-        return (f"Found {len(found['sky'])} sky, {len(found['cursor'])} cursor and "
-                f"{len(found['loading'])} loading-screen textures.")
-    return start_job("scan", job, label="Finding textures")
+        _FINDER_ENVS.clear()
+        write_json(FINDER_JSON, {"generated": datetime.now().isoformat(timespec="seconds"),
+                                 "build": plist_value(app / "Contents/Info.plist", "CFBundleVersion"), "items": items})
+        d = _finder_picks()
+        d["picks"] = {c: [] for c in FINDER_CATS}  # ids refer to the old list
+        write_json(FINDER_PICKS_JSON, d)
+        counts = {c: sum(1 for x in items if c in x["cats"]) for c in FINDER_CATS}
+        return (f"Listed {len(items)} textures ({counts['sky']} sky, {counts['cursor']} cursor, "
+                f"{counts['loading']} loading, {counts['gui']} GUI suggestions).")
+    return start_job("scan", job, label="Listing textures")
 
 
 def set_finder_picks(cat, ids):
     if cat not in FINDER_CATS:
         raise RuntimeError("Unknown category.")
-    data = read_json(FINDER_JSON, {})
-    valid = {x["id"] for x in data.get(cat, [])}
-    picks = data.get("picks") or {c: [] for c in FINDER_CATS}
-    picks[cat] = sorted({int(i) for i in (ids or []) if int(i) in valid})
-    data["picks"] = picks
-    write_json(FINDER_JSON, data)
-    return {"ok": True, "picks": picks}
+    n = len(_finder_data().get("items", []))
+    d = _finder_picks()
+    d["picks"][cat] = sorted({int(i) for i in (ids or []) if 0 <= int(i) < n})
+    write_json(FINDER_PICKS_JSON, d)
+    return {"ok": True, "picks": d["picks"]}
 
 
-def _finder_picked(data, cat):
-    ids = set((data.get("picks") or {}).get(cat) or [])
-    return [x for x in data.get(cat, []) if x["id"] in ids]
+def _finder_picked(cat):
+    items = _finder_data().get("items", [])
+    return [items[i] for i in _finder_picks()["picks"].get(cat, []) if 0 <= i < len(items)]
 
 
 def finder_report():
-    data = read_json(FINDER_JSON, {})
-    lines = [f"PG3D Mac Client {APP_VERSION} texture report, PG3D build {data.get('build')}"]
+    data = _finder_data()
+    lines = [f"PG3D Mac Client {APP_VERSION} texture report, PG3D build {data.get('build')}, "
+             f"{len(data.get('items', []))} textures listed"]
     cat = read_json(CUSTOMIZE_CATALOG_JSON, {})
     known = {c: {(t["source_file"], int(t["path_id"])) for t in cat.get(c, [])} for c in ("sky", "loading")}
     cur = load_cursor_target() or {}
     for c in FINDER_CATS:
-        picked = _finder_picked(data, c)
-        lines.append(f"\n[{c}] {len(picked)} picked of {len(data.get(c, []))} found")
+        picked = _finder_picked(c)
+        lines.append(f"\n[{c}] {len(picked)} picked")
         for x in picked:
             if c == "cursor":
                 flag = "current target" if (x["source_file"], x["path_id"]) == (cur.get("source_file"), cur.get("path_id")) else ""
+            elif c in known:
+                flag = "detected" if (x["source_file"], x["path_id"]) in known[c] else "NOT detected"
             else:
-                flag = "detected" if (x["source_file"], x["path_id"]) in known.get(c, set()) else "NOT detected"
+                flag = "suggested" if c in x["cats"] else "not suggested"
             lines.append(f"  {x['name']} | {x['type']} {x['width']}x{x['height']} | {x['relative_file']} #{x['path_id']} {flag}")
     text = "\n".join(lines)
     try:
@@ -4674,12 +4737,13 @@ def finder_report():
 def finder_use(cat):
     """Make the client use the picked textures: the cursor target, or extra
     sky / loading-screen targets."""
-    data = read_json(FINDER_JSON, {})
-    picked = _finder_picked(data, cat)
+    picked = _finder_picked(cat)
     if not picked:
         raise RuntimeError("Pick at least one texture first.")
     if cat == "cursor":
         x = picked[0]
+        if x["type"] not in ("Texture2D", "Sprite"):
+            raise RuntimeError("The cursor has to be a texture or sprite.")
         cands = read_json(CURSOR_CANDIDATES_JSON, {"items": []})
         items = [c for c in cands.get("items", []) if (c["source_file"], int(c["path_id"])) != (x["source_file"], x["path_id"])]
         entry = {"source_file": x["source_file"], "relative_file": x["relative_file"], "object_type": x["type"],
@@ -4689,17 +4753,54 @@ def finder_use(cat):
             c["index"] = i
         write_json(CURSOR_CANDIDATES_JSON, {"items": items})
         return choose_cursor_target(0)
-    used = data.get("used") or {}
-    used[cat] = [{**{k: x[k] for k in ("name", "type", "width", "height", "source_file", "relative_file", "path_id")},
-                  "preview": f"/api/finder/thumb/{cat}/{x['id']}.jpg"} for x in picked]
-    data["used"] = used
-    write_json(FINDER_JSON, data)
+    if cat == "gui":
+        raise RuntimeError("Use the size slider below to change GUI textures.")
+    d = _finder_picks()
+    d["used"][cat] = [{**{k: x[k] for k in ("name", "type", "width", "height", "source_file", "relative_file", "path_id")},
+                       "preview": f"/api/finder/thumb/{x['gid']}.jpg"} for x in picked]
+    write_json(FINDER_PICKS_JSON, d)
     return {"ok": True, "count": len(picked)}
+
+
+def _finder_gui_ops():
+    """GUI edits made in Finder: gid -> {scale, hidden}."""
+    items = _finder_data().get("items", [])
+    index = {(x["source_file"], x["path_id"]): x["gid"] for x in items}
+    out = {}
+    for op in (load_mods().get("gui") or {}).values():
+        if op.get("finder"):
+            gid = index.get((op["source_file"], int(op["path_id"])))
+            if gid is not None:
+                out[gid] = {"scale": op.get("scale", 100), "hidden": bool(op.get("hidden"))}
+    return out
+
+
+def finder_gui_apply(ids, scale=100, hidden=False, reset=False):
+    items = _finder_data().get("items", [])
+    chosen = [items[int(i)] for i in (ids or []) if 0 <= int(i) < len(items)]
+    chosen = [x for x in chosen if x["type"] in ("Sprite", "Texture2D")]
+    if not chosen:
+        raise RuntimeError("Select one or more GUI textures (not cubemaps) first.")
+    scale = max(10.0, min(100.0, float(scale)))
+
+    def change(state):
+        g = state.setdefault("gui", {})
+        for x in chosen:
+            key = f"finder:{x['source_file']}:{x['path_id']}"
+            if reset:
+                g.pop(key, None)
+            else:
+                g[key] = {"key": key, "finder": True, "object_type": x["type"], "source_file": x["source_file"],
+                          "relative_file": x["relative_file"], "path_id": int(x["path_id"]), "name": x["name"],
+                          "width": x["width"], "height": x["height"], "pivot_x": 0.5, "pivot_y": 0.5,
+                          "scale": scale, "hidden": bool(hidden)}
+    what = "Reset" if reset else ("Hide" if hidden else f"{int(scale)}%")
+    return mutate_state(change, f"GUI: {what} on {len(chosen)} texture(s)") or {"ok": True}
 
 
 def _merge_finder_picks(cat):
     """Sky / loading textures the player marked in Finder join the catalog (ticked)."""
-    used = (read_json(FINDER_JSON, {}) or {}).get("used") or {}
+    used = _finder_picks().get("used") or {}
     for c in ("sky", "loading"):
         lst = cat.setdefault(c, [])
         have = {(t["source_file"], int(t["path_id"])) for t in lst}
@@ -5345,7 +5446,7 @@ def set_reapply_pref(on):
 
 def _has_retired_mods(state):
     return bool(state.get("theme") or state.get("hud_set") or state.get("hud_disabled")
-                or any(not v.get("role") for v in (state.get("gui") or {}).values()))
+                or any(not v.get("role") and not v.get("finder") for v in (state.get("gui") or {}).values()))
 
 
 def retire_removed_mods():
@@ -5360,7 +5461,7 @@ def retire_removed_mods():
                     state["theme"] = None
                     state["hud_set"] = {}
                     state["hud_disabled"] = False
-                    state["gui"] = {k: v for k, v in (state.get("gui") or {}).items() if v.get("role")}
+                    state["gui"] = {k: v for k, v in (state.get("gui") or {}).items() if v.get("role") or v.get("finder")}
                 mutate_state(change, "Remove in-game theme and HUD changes")
                 log("Removed the in-game theme / HUD changes (features retired in 1.47).")
                 return
@@ -6209,11 +6310,17 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_file(SKY_PREVIEWS / name, cache=True)
         if path == "/api/finder":
             return self.send_json(finder_payload())
+        if path == "/api/finder/list":
+            qs = parse_qs(urlparse(self.path).query)
+            g = lambda k, d="": (qs.get(k) or [d])[0]
+            return self.send_json(finder_list(g("cat", "sky"), g("all") == "1", g("q"), int(g("offset", "0") or 0),
+                                              min(500, int(g("limit", "240") or 240)), g("picked") == "1"))
         if path.startswith("/api/finder/thumb/"):
-            parts = path.split("/")
-            if len(parts) != 6 or parts[4] not in FINDER_CATS or not re.fullmatch(r"\d{1,4}\.jpg", parts[5]):
+            m = re.fullmatch(r"/api/finder/thumb/(\d{1,6})\.jpg", path)
+            if not m:
                 return self.send_error(403)
-            return self.send_file(FINDER_THUMBS / parts[4] / parts[5])
+            t = finder_thumb_path(int(m.group(1)))
+            return self.send_file(t) if t else self.send_error(404)
         if path == "/api/cursor/candidates":
             return self.send_json(cursor_candidates_payload())
         if path.startswith("/api/cursor/candidate/"):
@@ -6293,6 +6400,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(finder_report())
             if path == "/api/finder/use":
                 return self.send_json(finder_use(data.get("cat")))
+            if path == "/api/finder/gui":
+                return self.send_json(finder_gui_apply(data.get("ids"), data.get("scale", 100), bool(data.get("hidden")),
+                                                       bool(data.get("reset"))))
             if path == "/api/cursor/choose":
                 return self.send_json(choose_cursor_target(int(data.get("index", -1))))
             if path == "/api/cursor/redetect":
