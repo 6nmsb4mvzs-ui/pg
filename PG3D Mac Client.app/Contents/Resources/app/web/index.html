@@ -361,7 +361,7 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .fnChip{border:1px solid var(--border);background:hsl(var(--nh) var(--ns) 6%);color:var(--text);border-radius:10px;padding:10px 14px;cursor:pointer;font-size:15px;min-width:96px;text-align:center;position:relative}
 .fnChip:hover:not(:disabled){border-color:hsl(var(--nh) var(--ns) 30%)}.fnChip.sel{border-color:var(--accent);box-shadow:0 0 0 1px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .35)}
 .fnChip:disabled{opacity:.45;cursor:not-allowed}.fnChip.add{color:var(--muted);font-size:13px}.fnChip.pixel{font-size:10px;line-height:19px}
-.skModeSeg{margin-right:auto}.skLoadPrev{aspect-ratio:16/9;border-radius:12px;border:1px solid var(--border);background:#000 center/cover no-repeat;width:min(100%,560px)}
+.skModeSeg{margin-right:auto}.skTest{margin:14px 0 4px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;background:var(--surface2)}.skTest b{display:block;font-size:13px}.skTest .xNote{margin:4px 0 10px}.skLoadPrev{aspect-ratio:16/9;border-radius:12px;border:1px solid var(--border);background:#000 center/cover no-repeat;width:min(100%,560px)}
 .cursorGrid>.empty{grid-column:1/-1}.roleCard{position:relative}.roleDel{position:absolute;top:6px;right:8px;opacity:0;color:var(--muted);font-size:15px;line-height:1;padding:2px 4px;border-radius:5px}.roleCard:hover .roleDel{opacity:1}.roleDel:hover{color:var(--text);background:hsl(var(--nh) var(--ns) 14%)}
 .ghRow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:hsl(var(--nh) var(--ns) 5%);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin:10px 0}
 .ghInfo{flex:1;min-width:160px}.ghInfo b{display:block;font-size:13px}.ghInfo small{color:var(--muted);font-size:11.5px}.ghInfo.bad small{color:var(--bad)}
@@ -1222,6 +1222,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="skLoadPrev" id="skLoadPrev" hidden></div>
           <div class="curField" style="margin-top:12px"><div class="xLabel">Rotate</div><div class="rangeRow"><input type="range" id="skYaw" min="0" max="355" step="5" value="0"><div class="rangeVal" id="skYawVal">0°</div></div></div>
           <p class="xNote" id="skLoadNote" hidden></p>
+          <div class="skTest" id="skTest"></div>
           <details class="xDetails" id="skTargetsBox"><summary id="skTargetsSum">Sky textures</summary>
             <div class="xRow" style="margin:8px 0"><button class="btn ghost" id="skAll">All</button><button class="btn ghost" id="skNone">None</button></div>
             <div class="skTargets" id="skTargets"></div>
@@ -2032,9 +2033,24 @@ $('#rescanGame').onclick=async()=>{const b=$('#rescanGame');b.disabled=true;try{
 
 // Sky
 let loadTargetsOn=null;let skyData=null,skySel=null,skyTargetsOff=new Set(),skMode='sky',skyPoll=null;
-let loadKeysSig=null;async function loadSky(){clearTimeout(skyPoll);try{skyData=await api('/api/sky');if(!skyData.scan?.fresh&&localStorage.pg3dTab==='sky')skyPoll=setTimeout(loadSky,5000);{const sig=JSON.stringify([skyData.loading?.active?.target_keys||null,(skyData.loading?.targets||[]).length]);if(sig!==loadKeysSig){loadKeysSig=sig;loadTargetsOn=null}}const act=skyData.active;if(!skySel)skySel=act?.id||skyData.library[0]?.id||null;if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=Math.round((act.yaw||0)/5)*5;setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip);
-    const keys=new Set(act.target_keys||[]);skyTargetsOff=act.custom?new Set(skyData.targets.filter(t=>!keys.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id)):new Set()}
-    if(!act||!act.custom){const pk=new Set(skyData.picked_keys?.sky||[]);if(pk.size)skyTargetsOff=new Set(skyData.targets.filter(t=>!pk.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id))}renderSky()}catch(e){console.error(e)}}
+let loadKeysSig=null,skyOnSig=null;async function loadSky(){clearTimeout(skyPoll);try{skyData=await api('/api/sky');
+    if((!skyData.scan?.fresh||skyData.test)&&localStorage.pg3dTab==='sky')skyPoll=setTimeout(loadSky,5000);
+    const act=skyData.active&&!skyData.active.test?skyData.active:null;
+    if(!skySel||skySel==='test')skySel=act?.id||skyData.library[0]?.id||null;
+    if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=Math.round((act.yaw||0)/5)*5;setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip)}
+    const sig=JSON.stringify((skyData.targets||[]).map(t=>[t.id,t.on]));if(sig!==skyOnSig){skyOnSig=sig;skyTargetsOff=new Set((skyData.targets||[]).filter(t=>!t.on).map(t=>t.id))}
+    renderSky();renderSkyTest()}catch(e){console.error(e)}}
+function renderSkyTest(){const box=$('#skTest');const d=skyData;if(!box||!d)return;box.innerHTML='';
+  if(d.test){box.append(el('b',null,'Sky test is on'),el('p','xNote','Every possible sky texture shows its own colour and number. Start a match, look at the sky, and enter the number you see. No number in the sky? Then the game doesn\'t use these textures: press End test and send the diagnostic report.'));
+    const row=el('div','xRow');const inp=document.createElement('input');inp.className='search';inp.type='number';inp.min=1;inp.placeholder='Number in the sky';inp.style.width='170px';
+    const ok=el('button','btn primary','That\'s my sky');ok.onclick=async()=>{const n=parseInt(inp.value,10);if(!n)return toast('Enter the number you saw in the sky.',true);try{await post('/api/sky/pick',{num:n})}catch(e){toast(e.message,true)}};
+    const end=el('button','btn','End test');end.onclick=async()=>{try{await post('/api/sky/reset')}catch(e){toast(e.message,true)}};
+    row.append(inp,ok,end);box.append(row);return}
+  const p=d.pick;box.append(el('b',null,p?`Your sky: #${p.num} ${p.name||''}`:'Not sure the right texture is picked?'));
+  box.append(el('p','xNote',p?`Found with the sky test (${p.file||''}). Apply sky puts your picture on it.`:'The sky test paints every possible sky texture with its own number. In a match you read the number off the sky, and your picture then goes on exactly that texture.'));
+  const row=el('div','xRow');const go=el('button','btn','Start sky test');go.onclick=async()=>{try{await post('/api/sky/test');toast('Preparing the sky test… Start a match when it\'s done.')}catch(e){toast(e.message,true)}};row.append(go);
+  if(p){const c=el('button','btn ghost','Forget this pick');c.onclick=async()=>{try{await post('/api/sky/unpick');skyOnSig=null;await loadSky()}catch(e){toast(e.message,true)}};row.append(c)}
+  box.append(row)}
 function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.innerHTML='';
   if(!d.library.find(s=>s.id===skySel))skySel=d.library[0]?.id||null;
   for(const s of d.library){const b=el('button','skItem'+(s.id===skySel?' sel':''));const im=el('img');im.src=s.thumb;im.alt='';const cap=el('div',null,s.name);cap.append(el('small',null,`${s.width}×${s.height}${s.panorama&&skMode==='sky'?' · panorama':''}`));b.append(im,cap);
@@ -2044,7 +2060,7 @@ function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.inne
   $$('#skMode button').forEach(b=>b.classList.toggle('active',b.dataset.m===skMode));
   lib.querySelectorAll('.skItem').forEach(b=>b.querySelector('.live')?.remove());
   [...lib.children].forEach((b,i)=>{const s=d.library[i];const inUse=(d.active?.id===s.id)||(d.loading?.active?.id===s.id);b.querySelector('.del')?.toggleAttribute('hidden',inUse);if(act?.id===s.id)b.append(el('span','live','IN GAME'))});
-  const sa=$('#skActive');sa.textContent=act?`${act.name} in game`:ld?'Original loading screen':'Original sky';sa.className='xPill'+(act?' on':'');$('#skSetup').hidden=!d.library.length;
+  const sa=$('#skActive');sa.textContent=act?`${act.name} in game`:ld?'Original loading screen':'Original sky';sa.className='xPill'+(act?' on':'');$('#skSetup').hidden=false;
   $('#skDropHint').textContent=ld?'PNG or JPEG · 16:9 fills the screen':'PNG or JPEG · 2:1 panoramas fit best (free ones: polyhaven.com/hdris)';
   $('#skSkyOpts').hidden=ld;$('#skCross').hidden=ld;$('#skTargetsBox').hidden=false;$('#skLoadPrev').hidden=!ld;
   const cur=d.library.find(s=>s.id===skySel);$('#skLoadPrev').style.backgroundImage=ld&&cur?`url("${cur.thumb}")`:'';
@@ -2059,7 +2075,7 @@ function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.inne
   $('#skYawVal').textContent=$('#skYaw').value+'°';renderSkyCross();
   const tg=$('#skTargets');tg.innerHTML='';
   if(!d.targets.length){tg.append(el('div','xEmpty',d.scan.fresh?'No sky was found in this PG3D build.':d.scan.reading?'Looking for the sky in PG3D\'s files… This happens by itself once per PG3D version (a few minutes; it waits while PG3D is open).':'Pixel Gun 3D wasn\'t found.'))}
-  for(const t of d.targets){const row=el('label','skTarget');const cb=el('input');cb.type='checkbox';cb.checked=!skyTargetsOff.has(t.id);cb.onchange=()=>{cb.checked?skyTargetsOff.delete(t.id):skyTargetsOff.add(t.id);renderSky()};const im=el('img');if(t.preview)im.src=t.preview;const txt=el('div');txt.append(el('b',null,t.name||`#${t.path_id}`),el('small',null,`${t.where||t.relative_file} · ${t.width}×${t.height}`));txt.title=t.relative_file;row.append(cb,im,txt,el('span','skFace',t.kind==='dome'?'sky dome':t.face));tg.append(row)}
+  for(const t of d.targets){const row=el('label','skTarget');const cb=el('input');cb.type='checkbox';cb.checked=!skyTargetsOff.has(t.id);cb.onchange=()=>{cb.checked?skyTargetsOff.delete(t.id):skyTargetsOff.add(t.id);renderSky()};const im=el('img');if(t.preview)im.src=t.preview;const txt=el('div');txt.append(el('b',null,`#${t.num} ${t.name||''}`),el('small',null,`${t.where||t.relative_file} · ${t.width}×${t.height}`));txt.title=t.relative_file;row.append(cb,im,txt,el('span','skFace',t.kind==='dome'?'sky dome':t.kind==='name'?'by name':t.face));tg.append(row)}
   $('#skReset').hidden=!d.active;$('#skApply').disabled=!skySel;const on=d.targets.filter(t=>!skyTargetsOff.has(t.id)).length;$('#skTargetsSum').textContent=d.targets.length?`Replaces ${on} of ${d.targets.length} sky textures`:'Sky textures'}
 function renderSkyCross(){const c=$('#skCross');if(!skySel){c.style.backgroundImage='';return}const q=`id=${skySel}&yaw=${$('#skYaw').value}&swap=${$('#skSwap').classList.contains('on')?1:0}`;if(c._q===q)return;c._q=q;c.style.backgroundImage=`url("/api/sky/cross.png?${q}")`}
 

@@ -1,4 +1,4 @@
-PG3D Mac Client 1.71.0
+PG3D Mac Client 1.72.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,19 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.72
+Updates   When GitHub is slow to publish a release (its release job sometimes
+          waits in a queue for hours), the client takes the new version
+          straight from the repository instead, so updates still arrive.
+HUD       Invincibility display is either at full size or hidden, nothing in
+          between (a size set earlier is put back to full size by itself).
+Sky       Sky test: paints every possible sky texture (the sky search plus
+          every texture named like a sky, which is what reached the screen in
+          1.47/1.48) with its own colour and number. Start a match, read the
+          number in the sky, enter it, and Apply sky uses exactly that
+          texture. No number in the sky means the game ignores edits to that
+          map; the diagnostic report then lists the files it put back.
 
 New in 1.71
 HUD       Invincibility display: it's a full-screen tint after respawning, so

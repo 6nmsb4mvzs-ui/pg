@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.71.0"
+APP_VERSION = "1.72.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1516,7 +1516,7 @@ def _rebuild_one(source_str, state):
     theme_pids = {int(x) for x in (theme or {}).get("targets", {}).get(source_str, [])} - sky_pids
     if needs_cursor and state["cursor"]["target"].get("object_type") == "Texture2D":
         theme_pids.discard(int(state["cursor"]["target"]["path_id"]))
-    if sky_ops and sky_image is None:
+    if sky_ops and sky_image is None and not sky.get("test"):
         sky_image = _load_sky_image(sky)
     font_ops = [t for t in ((state.get("font") or {}).get("targets") or []) if t.get("source_file") == source_str]
     hud_ops = [op for op in (state.get("hud_layout") or {}).values()
@@ -1665,6 +1665,7 @@ def _rebuild_one(source_str, state):
                     return o
             return None
 
+        test_font = GAME_FONTS_DIR / "RussoOne-Regular.ttf"
         for t in sky_ops:
             try:
                 reader = _find_in(int(t["path_id"]), ("Texture2D", "Cubemap"), t.get("cab"))
@@ -1672,6 +1673,18 @@ def _rebuild_one(source_str, state):
                     skipped["sky textures"] = skipped.get("sky textures", 0) + 1
                     continue
                 data = reader.parse_as_object()
+                if sky.get("test"):  # sky test: a numbered pattern instead of the picture
+                    num = int(t.get("num") or 0)
+                    if reader.type.name == "Cubemap":
+                        size = int(data.m_Width) or 256
+                        img = customize.sky_test_image(num, (size, size), test_font)
+                        customize.write_cubemap(data, [img] * 6, flip=True)
+                    else:
+                        set_texture_cached(data, ("skytest", num),
+                                           lambda d=data, n=num: customize.sky_test_image(
+                                               n, (int(d.m_Width), int(d.m_Height)), test_font))
+                    save_parsed_object(data, reader)
+                    continue
                 if t.get("kind") == "dome" and t.get("mesh_id") is not None and reader.type.name == "Texture2D":
                     mesh_reader = None
                     if not t.get("mesh_file") or t["mesh_file"] == source_str:
@@ -4792,7 +4805,9 @@ def diagnostics_report():
         f"Permissions: {json.dumps(permissions_payload())}",
         "Sky search: " + ("; ".join(f"{t['kind']} {t.get('name')} {t['width']}x{t['height']} ({t.get('where', '')}) in "
                                     f"{Path(t['relative_file']).name}" for t in sky_targets()[:12]) or "nothing yet"),
-        "Sky applied: " + json.dumps({k: v for k, v in (load_mods().get("skybox") or {}).items() if k != "targets"}),
+        "Sky applied: " + json.dumps({k: v for k, v in (load_mods().get("skybox") or {}).items() if k != "targets"})
+        + f" on {len((load_mods().get('skybox') or {}).get('targets') or [])} textures",
+        "Sky picked in the test: " + json.dumps(read_json(SKY_PICK_JSON, None)),
         "Files put back to original (by PG3D/Steam): " + ("; ".join(
             f"{Path(k).name} x{v.get('count')} (last {v.get('last')})"
             for k, v in sorted(read_json(GAME_RESTORES_JSON, {}).items(), key=lambda kv: -kv[1].get("count", 0))[:15])
@@ -5188,6 +5203,9 @@ HUD_ROWS = [
 ]
 
 
+HUD_ON_OFF_ROWS = {"Invincibility display"}  # no in-between sizes: they only draw a box
+
+
 def _hud_row_label(name):
     k = re.sub(r"[^a-z]", "", (name or "").lower())
     for match, label in HUD_ROWS:
@@ -5239,10 +5257,21 @@ def hud_payload():
         pct = round(float((layout.get(key) or {}).get("pct", 100)))
         row = rows.setdefault(label, {"label": label, "keys": [], "pct": pct, "names": [],
                                       # a full-screen tint: resizing only turns it into a box
-                                      "resizable": label != "Invincibility display"})
+                                      "resizable": label not in HUD_ON_OFF_ROWS})
         row["keys"].append(key)
         row["names"].append(g["name"])
+    stray = {k: 100 for r in rows.values() if r["label"] in HUD_ON_OFF_ROWS and r["pct"] not in (0, 100)
+             for k in r["keys"]}
+    if stray and not _HUD_FIX["done"]:
+        _HUD_FIX["done"] = True
+        apply_hud_sizes(stray)
+        for r in rows.values():
+            if r["label"] in HUD_ON_OFF_ROWS and r["pct"] not in (0, 100):
+                r["pct"] = 100
     return {"ok": True, "scanned": fresh, "reading": bool(not fresh and reading), "rows": list(rows.values())}
+
+
+_HUD_FIX = {"done": False}
 
 
 def start_hud_find():
@@ -5323,6 +5352,8 @@ def apply_hud_sizes(sizes, restore_all=False):
             if not g:
                 continue
             pct = 0.0 if float(pct) <= 0 else max(40.0, min(160.0, float(pct)))  # 0 = hidden
+            if _hud_row_label(g["name"]) in HUD_ON_OFF_ROWS and pct != 0:
+                pct = 100.0  # a full-screen tint: shown at full size or hidden, nothing between
             if abs(pct - 100) < 0.5:
                 layout.pop(key, None)
             else:
@@ -5844,6 +5875,87 @@ def run_sky_scan(progress):
     return targets
 
 
+SKY_PICK_JSON = STATE_DIR / "sky_pick.json"
+SKY_FIELDS = ("source_file", "relative_file", "path_id", "name", "type", "face", "width", "height", "kind", "mesh_id",
+              "cab", "mesh_file", "mesh_cab")
+
+
+def _sky_key(t):
+    return f"{t['source_file']}:{t.get('cab') or ''}:{int(t['path_id'])}"
+
+
+def sky_candidates():
+    """Everything that may be the sky, numbered for the sky test: the sky search first,
+    then every texture with "sky" in its name (what 1.47/1.48 replaced, which did reach
+    the screen back then; it includes the sky picks from the old Textures tab)."""
+    out, seen = [], set()
+    for t in sky_targets():
+        k = (t["source_file"], int(t["path_id"]))
+        if k not in seen:
+            seen.add(k)
+            out.append({**t, "id": f"d{t['id']}", "origin": "search"})
+    app = find_app()
+    cat = customize_catalog()
+    build = plist_value(app / "Contents/Info.plist", "CFBundleVersion") if app else None
+    if cat.get("build") == build:
+        for t in cat.get("sky", []):
+            k = (t["source_file"], int(t["path_id"]))
+            if k in seen or not Path(t["source_file"]).exists():
+                continue
+            seen.add(k)
+            out.append({**t, "id": f"c{t['id']}", "kind": "name", "where": "named like a sky", "origin": "name"})
+    for i, t in enumerate(out, 1):
+        t["num"] = i
+    return out
+
+
+def start_sky_test():
+    """Paint every possible sky texture with its own colour and number. In a match the
+    sky then shows which texture it really is (or that the game ignores the edit)."""
+    def job(progress):
+        if not sky_targets():
+            run_sky_scan(_sub_progress(progress, 0, 0.3))
+        cands = sky_candidates()
+        if not cands:
+            raise RuntimeError("No possible sky textures were found in this PG3D build.")
+        targets = [{**{k: t.get(k) for k in SKY_FIELDS}, "num": t["num"]} for t in cands]
+
+        def change(state):
+            state["skybox"] = {"test": True, "id": "test", "image": "", "name": "Sky test", "yaw": 0,
+                               "swap_lr": False, "flip": False, "targets": targets, "targets_v": CUSTOMIZE_SCAN_V}
+        mutate_state(change, "Sky test", _sub_progress(progress, 0.3, 1.0))
+        return (f"Sky test is on: {len(targets)} textures show a number. Start a match, look at the sky and "
+                "enter the number you see.")
+    return start_job("sky", job, label="Sky test")
+
+
+def pick_sky(num):
+    """The number seen in the sky during the test -> that texture becomes the sky target
+    (plus the same texture where it's repeated in other files), then the test ends."""
+    cands = sky_candidates()
+    hit = next((t for t in cands if t["num"] == int(num)), None)
+    if not hit:
+        raise RuntimeError(f"There's no texture #{num} in the test. Check the number in the sky.")
+    same = [t for t in cands if t is hit or (t.get("name") == hit.get("name") and
+                                             (t["width"], t["height"]) == (hit["width"], hit["height"]))]
+    write_json(SKY_PICK_JSON, {"keys": [_sky_key(t) for t in same], "num": int(num), "name": hit.get("name"),
+                               "file": hit.get("relative_file"), "at": datetime.now().isoformat(timespec="seconds")})
+    log(f"Sky picked from the test: #{num} {hit.get('name')} in {hit.get('relative_file')} (+{len(same) - 1} copies)")
+
+    def job(progress):
+        if (load_mods().get("skybox") or {}).get("test"):
+            def change(state):
+                state["skybox"] = None
+            mutate_state(change, "End sky test", progress)
+        return f"Texture #{num} ({hit.get('name')}) is your sky now. Pick a picture and press Apply sky."
+    return start_job("sky", job, label="Ending the sky test")
+
+
+def clear_sky_pick():
+    SKY_PICK_JSON.unlink(missing_ok=True)
+    return {"ok": True}
+
+
 def start_sky_scan():
     def job(progress):
         targets = run_sky_scan(progress)
@@ -5861,6 +5973,16 @@ def auto_sky_scan():
     return True
 
 
+def _sky_targets_payload(sky):
+    cands = sky_candidates()
+    pick = set((read_json(SKY_PICK_JSON, {}) or {}).get("keys") or [])
+    active = None if not sky or sky.get("test") else {_sky_key(t) for t in sky.get("targets", [])}
+    for t in cands:
+        k = _sky_key(t)
+        t["on"] = (k in active) if active is not None else (k in pick) if pick else t["origin"] == "search"
+    return cands
+
+
 def sky_payload():
     cat = customize_catalog()
     sky = load_mods().get("skybox")
@@ -5869,9 +5991,11 @@ def sky_payload():
     return {
         "ok": True,
         "library": [{**s, "thumb": f"/api/sky/thumb/{s['id']}.jpg"} for s in sky_library()],
-        "targets": sky_targets(),
+        "targets": _sky_targets_payload(sky),
+        "test": bool(sky and sky.get("test")),
+        "pick": read_json(SKY_PICK_JSON, None),
         "scan": {"generated": fresh, "fresh": fresh, "reading": bool(reading)},
-        "active": ({k: sky.get(k) for k in ("id", "name", "yaw", "swap_lr", "flip")} |
+        "active": ({k: sky.get(k) for k in ("id", "name", "yaw", "swap_lr", "flip", "test")} |
                    {"count": len(sky.get("targets", [])),
                     "target_keys": [f"{t['source_file']}:{t['path_id']}" for t in sky.get("targets", [])],
                     "custom": bool(sky.get("custom"))}
@@ -6032,13 +6156,17 @@ def apply_sky(sky_id, target_ids=None, yaw=0, swap_lr=False, flip=False):
         yaw = 0.0
 
     def job(progress):
-        all_targets = sky_targets() or run_sky_scan(_sub_progress(progress, 0, 0.4))
+        if not sky_targets():
+            run_sky_scan(_sub_progress(progress, 0, 0.4))
+        all_targets = sky_candidates()
         if not all_targets:
             raise RuntimeError("No sky was found in this PG3D build.")
-        picked = all_targets if not target_ids else [t for t in all_targets if t["id"] in set(target_ids)]
-        picked = [{k: t.get(k) for k in ("source_file", "relative_file", "path_id", "name", "type", "face", "width",
-                                         "height", "kind", "mesh_id", "cab", "mesh_file", "mesh_cab")}
-                  for t in picked if Path(t["source_file"]).exists()]
+        if target_ids:
+            picked = [t for t in all_targets if t["id"] in set(map(str, target_ids))]
+        else:
+            pick = set((read_json(SKY_PICK_JSON, {}) or {}).get("keys") or [])
+            picked = [t for t in all_targets if (_sky_key(t) in pick if pick else t["origin"] == "search")]
+        picked = [{k: t.get(k) for k in SKY_FIELDS} for t in picked if Path(t["source_file"]).exists()]
         if not picked:
             raise RuntimeError("None of the selected sky textures exist anymore. Scan again.")
 
@@ -6166,6 +6294,8 @@ def _remap_state(state, progress):
             log(f"HUD layout after the update: {e}")
             new["hud_layout"] = {}
             lost.append("HUD sizes")
+    if (new.get("skybox") or {}).get("test"):
+        new["skybox"] = None
     if new.get("skybox"):
         progress(.32, "Finding the sky in the updated game…")
         try:
@@ -7261,6 +7391,12 @@ class Handler(BaseHTTPRequestHandler):
                                                 bool(data.get("swap_lr")), bool(data.get("flip"))))
             if path == "/api/sky/reset":
                 return self.send_json(reset_sky())
+            if path == "/api/sky/test":
+                return self.send_json(start_sky_test())
+            if path == "/api/sky/pick":
+                return self.send_json(pick_sky(int(data.get("num", 0))))
+            if path == "/api/sky/unpick":
+                return self.send_json(clear_sky_pick())
             if path == "/api/loading/apply":
                 return self.send_json(apply_loading(str(data.get("id", "")), data.get("targets") or None))
             if path == "/api/loading/reset":

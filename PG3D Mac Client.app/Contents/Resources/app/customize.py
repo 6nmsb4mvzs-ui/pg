@@ -1414,3 +1414,31 @@ def equirect_from(img: Image.Image, yaw=0.0) -> Image.Image:
         shift = int(round(yaw / 360.0 * pano.width)) % pano.width
         pano = ImageChops.offset(pano.convert("RGBA"), -shift, 0)
     return pano
+
+
+def sky_test_image(num, size, font_path=None):
+    """A test pattern for finding which texture is the sky: a colour of its own and the
+    number repeated in a grid, so any part of it seen in game shows the number."""
+    from PIL import ImageDraw, ImageFont
+
+    w, h = max(1, int(size[0])), max(1, int(size[1]))
+    hue = (num * 0.61803398875) % 1.0
+    r, g, b = colorsys.hsv_to_rgb(hue, 0.75, 0.85)
+    img = Image.new("RGBA", (w, h), (int(r * 255), int(g * 255), int(b * 255), 255))
+    d = ImageDraw.Draw(img)
+    cols = 3 if w >= 96 else 1
+    rows = max(1, round(cols * h / max(1, w))) if cols > 1 else 1
+    cell_w, cell_h = w / cols, h / rows
+    text = str(num)
+    px = max(8, int(min(cell_w / (0.62 * len(text) + 0.4), cell_h * 0.8)))
+    try:
+        font = ImageFont.truetype(str(font_path), px) if font_path else ImageFont.load_default()
+    except Exception:
+        font = ImageFont.load_default()
+    stroke = max(1, px // 12)
+    for i in range(cols):
+        for j in range(rows):
+            cx, cy = (i + 0.5) * cell_w, (j + 0.5) * cell_h
+            d.text((cx, cy), text, font=font, fill=(255, 255, 255, 255), anchor="mm",
+                   stroke_width=stroke, stroke_fill=(0, 0, 0, 255))
+    return img

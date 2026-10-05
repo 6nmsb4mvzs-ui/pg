@@ -21,6 +21,7 @@ import time
 import zipfile
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 APP_NAME = "PG3D Mac Client.app"
@@ -199,10 +200,32 @@ def github_latest(token):
             "asset_id": asset["id"], "asset_name": asset["name"], "size": asset.get("size", 0)}
 
 
+def github_main(token):
+    """{"version", "sha"} of the client on the main branch, or None. Used when the release
+    for a new version is late (GitHub sometimes leaves the release job queued for hours)."""
+    path = quote(f"{APP_NAME}/Contents/Info.plist")
+    try:
+        with build_opener().open(_gh_request(f"{GITHUB_API}/contents/{path}?ref=main", token,
+                                             "application/vnd.github.raw"), timeout=15) as r:
+            info = plistlib.loads(r.read())
+        with build_opener().open(_gh_request(f"{GITHUB_API}/commits/main", token,
+                                             "application/vnd.github.sha"), timeout=15) as r:
+            sha = r.read().decode("utf-8", "ignore").strip()
+    except HTTPError as e:
+        if e.code in (401, 403):
+            raise RuntimeError("GitHub didn't accept the token. Check it in Settings › Updates.")
+        return None
+    if not _valid_info(info) or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        return None
+    v = str(info["CFBundleShortVersionString"])
+    return {"version": v, "sha": sha, "zipball": f"{GITHUB_API}/zipball/{sha}",
+            "asset_name": f"PG3D_Mac_Client_v{v}_main.zip", "size": 0}
+
+
 def github_download(token, rel, progress=None):
-    """Download a release zip. GitHub answers with a redirect to signed storage,
-    which must be fetched without the token."""
-    url = f"{GITHUB_API}/releases/assets/{rel['asset_id']}"
+    """Download a release zip (or the main branch's zipball). GitHub answers with a
+    redirect to signed storage, which must be fetched without the token."""
+    url = rel.get("zipball") or f"{GITHUB_API}/releases/assets/{rel['asset_id']}"
     opener = build_opener(_NoRedirect)
     try:
         resp = opener.open(_gh_request(url, token, "application/octet-stream"), timeout=30)
@@ -314,6 +337,16 @@ class Updater:
             self.github["checked"] = time.time()
         try:
             rel = github_latest(token)
+            try:
+                main = github_main(token)
+            except (URLError, OSError, ValueError) as e:
+                main = None
+                _log(f"Updater: main branch check failed: {e}")
+            if main and parse_version(main["version"]) > parse_version(rel["version"] if rel else "0"):
+                # The release for this version hasn't been published (GitHub's release job can
+                # sit in its queue for hours): take the same version straight from main.
+                _log(f"Updater: release {main['version']} not published yet; using the main branch")
+                rel = main
             with self.lock:
                 self.github.update(latest=rel["version"] if rel else None, error=None)
             if rel and parse_version(rel["version"]) > parse_version(self.current):
