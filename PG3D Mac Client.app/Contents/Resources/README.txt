@@ -1,4 +1,4 @@
-PG3D Mac Client 1.39.0
+PG3D Mac Client 1.40.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -153,3 +153,12 @@ Mods      After a PG3D update (or Steam putting back original files), your
           cursor, hit marker, HUD, theme, font, sky and loading screen are
           re-applied by themselves, and the client re-finds each change in
           the new game files. Turn off in Settings › Updates.
+
+New in 1.40
+Mouse     The in-game overlay no longer covers the whole screen or keeps
+          pulling itself to the front, which could leave the Mac cursor stuck
+          in the middle of the game or make clicks need two tries.
+          If it still happens: press Ctrl+Shift+M in game (or Settings ›
+          Troubleshooting › Fix stuck mouse) to hand focus back to PG3D.
+Theme     New "Cute" theme for the client and the game: soft pink with
+          deeper rose accents.

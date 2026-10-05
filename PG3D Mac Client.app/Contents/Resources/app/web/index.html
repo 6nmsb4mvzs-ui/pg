@@ -477,7 +477,7 @@ textarea.xInput{min-height:80px;resize:vertical}
 @keyframes rkPop{from{transform:scale(.7);opacity:0}}
 
 /* theme */
-.thPresets{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.thPresets{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
 .thCard{position:relative;border:1px solid var(--border);background:hsl(var(--nh) var(--ns) 4.1%);border-radius:12px;padding:8px 8px 10px;text-align:left;color:var(--text);cursor:pointer;display:flex;flex-direction:column;gap:7px}
 .thCard:hover{border-color:var(--border2)}
 .thCard.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
@@ -654,6 +654,7 @@ html[data-ui-theme="crimson"]{--ah:350;--as:1;--nh:350;--ns:14%;--accent:#e8213f
 html[data-ui-theme="dark_souls"]{--ah:162;--as:.38;--nh:175;--ns:14%;--accent:#7fae9f;--accent-rgb:127,174,159;--accent-light:#9fc7ba;--accent-bright:#e6efe3;--accent-deep:#2b4a46;--on-accent:#06110e}
 html[data-ui-theme="royal"]{--ah:266;--as:1;--nh:262;--ns:18%;--accent:#8b5cf6;--accent-rgb:139,92,246;--accent-light:#b18cff;--accent-bright:#f2c94c;--accent-deep:#4b2a8a;--on-accent:#fff}
 html[data-ui-theme="icy"]{--ah:199;--as:1;--nh:212;--ns:22%;--accent:#38bdf8;--accent-rgb:56,189,248;--accent-light:#7dd3fc;--accent-bright:#e0f7ff;--accent-deep:#0b5a85;--on-accent:#04151f}
+html[data-ui-theme="cute"]{--ah:330;--as:1;--nh:335;--ns:20%;--accent:#ff86bd;--accent-rgb:255,134,189;--accent-light:#ffa8d0;--accent-bright:#ffd6e8;--accent-deep:#b8336a;--on-accent:#3b0b22}
 .btn.primary.xBig,.crPrimary,.launchFps,.clipSaveBtn,.lkSearch .btn.primary{color:var(--on-accent)!important}
 .btn.primary.xBig:hover:not(:disabled),.crPrimary:hover:not(:disabled),.launchFps:hover:not(:disabled),.clipSaveBtn:hover:not(:disabled),.lkSearch .btn.primary:hover:not(:disabled){color:var(--on-accent)!important}
 body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb),.10),transparent 60%),radial-gradient(800px 500px at 15% -10%,rgba(var(--accent-rgb),.06),transparent 55%),var(--bg)!important}
@@ -662,7 +663,7 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
 .setTabs button{border:1px solid var(--border2);border-radius:999px;padding:6px 15px;background:none;color:var(--dim);font-weight:500;font-size:13px;cursor:pointer}
 .setTabs button:hover{background:rgba(255,255,255,.04)}
 .setTabs button.on{background:rgba(var(--accent-rgb),.14);border-color:rgba(var(--accent-rgb),.45);color:var(--accent-light)}
-.uiThemes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.uiThemes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
 .uiTheme{display:flex;flex-direction:column;gap:9px;text-align:left;background:var(--surface2);border:1px solid var(--border);border-radius:13px;padding:10px;cursor:pointer;color:var(--text)}
 .uiTheme:hover{border-color:var(--border2)}
 .uiTheme.sel{border-color:rgba(var(--accent-rgb),.6);box-shadow:0 0 0 1px rgba(var(--accent-rgb),.35)}
@@ -1085,7 +1086,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
         <div class="crCard setCard">
           <div class="crCardHead"><h3>Troubleshooting</h3></div>
           <p class="setNote">If something isn't working, copy the report and paste it into your message.</p>
-          <div class="setActions"><button class="btn primary" id="diagCopy">Copy diagnostic report</button><button class="btn" id="diagLogs">Show log files</button><button class="btn" id="redetectCursor">Re-detect cursor</button><button class="btn" id="rescanGame" title="Look through PG3D's files again, for example after a game update">Rescan game files</button></div>
+          <div class="setActions"><button class="btn primary" id="diagCopy">Copy diagnostic report</button><button class="btn" id="diagLogs">Show log files</button><button class="btn" id="redetectCursor">Re-detect cursor</button><button class="btn" id="fixMouse" title="Mouse stuck in the middle, or clicks need two tries? This hands focus back to PG3D. In game: Ctrl+Shift+M">Fix stuck mouse</button><button class="btn" id="rescanGame" title="Look through PG3D's files again, for example after a game update">Rescan game files</button></div>
         </div>
       </div>
     </section>
@@ -1989,6 +1990,7 @@ function renderThemePreview(){const d=themeData;if(!d)return;const orig=themePre
 $('#thStrength').oninput=e=>{e.target.dataset.touched='1';$('#thStrengthVal').textContent=e.target.value+'%';clearTimeout(e.target._t);e.target._t=setTimeout(renderThemePreview,180)};
 $('#thApply').onclick=async()=>{try{if(themePreset==='original')await post('/api/theme/reset');else await post('/api/theme/apply',{preset:themePreset,strength:$('#thStrength').value/100});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
 $('#thReset').onclick=async()=>{try{await post('/api/theme/reset');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
+$('#fixMouse').onclick=async()=>{try{await post('/api/game/refocus',{});toast('Switched back to PG3D. In game you can also press Ctrl+Shift+M.')}catch(e){toast(e.message,true)}};
 $('#rescanGame').onclick=async()=>{const b=$('#rescanGame');b.disabled=true;try{await post('/api/gui/scan',{deep:false});try{await post('/api/customize/scan')}catch(e){if(!/running/.test(e.message))throw e}toast('Rescanning PG3D. This takes about a minute.');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}finally{setTimeout(()=>b.disabled=false,3000)}};
 
 // Sky
@@ -2127,7 +2129,8 @@ const UI_THEMES=[
   {id:'crimson',name:'Crimson',desc:'Blood red and black.',c:['#0b0607','#120a0b','#e8213f','#ff5068']},
   {id:'dark_souls',name:'Dark Souls',desc:'Ashen blue-green over black.',c:['#040706','#0a1110','#7fae9f','#e6efe3']},
   {id:'royal',name:'Royal',desc:'Deep violet with gold.',c:['#07050c','#0e0a17','#8b5cf6','#f2c94c']},
-  {id:'icy',name:'Icy',desc:'Glacier blue and frost.',c:['#04070b','#08101a','#38bdf8','#e0f7ff']}];
+  {id:'icy',name:'Icy',desc:'Glacier blue and frost.',c:['#04070b','#08101a','#38bdf8','#e0f7ff']},
+  {id:'cute',name:'Cute',desc:'Soft pink with deeper rose.',c:['#0f070b','#1a0d14','#ff86bd','#ffa8d0']}];
 function currentUiTheme(){return document.documentElement.dataset.uiTheme||'ember'}
 function applyUiTheme(id){if(!UI_THEMES.some(t=>t.id===id))id='ember';if(id==='ember')delete document.documentElement.dataset.uiTheme;else document.documentElement.dataset.uiTheme=id;try{localStorage.pg3dUiTheme=id}catch{}renderUiThemes()}
 async function setUiTheme(id){applyUiTheme(id);try{await post('/api/prefs/ui-theme',{theme:id})}catch(e){toast(e.message,true)}}

@@ -185,6 +185,44 @@ def pg3d_frontmost():
         return False
 
 
+FIX_MOUSE_HOTKEY={"code":"KeyM","key":"m","display":"Ctrl+Shift+M","mods":{"shift":True,"ctrl":True,"alt":False,"cmd":False}}
+FOCUS_LOG = SUPPORT / "focus.log"
+_FOCUS = {"last": None}
+
+
+def refocus_pg3d():
+    """Switch away from PG3D for a moment and back. Unity then re-locks and hides the
+    cursor and takes clicks again, the same as Cmd-Tab out and in."""
+    try:
+        NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+    except Exception:
+        pass
+    NSTimer.scheduledTimerWithTimeInterval_repeats_block_(0.18, False, lambda t: activate_pg3d())
+    _focus_note("fix mouse (Ctrl+Shift+M)")
+
+
+def _focus_note(text):
+    try:
+        lines = FOCUS_LOG.read_text(encoding="utf-8").splitlines()[-300:] if FOCUS_LOG.exists() else []
+        lines.append(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  {text}")
+        FOCUS_LOG.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except Exception:
+        pass
+
+
+def log_focus_change():
+    """Record which app is in front while PG3D runs, for the diagnostic report."""
+    try:
+        a = NSWorkspace.sharedWorkspace().frontmostApplication()
+        name = str(a.localizedName() or "?")
+    except Exception:
+        return
+    if name != _FOCUS["last"]:
+        prev, _FOCUS["last"] = _FOCUS["last"], name
+        if prev is not None and pg3d_pid():
+            _focus_note(f"front app: {prev} -> {name}")
+
+
 def activate_pg3d():
     try:
         for app in NSWorkspace.sharedWorkspace().runningApplications():
@@ -551,7 +589,7 @@ class Overlay(NSObject):
     def init(self):
         self=objc.super(Overlay,self).init()
         if self is None:return None
-        self.config=load_config(); self.views={}; self.visible=False; self.last_key=False; self.last_cfg_mtime=0; self.last_data=0; self.values={}; self.music=None; self.editor_open=False; self.last_edit_mtime=0
+        self.config=load_config(); self.views={}; self.visible=False; self.last_key=False; self.last_cfg_mtime=0; self.last_data=0; self.values={}; self.music=None; self.editor_open=False; self.last_edit_mtime=0; self.last_fix=False
         self._build_panel(); self._rebuild_views(); self.editor=EditorController.alloc().initWithOverlay_(self)
         self.timer=NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(0.05,self,'tick:',None,True)
         return self
@@ -561,6 +599,9 @@ class Overlay(NSObject):
         self.panel=NSPanel.alloc().initWithContentRect_styleMask_backing_defer_(scr,style,2,False); self.panel.setOpaque_(False); self.panel.setBackgroundColor_(NSColor.clearColor()); self.panel.setHasShadow_(False); self.panel.setIgnoresMouseEvents_(True); self.panel.setCollectionBehavior_(NSWindowCollectionBehaviorCanJoinAllSpaces|NSWindowCollectionBehaviorFullScreenAuxiliary|NSWindowCollectionBehaviorStationary|NSWindowCollectionBehaviorIgnoresCycle)
         try:self.panel.setLevel_(Quartz.CGWindowLevelForKey(Quartz.kCGOverlayWindowLevelKey))
         except Exception:self.panel.setLevel_(25)
+        try:
+            self.panel.setBecomesKeyOnlyIfNeeded_(True); self.panel.setHidesOnDeactivate_(False); self.panel.setCanHide_(False)
+        except Exception:pass
         self.panel.orderOut_(None)
 
     def _item_size(self,item):
@@ -595,7 +636,29 @@ class Overlay(NSObject):
             v.setStringValue_(text); v.setTextColor_(hex_color(display_item.get('color','#FFFFFF'))); v.setFont_(NSFont.monospacedSystemFontOfSize_weight_(float(size),0.35)); v.sizeToFit()
 
     def _layout(self):
-        scr=self.panel.contentView().bounds(); w,h=scr.size.width,scr.size.height; items=sorted([x for x in self.config.get('items',[]) if x.get('enabled',True) and x.get('id') in self.views],key=lambda x:x.get('order',0))
+        self._place(); self._fit_panel()
+
+    def _fit_panel(self):
+        # The panel only covers the widgets themselves. A screen-sized window from another
+        # app over the game made macOS hand focus around: the game lost its mouse lock
+        # (system cursor stuck in the middle) and needed a second click to react.
+        views=[v for v in self.views.values() if v.superview() is not None]
+        scr=NSScreen.mainScreen().frame()
+        if not views:
+            return
+        pad=6
+        fr=[v.frame() for v in views]
+        x0=min(f.origin.x for f in fr)-pad; y0=min(f.origin.y for f in fr)-pad
+        x1=max(f.origin.x+f.size.width for f in fr)+pad; y1=max(f.origin.y+f.size.height for f in fr)+pad
+        for v in views:
+            o=v.frame().origin; v.setFrameOrigin_((o.x-x0,o.y-y0))
+        new=NSMakeRect(scr.origin.x+x0,scr.origin.y+y0,max(1,x1-x0),max(1,y1-y0))
+        cur=self.panel.frame()
+        if (round(cur.origin.x),round(cur.origin.y),round(cur.size.width),round(cur.size.height))!=(round(new.origin.x),round(new.origin.y),round(new.size.width),round(new.size.height)):
+            self.panel.setFrame_display_(new,True)
+
+    def _place(self):
+        scr=NSScreen.mainScreen().frame(); w,h=scr.size.width,scr.size.height; items=sorted([x for x in self.config.get('items',[]) if x.get('enabled',True) and x.get('id') in self.views],key=lambda x:x.get('order',0))
         for it in items:self._update_view(it)
         group=self.config.get('group') or {}
         if group.get('enabled'):
@@ -647,9 +710,15 @@ class Overlay(NSObject):
         front=pg3d_frontmost(); pressed=hotkey_pressed(self.config.get('hotkey'))
         if front and pressed and not self.last_key:self.visible=not self.visible
         self.last_key=pressed
+        fix=hotkey_pressed(FIX_MOUSE_HOTKEY)
+        if front and fix and not self.last_fix:refocus_pg3d()
+        self.last_fix=fix
+        log_focus_change()
         should=bool(self.config.get('enabled',True) and front and self.visible)
-        if should:self.panel.orderFrontRegardless()
-        else:self.panel.orderOut_(None)
+        # Only touch window ordering when visibility changes; re-ordering every tick fought
+        # the game for focus.
+        if should and not self.panel.isVisible():self.panel.orderFrontRegardless()
+        elif not should and self.panel.isVisible():self.panel.orderOut_(None)
         if now-self.last_data>0.8:
             self.last_data=now; self._update_data()
             try:STATE.write_text(json.dumps({'running':True,'visible':should,'frontmost':front,'editor':False,'at':now}))

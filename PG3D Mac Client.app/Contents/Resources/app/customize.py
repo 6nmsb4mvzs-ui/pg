@@ -53,6 +53,13 @@ THEMES = {
         "remap": dict(primary=200, accent=188, spread=0.14, sat=0.72, val=1.04, tint=0.10, tint_hue=205),
         "stops": [(0.0, "#020C16"), (0.30, "#0B3352"), (0.58, "#2F93CF"), (0.82, "#A6E4FF"), (1.0, "#FFFFFF")],
     },
+    "cute": {
+        "name": "Cute",
+        "desc": "Soft pink with deeper rose accents.",
+        "strength": 1.0,
+        "remap": dict(primary=328, accent=344, spread=0.12, sat=0.82, val=1.05, tint=0.14, tint_hue=332),
+        "stops": [(0.0, "#1A0611"), (0.30, "#5C1A3A"), (0.58, "#C2457E"), (0.82, "#FF9CC8"), (1.0, "#FFF0F6")],
+    },
 }
 
 

@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.39.0"
+APP_VERSION = "1.40.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3506,7 +3506,7 @@ def prefs_payload():
     return prefs
 
 
-UI_THEMES = ("ember", "crimson", "dark_souls", "royal", "icy")
+UI_THEMES = ("ember", "crimson", "dark_souls", "royal", "icy", "cute")
 SOUND_DEFAULTS = {"enabled": True, "rankup": True, "volume": 70}
 
 
@@ -3880,6 +3880,7 @@ def diagnostics_report():
         "", "--- launcher.log ---", tail(SUPPORT / "launcher.log", 60),
         "", "--- client.log ---", tail(LOG, 80),
         "", "--- ffmpeg.log ---", tail(SUPPORT / "ffmpeg.log", 20),
+        "", "--- focus.log (front app while PG3D runs) ---", tail(SUPPORT / "focus.log", 40),
     ]
     text = "\n".join(lines)
     try:
@@ -3887,6 +3888,15 @@ def diagnostics_report():
     except Exception:
         pass
     return {"ok": True, "chars": len(text)}
+
+
+def refocus_game():
+    """Bring PG3D back to the front so it re-locks the mouse (the client is in front when this runs)."""
+    app = find_app()
+    if not app or not game_running():
+        raise RuntimeError("Pixel Gun 3D isn't running.")
+    subprocess.Popen(["/usr/bin/open", str(app)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return {"ok": True}
 
 
 def clear_cache():
@@ -5456,6 +5466,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(set_rankup_sound(data.get("data"), data.get("name")))
             if path == "/api/sound/rankup/reset":
                 return self.send_json(reset_rankup_sound())
+            if path == "/api/game/refocus":
+                return self.send_json(refocus_game())
             if path == "/api/game-update/install":
                 return self.send_json(install_game_update())
             if path == "/api/prefs/reapply":
