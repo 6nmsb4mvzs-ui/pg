@@ -5,7 +5,7 @@
 set -u
 setopt NULL_GLOB
 
-VERSION="1.60.0"
+VERSION="1.61.0"
 PORT=38513
 APP_ID="pg3d-mac-client-v$VERSION"
 SOURCE_BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -177,9 +177,28 @@ SERVER_PID=$!
 echo "$SERVER_PID" > "$PIDFILE"
 for i in {1..150}; do
   if /usr/bin/curl -fsS --max-time 1 "http://127.0.0.1:$PORT/api/health" 2>/dev/null | /usr/bin/grep -q "$APP_ID"; then
-    # The window takes over this process (exec): macOS then shows one Dock icon, the
-    # client's, instead of the launcher's followed by a separate Python one. If the
-    # window can't open, native_shell.py opens the client in the browser instead.
+    if [[ -n "${PG3D_HANDOFF:-}" ]]; then
+      # The app's own executable (launcher/src/pg3d_launcher.c) runs the window by
+      # loading Python into itself, so macOS shows the client, not a "Python" app.
+      PYINFO="$("$VPY" -c 'import os, site, sys, sysconfig
+c = sysconfig.get_config_vars()
+libs = [os.path.join(c.get("PYTHONFRAMEWORKPREFIX") or "", c.get("LDLIBRARY") or ""),
+        os.path.join(c.get("LIBDIR") or "", c.get("LDLIBRARY") or ""),
+        os.path.join(c.get("LIBDIR") or "", "libpython%s.dylib" % c.get("VERSION")),
+        os.path.join(sys.base_prefix, "lib", "libpython%s.dylib" % c.get("VERSION")),
+        os.path.join(sys.base_prefix, "Python"), os.path.join(sys.base_prefix, "Python3")]
+libs = [l for l in libs if os.path.isabs(l)]
+print(next((l for l in libs if os.path.isfile(l)), ""))
+print(sys.base_prefix)
+print(site.getsitepackages()[0])' 2>>"$LOG")"
+      PYLIB="$(echo "$PYINFO" | sed -n 1p)"
+      if [[ -n "$PYLIB" ]]; then
+        { echo "$PYLIB"; echo "$PYINFO" | sed -n 2p; echo "$PYINFO" | sed -n 3p; echo "$VPY"
+          echo "$BASE/native_shell.py"; echo "$URL"; echo "$SHELL_PIDFILE"; echo "$LOG"; } > "$PG3D_HANDOFF"
+        exit 0
+      fi
+      echo "[$(date '+%Y-%m-%dT%H:%M:%S')] no shared Python library found; starting the window directly" >>"$LOG"
+    fi
     exec "$VPY" "$BASE/native_shell.py" "$URL" "$SHELL_PIDFILE" >>"$LOG" 2>&1
   fi
   /bin/kill -0 "$SERVER_PID" 2>/dev/null || break

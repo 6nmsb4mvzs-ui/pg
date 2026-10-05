@@ -38,5 +38,8 @@ jobs:
           for f in PG3DFPSUnlock.dylib PG3DMouseFix.dylib launch-game; do
             unzip -l "$zip" | grep -q "fps_unlocker/build/$f" || { echo "Missing fps_unlocker/build/$f"; exit 1; }
           done
+          # The app's main executable is the native launcher (universal Mach-O), not a script.
+          [ "$(head -c 4 "PG3D Mac Client.app/Contents/MacOS/PG3DMacClient" | od -An -tx1 | tr -d ' ')" = "cafebabe" ] \
+            || { echo "Contents/MacOS/PG3DMacClient is not the built launcher"; exit 1; }
           notes=$(awk -v hdr="New in ${V%.0}" '$0==hdr{f=1;next} f&&/^New in /{exit} f' "PG3D Mac Client.app/Contents/Resources/README.txt")
           gh release create "v$V" "$zip" --title "PG3D Mac Client $V" --notes "${notes:-Version $V}"

@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.60.0"
+APP_VERSION = "1.61.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -578,6 +578,7 @@ def obj_dims(data):
     return w, h
 
 
+CURSOR_PINNED_NAME = "GamepadCursor"  # confirmed by the player: the texture PG3D draws as the mouse cursor
 CURSOR_DETECTOR_V = 2  # targets picked by the player ("chosen") are kept across scans
 CURSOR_CANDIDATES_JSON = STATE_DIR / "cursor_candidates.json"
 CURSOR_CANDIDATE_DIR = RUNTIME / "cursor_candidates"
@@ -639,6 +640,8 @@ def scan_cursor_target(force=False):
                 name = obj_name(obj)
                 w, h = obj_dims(data)
                 s = cursor_score(name, w, h, obj.type.name)
+                if name == CURSOR_PINNED_NAME:
+                    s = 999
                 if s < 20 or not (1 <= w <= 512 and 1 <= h <= 512):
                     continue
                 found.append({
@@ -657,9 +660,13 @@ def scan_cursor_target(force=False):
     found.sort(key=lambda c: (-c["score"], c["width"] * c["height"], c["name"].lower()))
     found = [c for c in found if c["score"] > 0]
     _save_cursor_candidates(found[:12])
-    if len(found) < CURSOR_ASSET_NUMBER:
+    pinned = next((c for c in found if c["name"] == CURSOR_PINNED_NAME), None)
+    if pinned:
+        target = dict(pinned, chosen=True)
+    elif len(found) < CURSOR_ASSET_NUMBER:
         raise RuntimeError(f"Only {len(found)} cursor candidates were found; asset #3 does not exist.")
-    target = dict(found[CURSOR_ASSET_NUMBER - 1])
+    else:
+        target = dict(found[CURSOR_ASSET_NUMBER - 1])
     prev = load_cursor_target() or {}
     if prev.get("chosen"):
         # The player picked this texture: after a game update, find it again by name and size.

@@ -1,4 +1,4 @@
-PG3D Mac Client 1.60.0
+PG3D Mac Client 1.61.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,14 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.61
+Opening   The app's main program is now a small native launcher that runs the
+          window inside the app itself, so macOS shows only PG3D Mac Client
+          (its icon and name), never a separate Python app, and it no longer
+          falls back to the browser on its own. If the window can't open you
+          get a message (with an optional "Open in browser").
+Removed   The Textures tab. The cursor always replaces GamepadCursor.
 
 New in 1.60
 Clips     Recording is much lighter: the picture is scaled on the GPU and

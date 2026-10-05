@@ -7,6 +7,10 @@ import signal
 import sys
 from pathlib import Path
 
+if os.environ.get("PG3D_EMBEDDED") and os.environ.get("PYTHONPATH"):
+    import site
+    site.addsitedir(os.environ["PYTHONPATH"])  # the runtime's packages (.pth files included)
+
 from Cocoa import (
     NSAlert, NSAlertFirstButtonReturn, NSModalResponseOK, NSOpenPanel, NSTextField,
     NSApplication, NSApplicationActivationPolicyRegular, NSBackingStoreBuffered,
@@ -162,6 +166,8 @@ def main():
     pidfile = Path(sys.argv[2]) if len(sys.argv) > 2 else SUPPORT / "shell.pid"
     SUPPORT.mkdir(parents=True, exist_ok=True)
     pidfile.write_text(str(os.getpid()))
+    for k in ("PYTHONHOME", "PYTHONPATH", "PG3D_EMBEDDED"):
+        os.environ.pop(k, None)  # set by the app's launcher for this process only
     brand_process()
     try:
         app = NSApplication.sharedApplication()
@@ -186,10 +192,17 @@ if __name__ == "__main__":
     try:
         main()
     except Exception:
-        # The window couldn't open: still show the client, in the browser.
+        # The window couldn't open. Say so (the details are in the log) instead of
+        # silently switching to the browser.
         import subprocess
         import traceback
         traceback.print_exc()
-        print("window failed to open; using the browser", flush=True)
-        subprocess.run(["/usr/bin/open", sys.argv[1]])
+        print("window failed to open", flush=True)
+        r = subprocess.run(["/usr/bin/osascript", "-e",
+                            'button returned of (display dialog "The PG3D Client window could not open. '
+                            'Details are in the launcher log (Settings > Diagnostics once it opens)." '
+                            'with title "PG3D Client" buttons {"Open in browser", "OK"} default button "OK" with icon caution)'],
+                           capture_output=True, text=True)
+        if "browser" in (r.stdout or ""):
+            subprocess.run(["/usr/bin/open", sys.argv[1]])
         raise SystemExit(1)
