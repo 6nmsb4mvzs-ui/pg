@@ -281,8 +281,9 @@ def _sky_textures_in(env, p: Path, app: Path, log):
                     shader_name = (_name(sh) if sh is not None else "") or ""
                 except Exception:
                     pass
-                mat_name = getattr(mat, "m_Name", "") or ""
-                if "sky" not in shader_name.lower() and "sky" not in mat_name.lower():
+                # Only real sky materials: Unity's Skybox/* shaders or a shader named
+                # like a sky. A weapon material called "SkyHammer" is not one.
+                if "skybox" not in shader_name.lower() and not is_sky_name(shader_name.replace("/", " "), _SHADER_WORDS):
                     continue
                 for key, env_ in _tex_env_items(mat):
                     slot = SKYBOX_MATERIAL_SLOTS.get(key)
@@ -296,7 +297,7 @@ def _sky_textures_in(env, p: Path, app: Path, log):
     for pid, obj in tex_objs.items():
         name = _name(obj)
         face = faces.get(pid)
-        if face is None and "sky" not in name.lower():
+        if face is None and not is_sky_name(name):
             continue
         try:
             tex = obj.parse_as_object()
@@ -328,7 +329,46 @@ def _sky_textures_in(env, p: Path, app: Path, log):
     return out
 
 
-LOADING_RE = re.compile(r"loading|splash|load_?screen|preloader|loader_?bg", re.I)
+def _words(name: str):
+    """Lower-case words of a texture name: "UILoadingBG_2" -> {"ui", "loading", "bg", "2"}."""
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name or "")
+    spaced = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", spaced)
+    return {w for w in re.split(r"[^a-z0-9]+", spaced.lower()) if w}
+
+
+def is_loading_name(name: str) -> bool:
+    # Whole words only: weapon "Reloading" animations matched the old substring test
+    # and got the loading picture pasted over them.
+    w = _words(name)
+    if w & {"reload", "reloading", "reloader"}:
+        return False
+    return bool(w & {"loading", "splash", "loadscreen", "loadingscreen", "preloader"}
+                or {"load", "screen"} <= w or {"loader", "bg"} <= w)
+
+
+_SKY_WORD = re.compile(r"^(sky|skies|skybox|skydome|skysphere|skymap|skytex)\d*$")
+
+
+_SKY_VOCAB = {"night", "day", "dawn", "dusk", "sunset", "sunrise", "evening", "morning", "cloud", "clouds",
+              "cloudy", "space", "stars", "star", "galaxy", "blue", "dark", "red", "orange", "purple", "main",
+              "front", "back", "left", "right", "up", "down", "top", "bottom", "ft", "bk", "lf", "rt", "dn",
+              "px", "nx", "py", "ny", "pz", "nz", "pos", "neg", "posx", "negx", "posy", "negy", "posz", "negz",
+              "x", "y", "z", "tex", "texture", "hdr", "hdri", "cube", "cubemap", "panorama", "pano", "box",
+              "dome", "map", "bg", "background", "lowres", "hd", "lod", "new", "old", "copy"}
+
+
+def is_sky_name(name: str, extra=()) -> bool:
+    """A texture named only in sky terms: "Skybox_Front", "sky_03", "NightSky_up".
+    "SkyHammer_diffuse" or "Weapon_SkyFall" carry other words and are not skies."""
+    words = _words(name)
+    if not any(_SKY_WORD.match(x) for x in words):
+        return False
+    return all(_SKY_WORD.match(x) or x.isdigit() or x in _SKY_VOCAB or x in extra for x in words)
+
+
+_SHADER_WORDS = {"custom", "unlit", "mobile", "legacy", "shader", "shaders", "pg", "pg3d", "standard", "simple"}
+
+
 
 
 def _loading_textures_in(env, p: Path, app: Path, log):
@@ -338,12 +378,13 @@ def _loading_textures_in(env, p: Path, app: Path, log):
         if obj.type.name != "Texture2D":
             continue
         name = _name(obj)
-        if not LOADING_RE.search(name or ""):
+        if not is_loading_name(name):
             continue
         try:
             tex = obj.parse_as_object()
             w, h = int(tex.m_Width), int(tex.m_Height)
-            if int(tex.m_TextureFormat) in ALPHA_ONLY_FORMATS or w < 512 or h < 256:
+            # A loading screen fills the screen: landscape, roughly 4:3 to 21:9.
+            if int(tex.m_TextureFormat) in ALPHA_ONLY_FORMATS or w < 512 or h < 256 or not 1.2 <= w / h <= 2.5:
                 continue
             thumb = tex.image.convert("RGB")
             thumb.thumbnail((320, 320))

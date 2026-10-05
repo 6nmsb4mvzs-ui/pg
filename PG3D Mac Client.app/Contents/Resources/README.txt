@@ -1,4 +1,4 @@
-PG3D Mac Client 1.49.0
+PG3D Mac Client 1.49.1
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -275,3 +275,12 @@ Fixes     The game-file scan no longer files sky, loading-screen and font
           reported as failed. The client now also reads Steam's active user,
           and only counts Steam's real logon errors, not words like
           "expired" that appear during a normal sign-in.
+
+New in 1.49.1
+Fixes     Loading screens and skies no longer change other textures. The
+          scan matched names by fragments, so weapon "Reloading" animations
+          counted as loading screens and textures like "SkyHammer" as skies.
+          It now needs whole words, real skybox shaders and screen-shaped
+          loading images. Textures changed by mistake are put back by
+          themselves once (after PG3D is closed); your sky and loading
+          screen stay.

@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.49.0"
+APP_VERSION = "1.49.1"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -4250,7 +4250,9 @@ THEME_SAMPLES = RUNTIME / "theme_samples"
 
 # 2: objects from files UnityPy pulled in while scanning another file are no
 # longer recorded under the wrong file.
-CUSTOMIZE_SCAN_V = 2
+# 3: loading screens / skies matched by whole words and real sky shaders (weapon
+# "Reloading" animations and "SkyHammer" textures were picked up before).
+CUSTOMIZE_SCAN_V = 3
 
 
 def customize_catalog():
@@ -4646,7 +4648,8 @@ def apply_loading(sky_id):
             raise RuntimeError("This PG3D build has no loading screen texture the client can find.")
 
         def change(state):
-            state["loading"] = {"id": sky["id"], "image": sky["file"], "name": sky["name"], "targets": picked}
+            state["loading"] = {"id": sky["id"], "image": sky["file"], "name": sky["name"], "targets": picked,
+                                "targets_v": CUSTOMIZE_SCAN_V}
         mutate_state(change, f"Loading screen: {sky['name']}", _sub_progress(progress, 0.4, 1.0))
         return f"“{sky['name']}” is now the loading screen."
     return start_job("sky", job)
@@ -4702,7 +4705,8 @@ def apply_sky(sky_id, target_ids=None, yaw=0, swap_lr=False, flip=False):
 
         def change(state):
             state["skybox"] = {"id": sky["id"], "image": sky["file"], "name": sky["name"], "yaw": yaw,
-                               "swap_lr": bool(swap_lr), "flip": bool(flip), "targets": picked}
+                               "swap_lr": bool(swap_lr), "flip": bool(flip), "targets": picked,
+                               "targets_v": CUSTOMIZE_SCAN_V}
         mutate_state(change, f"Sky: {sky['name']}", _sub_progress(progress, 0.4, 1.0))
         return f"“{sky['name']}” applied to {len(picked)} sky textures."
     return start_job("sky", job)
@@ -4891,6 +4895,55 @@ def retire_removed_mods():
                 return
         except Exception as e:
             log(f"Retiring theme/HUD changes failed, retrying: {e}")
+        time.sleep(30)
+
+
+def _needs_target_repair(state):
+    return any((state.get(k) or {}).get("targets") and (state.get(k) or {}).get("targets_v", 1) < CUSTOMIZE_SCAN_V
+               for k in ("skybox", "loading"))
+
+
+def repair_texture_targets():
+    """Sky and loading-screen picks saved before scan v3 may include weapon
+    animation textures. Rescan once, keep only real targets and rebuild, which
+    restores everything else from the original files."""
+    while True:
+        try:
+            if not _needs_target_repair(load_mods()):
+                return
+            if not _game_running_uncached() and not launch_busy() and STATUS.get("job_phase") != "running":
+                def job(progress):
+                    cat = ensure_catalog(_sub_progress(progress, 0, 0.6))
+                    keep_sky = {(t["source_file"], int(t["path_id"])) for t in cat.get("sky", [])}
+                    loading = [{k: t[k] for k in ("source_file", "relative_file", "path_id", "name", "width", "height")}
+                               for t in cat.get("loading", []) if Path(t["source_file"]).exists()]
+                    report = {}
+
+                    def change(state):
+                        sky = state.get("skybox")
+                        if sky and sky.get("targets"):
+                            before = len(sky["targets"])
+                            sky["targets"] = [t for t in sky["targets"] if (t["source_file"], int(t["path_id"])) in keep_sky]
+                            if not sky["targets"]:
+                                sky["targets"] = [{k: t[k] for k in ("source_file", "relative_file", "path_id", "name",
+                                                                     "type", "face", "width", "height")}
+                                                  for t in cat.get("sky", []) if Path(t["source_file"]).exists()]
+                            sky["targets_v"] = CUSTOMIZE_SCAN_V
+                            report["sky"] = (before, len(sky["targets"]))
+                        ld = state.get("loading")
+                        if ld and ld.get("targets"):
+                            report["loading"] = (len(ld["targets"]), len(loading))
+                            if loading:
+                                ld["targets"], ld["targets_v"] = loading, CUSTOMIZE_SCAN_V
+                            else:
+                                state["loading"] = None
+                    mutate_state(change, "Repair sky / loading screen targets", _sub_progress(progress, 0.6, 1.0))
+                    log(f"Repaired texture targets (before -> after): {report}")
+                    return "Fixed textures that were changed by mistake (weapon animations)."
+                start_job("repair", job)
+                return
+        except Exception as e:
+            log(f"Texture target repair failed, retrying: {e}")
         time.sleep(30)
 
 
@@ -5949,6 +6002,7 @@ def main():
     threading.Thread(target=ember_sync_watch, daemon=True).start()
     threading.Thread(target=mods_reapply_watch, daemon=True).start()
     threading.Thread(target=retire_removed_mods, daemon=True).start()
+    threading.Thread(target=repair_texture_targets, daemon=True).start()
     global WIN_WATCHER
     WIN_WATCHER = ranks.WinWatcher(win_config, _on_auto_win, game_running, log)
     WIN_WATCHER.start()
