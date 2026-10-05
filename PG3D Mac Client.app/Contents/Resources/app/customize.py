@@ -12,7 +12,7 @@ import math
 import re
 from pathlib import Path
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageFilter
 
 try:  # numpy makes panorama projection ~100x faster; it is optional.
     import numpy as np
@@ -168,6 +168,15 @@ SKYBOX_MATERIAL_SLOTS = {
 ALPHA_ONLY_FORMATS = {1, 9, 63}  # Alpha8, R16, R8 (font atlases / masks)
 
 
+def _own_objects(env):
+    """Objects of the scanned file only. Resolving a material's shader makes UnityPy
+    load other game files into the same environment; their objects must not be
+    recorded under this file (applying then found nothing and skipped them)."""
+    own = getattr(env, "_pg3d_own_files", None)
+    objs = env.objects
+    return objs if own is None else [o for o in objs if id(o.assets_file) in own]
+
+
 def _name(obj):
     try:
         return obj.peek_name() or ""
@@ -207,7 +216,7 @@ def _gui_textures_in(env, hints, log, label):
     """Texture2Ds in one loaded file that back a UI Sprite or carry a GUI name."""
     sprite_textures = set()
     textures = {}
-    for obj in env.objects:
+    for obj in _own_objects(env):
         tname = obj.type.name
         try:
             if tname == "Sprite":
@@ -259,7 +268,7 @@ def _sky_textures_in(env, p: Path, app: Path, log):
     out = []
     faces = {}  # path id -> face from a skybox material
     tex_objs = {}
-    for obj in env.objects:
+    for obj in _own_objects(env):
         tname = obj.type.name
         if tname in ("Texture2D", "Cubemap"):
             tex_objs[int(obj.path_id)] = obj
@@ -325,7 +334,7 @@ LOADING_RE = re.compile(r"loading|splash|load_?screen|preloader|loader_?bg", re.
 def _loading_textures_in(env, p: Path, app: Path, log):
     """Big Texture2Ds named like loading screens / splash art."""
     out = []
-    for obj in env.objects:
+    for obj in _own_objects(env):
         if obj.type.name != "Texture2D":
             continue
         name = _name(obj)
@@ -357,7 +366,7 @@ FONT_SKIP_RE = re.compile(r"icon|symbol|emoji|awesome|material|glyph|dingbat|cjk
 def _fonts_in(env, p: Path, app: Path, log):
     """Unity Font objects that carry their own TTF/OTF data (dynamic fonts)."""
     out = []
-    for obj in env.objects:
+    for obj in _own_objects(env):
         if obj.type.name != "Font":
             continue
         try:
@@ -397,6 +406,7 @@ def scan_assets(files, app: Path, hints, progress=None, log=print, sample_cb=Non
             progress(idx / total, f"Scanning game files ({idx}/{total})…")
         try:
             env = UnityPy.load(str(p))
+            env._pg3d_own_files = {id(o.assets_file) for o in env.objects}
         except Exception as e:
             log(f"CUSTOMIZE LOAD FAIL {p}: {type(e).__name__}: {e}")
             continue
@@ -441,11 +451,64 @@ _FACE_DIRS = {
     "up": lambda a, b: (a, 1.0, b),
     "down": lambda a, b: (a, -1.0, -b),
 }
+SKY_MIN_FACE = 1024  # many PG3D sky faces are 256-512 px, which looks blurry fullscreen
 CUBEMAP_ORDER = ("right", "left", "up", "down", "front", "back")  # +X -X +Y -Y +Z -Z
 
 
 def is_panorama(img: Image.Image):
-    return 1.7 <= img.width / max(1, img.height) <= 2.3
+    # Only true 360x180 (2:1) images; a 16:9 photo (1.78) is not one and looked
+    # stretched with a seam when it was wrapped around the whole sky.
+    return 1.95 <= img.width / max(1, img.height) <= 2.05
+
+
+def as_panorama(img: Image.Image, height=None) -> Image.Image:
+    """A 2:1 panorama for the sky. Panoramas pass through; a normal photo becomes
+    a band around the horizon (tiled with mirrored copies, so it wraps without a
+    seam) with its top and bottom colours drawn out towards the zenith and ground.
+    Without this every cube face showed the same cropped photo with hard edges."""
+    if is_panorama(img):
+        return img.convert("RGB")
+    key = (id(img), img.size, height)
+    if _PANO_CACHE.get("key") == key:
+        return _PANO_CACHE["pano"]
+    pano = _photo_to_panorama(img.convert("RGB"), height)
+    _PANO_CACHE.update(key=key, pano=pano)
+    return pano
+
+
+_PANO_CACHE = {}
+
+
+def _photo_to_panorama(src: Image.Image, height=None) -> Image.Image:
+    H = int(height) if height else max(1024, min(2048, src.height * 2))
+    W = 2 * H
+    # The photo spans 60 degrees of height (15 below to 45 above the horizon) and a
+    # quarter of the way around; four tiles alternate normal / mirrored.
+    top, bottom = round(H * (0.5 - 45 / 180)), round(H * (0.5 + 15 / 180))
+    tile = cover(src, (W // 4, bottom - top)).convert("RGB")
+    band = Image.new("RGB", (W, bottom - top))
+    mirrored = tile.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    for i in range(4):
+        band.paste(tile if i % 2 == 0 else mirrored, (i * (W // 4), 0))
+    pano = Image.new("RGB", (W, H))
+    blur = ImageFilter.GaussianBlur(max(4, H // 48))
+    # Sky above: the band's top rows stretched up, softened, fading to their average colour.
+    sky = band.crop((0, 0, W, 4)).resize((W, top), Image.Resampling.BILINEAR).filter(blur)
+    sky_avg = Image.new("RGB", (W, top), tuple(int(c) for c in band.crop((0, 0, W, 4)).resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))))
+    fade = Image.linear_gradient("L").resize((W, top))  # 0 at zenith -> 255 at band
+    pano.paste(Image.composite(sky, sky_avg, fade), (0, 0))
+    # Ground below: the bottom rows drawn down and darkened a little.
+    ground_h = H - bottom
+    ground = band.crop((0, band.height - 4, W, band.height)).resize((W, ground_h), Image.Resampling.BILINEAR).filter(blur)
+    dark = Image.new("RGB", (W, ground_h), (0, 0, 0))
+    ground = Image.blend(ground, dark, 0.25)
+    pano.paste(ground, (0, bottom))
+    pano.paste(band, (0, top))
+    # Soften the two seams between the photo and the generated parts.
+    for y in (top, bottom):
+        strip = pano.crop((0, max(0, y - 12), W, min(H, y + 12))).filter(ImageFilter.GaussianBlur(6))
+        pano.paste(strip, (0, max(0, y - 12)))
+    return pano
 
 
 def cover(img: Image.Image, size):
@@ -516,12 +579,12 @@ def sky_image_for(target: dict, source: Image.Image, yaw=0.0, swap_lr=False, fla
     w, h = int(target["width"]), int(target["height"])
     if swap_lr and face in ("left", "right"):
         face = "right" if face == "left" else "left"
-    pano = is_panorama(source)
     if face in _FACE_DIRS:
-        if pano:
-            img = project_face(source, face, max(w, h), yaw)
-            return img.resize((w, h), Image.Resampling.LANCZOS) if (w, h) != img.size else img
-        return cover(source, (w, h)) if flat_mode == "cover" else source.convert("RGBA").resize((w, h), Image.Resampling.LANCZOS)
+        size = max(w, h, SKY_MIN_FACE)
+        return project_face(as_panorama(source), face, size, yaw)
+    if face == "panorama":
+        source = as_panorama(source)
+    pano = is_panorama(source)
     # panoramic / unknown single texture: use the whole picture
     if pano and face == "panorama" and yaw:
         shift = int(round(yaw / 360.0 * source.width)) % source.width
@@ -532,15 +595,14 @@ def sky_image_for(target: dict, source: Image.Image, yaw=0.0, swap_lr=False, fla
 
 
 def cubemap_faces(source: Image.Image, size: int, yaw=0.0, swap_lr=False):
+    pano = as_panorama(source)
+    size = max(int(size), SKY_MIN_FACE)
     faces = []
     for face in CUBEMAP_ORDER:
         f = face
         if swap_lr and face in ("left", "right"):
             f = "right" if face == "left" else "left"
-        if is_panorama(source):
-            faces.append(project_face(source, f, size, yaw))
-        else:
-            faces.append(cover(source, (size, size)))
+        faces.append(project_face(pano, f, size, yaw))
     return faces
 
 

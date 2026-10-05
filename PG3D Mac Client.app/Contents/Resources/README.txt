@@ -1,4 +1,4 @@
-PG3D Mac Client 1.48.1
+PG3D Mac Client 1.49.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -261,3 +261,17 @@ Fixes     The FPS unlocker, the mouse fix and the game launcher were missing
           from every download since updates moved to GitHub (a build-folder
           rule kept them out). They're included again, so Start with FPS
           Unlocker and the mouse fix work.
+
+New in 1.49
+Sky       Normal photos look right as a sky: they become a seamless 360-degree
+          view (the photo around the horizon, its colours carried up into the
+          sky and down to the ground) instead of a 16:9 photo stretched around
+          the whole sky with a seam. Only real 2:1 panoramas are wrapped as
+          they are. Sky faces are at least 1024 px, so they're less blurry.
+Fixes     The game-file scan no longer files sky, loading-screen and font
+          textures under the wrong file (they were skipped when applying);
+          the next apply rescans once by itself.
+          Account switching: a Steam sign-in that worked is no longer
+          reported as failed. The client now also reads Steam's active user,
+          and only counts Steam's real logon errors, not words like
+          "expired" that appear during a normal sign-in.

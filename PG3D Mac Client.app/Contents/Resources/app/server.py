@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.48.1"
+APP_VERSION = "1.49.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1240,10 +1240,11 @@ def rebuild_sources(source_strings, state=None, progress=None):
                         log(f"Theme skipped texture {pid} in {source.name}: {e}")
 
             # Skybox textures.
+            skipped = {}
             for t in sky_ops:
                 reader = find_reader(env, int(t["path_id"]))
                 if reader is None:
-                    log(f"Sky texture {t['path_id']} moved in {source.name}; skipped")
+                    skipped["sky textures"] = skipped.get("sky textures", 0) + 1
                     continue
                 data = reader.parse_as_object()
                 if reader.type.name == "Cubemap":
@@ -1264,7 +1265,7 @@ def rebuild_sources(source_strings, state=None, progress=None):
                 for t in load_ops:
                     reader = find_reader(env, int(t["path_id"]))
                     if reader is None or reader.type.name != "Texture2D":
-                        log(f"Loading screen {t['path_id']} moved in {source.name}; skipped")
+                        skipped["loading screens"] = skipped.get("loading screens", 0) + 1
                         continue
                     data = reader.parse_as_object()
                     data.image = customize.cover(load_img, (int(data.m_Width), int(data.m_Height)))
@@ -1274,12 +1275,15 @@ def rebuild_sources(source_strings, state=None, progress=None):
             for t in font_ops:
                 reader = find_reader(env, int(t["path_id"]))
                 if reader is None or reader.type.name != "Font":
-                    log(f"Font {t['path_id']} moved in {source.name}; skipped")
+                    skipped["fonts"] = skipped.get("fonts", 0) + 1
                     continue
                 data = reader.parse_as_object()
                 customize.replace_font_data(data, font_bytes(state["font"]))
                 save_parsed_object(data, reader)
 
+            if skipped:
+                log(f"{source.name}: not found, skipped " + ", ".join(f"{n} {k}" for k, n in skipped.items())
+                    + " (rescan in Settings if this stays)")
             for entry in atlas_cache.values():
                 if entry["dirty"]:
                     entry["data"].image = entry["image"]
@@ -1825,31 +1829,76 @@ def start_steam_client():
         start_new_session=True,
     )
 
+def registry_active_user():
+    """Steam's ActiveProcess/ActiveUser (32-bit account id of the signed-in user), or None."""
+    try:
+        _, registry_path = steam_files()
+        reg = ci_get(load_vdf(registry_path, {}), "Registry", {}) or {}
+        node = reg
+        for key in ("HKCU", "Software", "Valve", "Steam", "ActiveProcess"):
+            node = ci_get(node, key, {}) or {}
+        value = int(str(ci_get(node, "ActiveUser", "0") or "0"))
+        return value or None
+    except Exception:
+        return None
+
+
+# Steam's own logon result codes. Plain words like "credential" or "expired" also
+# show up during a normal sign-in (token refreshes), so they are not used.
+_STEAM_GUARD_RESULTS = ("'AccountLogonDenied'", "'AccountLoginDeniedNeedTwoFactor'", "'TwoFactorCodeMismatch'",
+                        "'AccountLogonDeniedVerifiedEmailRequired'", "'TwoFactorActivationCodeMismatch'")
+_STEAM_REJECT_RESULTS = ("'InvalidPassword'", "'AccessDenied'", "'AccountDisabled'", "'InvalidLoginAuthCode'",
+                         "'Expired'", "'PasswordRequiredToKickSession'")
+
+
+def _steam_login_state(target_id, text):
+    """('ok'|'guard'|'rejected'|None, wrong_account_id) from every signal Steam gives."""
+    current = latest_logged_account_id()
+    if current == target_id or (steam_running() and registry_active_user() == target_id):
+        return "ok", None
+    tag = f"[U:1:{target_id}]"
+    verdict = None
+    for line in (text or "").splitlines():
+        if "[Logged On," in line and tag in line:
+            return "ok", None
+        if "RecvMsgClientLogOnResponse()" in line and tag in line:
+            if "'OK'" in line:
+                return "ok", None
+            if any(r in line for r in _STEAM_GUARD_RESULTS):
+                verdict = "guard"
+            elif any(r in line for r in _STEAM_REJECT_RESULTS):
+                verdict = "rejected"
+    return verdict, (current if current not in (None, target_id) else None)
+
+
+def _wait_steam_login_state(target_id, offset, timeout):
+    """Wait for Steam to sign in target_id. A failure code only counts if no
+    success follows within a few seconds (Steam retries internally)."""
+    deadline = time.time() + timeout
+    wrong_id, bad, bad_since = None, None, None
+    while time.time() < deadline:
+        state, wrong = _steam_login_state(target_id, read_steam_log_from(offset))
+        if state == "ok":
+            return "ok", None
+        wrong_id = wrong or wrong_id
+        if state in ("guard", "rejected"):
+            bad = state
+            bad_since = bad_since or time.time()
+            if time.time() - bad_since > 8:
+                return bad, wrong_id
+        time.sleep(0.35)
+    return bad, wrong_id
+
+
 def wait_for_steam_login(target_steamid64, offset, timeout=60):
     target_id = steam_account_id(target_steamid64)
     if target_id is None:
         return False, "Steam account ID is invalid."
-    deadline = time.time() + timeout
-    wrong_id = None
-    while time.time() < deadline:
-        # Fast path: Steam's own live connection state says the target is logged on.
-        current = latest_logged_account_id()
-        if current == target_id:
-            return True, None
-        if current is not None and current != target_id:
-            wrong_id = current
-
-        text = read_steam_log_from(offset)
-        if text:
-            for line in text.splitlines():
-                if f"[U:1:{target_id}]" in line:
-                    if "RecvMsgClientLogOnResponse()" in line and "'OK'" in line:
-                        return True, None
-                    if line.startswith("[") and "[Logged On," in line:
-                        return True, None
-                    if any(x in line for x in ("Access Denied", "Invalid Password", "Account Logon Denied", "Expired")):
-                        return False, "Steam rejected the remembered login for this account."
-        time.sleep(0.35)
+    state, wrong_id = _wait_steam_login_state(target_id, offset, timeout)
+    if state == "ok":
+        return True, None
+    if state in ("guard", "rejected"):
+        return False, "Steam rejected the remembered login for this account."
     if wrong_id is not None:
         return False, "Steam logged into a different remembered account instead of the selected one."
     return False, "Steam could not auto-login to this saved account. Its remembered session may have expired; sign into that account once in Steam with Remember me enabled, then retry."
@@ -2010,19 +2059,6 @@ def remove_account_credentials(steamid64):
     return {'ok': True, 'steamid64': str(steamid64)}
 
 
-def steam_guard_or_auth_error(text):
-    t = (text or '').lower()
-    guard = ('steam guard', 'twofactor', 'two factor', 'accountlogondeniedneedtwofactor',
-             'account logon denied', 'emailauth', 'auth code', 'mobile confirmation')
-    bad = ('invalid password', 'password incorrect', 'access denied', 'logon failed',
-           'credential', 'expired')
-    if any(x in t for x in guard):
-        return 'Steam Guard or another Steam authentication check is required for this account.'
-    if any(x in t for x in bad):
-        return 'Steam rejected the saved username/password for this account.'
-    return None
-
-
 def start_steam_with_credentials(target, username, password):
     exe = find_steam_binary()
     if not exe:
@@ -2038,26 +2074,13 @@ def wait_for_credential_login(target, offset, timeout=90):
     target_id = steam_account_id(target.get('steamid64'))
     if target_id is None:
         return False, 'Steam account ID is invalid.'
-    deadline = time.time() + timeout
-    wrong_id = None
-    while time.time() < deadline:
-        current = latest_logged_account_id()
-        if current == target_id:
-            return True, None
-        if current is not None and current != target_id:
-            wrong_id = current
-        text = read_steam_log_from(offset)
-        err = steam_guard_or_auth_error(text)
-        if err:
-            return False, err
-        if text:
-            for line in text.splitlines():
-                if f'[U:1:{target_id}]' in line:
-                    if 'RecvMsgClientLogOnResponse()' in line and "'OK'" in line:
-                        return True, None
-                    if '[Logged On,' in line:
-                        return True, None
-        time.sleep(0.35)
+    state, wrong_id = _wait_steam_login_state(target_id, offset, timeout)
+    if state == 'ok':
+        return True, None
+    if state == 'guard':
+        return False, 'Steam Guard or another Steam authentication check is required for this account.'
+    if state == 'rejected':
+        return False, "Steam rejected the saved username/password for this account."
     if wrong_id is not None:
         return False, 'Steam logged into a different account instead of the selected one.'
     return False, 'Steam did not complete the credential login for the selected account.'
@@ -4225,6 +4248,11 @@ def start_job(kind, fn):
 THEME_SAMPLES = RUNTIME / "theme_samples"
 
 
+# 2: objects from files UnityPy pulled in while scanning another file are no
+# longer recorded under the wrong file.
+CUSTOMIZE_SCAN_V = 2
+
+
 def customize_catalog():
     return read_json(CUSTOMIZE_CATALOG_JSON, {"generated": None, "app": None, "build": None, "gui": {}, "sky": [], "loading": []})
 
@@ -4232,6 +4260,8 @@ def customize_catalog():
 def _catalog_fresh(cat):
     app = find_app()
     if not app or not cat.get("generated") or cat.get("app") != str(app) or "loading" not in cat or "fonts" not in cat:
+        return False
+    if cat.get("scan_v", 1) < CUSTOMIZE_SCAN_V:
         return False
     build = plist_value(app / "Contents/Info.plist", "CFBundleVersion")
     return cat.get("build") == build
@@ -4280,6 +4310,7 @@ def scan_customize(progress):
         "generated": datetime.now().isoformat(timespec="seconds"),
         "app": str(app),
         "build": plist_value(app / "Contents/Info.plist", "CFBundleVersion"),
+        "scan_v": CUSTOMIZE_SCAN_V,
         "gui": gui,
         "sky": sky,
         "loading": loading,
@@ -4636,17 +4667,16 @@ def sky_cross_preview(sky_id, yaw=0.0, swap_lr=False, size=160):
     src = Image.open(SKY_DIR / sky["file"]).convert("RGB")
     if max(src.size) > 2048:
         src.thumbnail((2048, 2048))
+    pano = customize.as_panorama(src, height=max(256, size * 2))
+    if customize.is_panorama(src) and pano.height > size * 4:
+        pano = pano.resize((size * 8, size * 4), Image.Resampling.BILINEAR)
     cross = Image.new("RGBA", (size * 4, size * 3), (0, 0, 0, 0))
     layout = {"up": (1, 0), "left": (0, 1), "front": (1, 1), "right": (2, 1), "back": (3, 1), "down": (1, 2)}
     for face, (cx, cy) in layout.items():
         f = face
         if swap_lr and face in ("left", "right"):
             f = "right" if face == "left" else "left"
-        if customize.is_panorama(src):
-            img = customize.project_face(src, f, size, yaw)
-        else:
-            img = customize.cover(src, (size, size))
-        cross.paste(img, (cx * size, cy * size))
+        cross.paste(customize.project_face(pano, f, size, yaw), (cx * size, cy * size))
     bio = io.BytesIO()
     cross.save(bio, format="PNG")
     return bio.getvalue()
