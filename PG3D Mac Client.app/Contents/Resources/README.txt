@@ -1,4 +1,4 @@
-PG3D Mac Client 1.51.0
+PG3D Mac Client 1.51.1
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -325,3 +325,8 @@ Loading   The Sky tab's loading-screen mode lists every loading image it
           which ones get your picture.
 Fixes     A queued change that fails now always shows its error. The
           diagnostic report lists recent game-file jobs and what's applied.
+
+New in 1.51.1
+Mouse     The mouse fix also catches the macOS arrow appearing in the middle
+          of a match (not only after switching apps) and hides it again. It
+          is the system cursor, which is why clips never show it.

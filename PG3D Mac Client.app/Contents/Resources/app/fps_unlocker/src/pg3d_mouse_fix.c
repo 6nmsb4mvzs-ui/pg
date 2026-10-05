@@ -36,6 +36,7 @@ extern int clock_gettime(int clock_id, struct timespec_ *tp);
 
 extern int32_t CGAssociateMouseAndMouseCursorPosition(uint32_t connected);
 extern int32_t CGDisplayHideCursor(uint32_t display);
+extern int32_t CGCursorIsVisible(void);  // deprecated but still answers on current macOS
 extern int32_t CGDisplayShowCursor(uint32_t display);
 extern uint32_t CGMainDisplayID(void);
 
@@ -53,10 +54,12 @@ static const uint64_t kMouseDownMask = (1ULL << 1) | (1ULL << 3) | (1ULL << 25);
 
 static volatile bool g_locked;       // the game disassociated the mouse (cursor locked)
 static bool g_we_hid;                // we hold one CGDisplayHideCursor of our own
+static unsigned g_extra_hides;       // extra hides needed to beat a stuck show count
 static bool g_was_active;
 static bool g_monitor_installed;
 static unsigned g_click_fixes;
 static unsigned g_kicks;
+static unsigned g_mid_game_fixes;
 
 static void note(const char *format, unsigned value) {
     fprintf(stderr, "[PG3D Mouse Fix pid=%d] ", getpid());
@@ -81,6 +84,7 @@ static void sync_cursor(void *unused) {
         g_we_hid = true;
     } else if (!want && g_we_hid) {
         CGDisplayShowCursor(CGMainDisplayID());
+        for (; g_extra_hides > 0; --g_extra_hides) CGDisplayShowCursor(CGMainDisplayID());
         g_we_hid = false;
     }
 }
@@ -179,6 +183,19 @@ static void tick(void *unused) {
         if (!g_monitor_installed) install_click_fix(app);
         bool active = MSG(BOOL)(app, SEL_("isActive"));
         if (active && !g_was_active && g_locked) kick_cursor();
+        // Mid-game, without any app switch, macOS sometimes shows its arrow over the
+        // locked game (it isn't in recordings: it's the system cursor). Re-hide it.
+        else if (active && g_locked && g_we_hid && CGCursorIsVisible()) {
+            uint32_t display = CGMainDisplayID();
+            CGDisplayShowCursor(display);
+            CGDisplayHideCursor(display);
+            if (!CGCursorIsVisible() && ++g_mid_game_fixes <= 20) {
+                note("re-hid the system cursor that appeared mid-game (%u)", g_mid_game_fixes);
+            } else if (CGCursorIsVisible() && g_extra_hides < 3) {
+                CGDisplayHideCursor(display);  // one more hide, balanced when the lock ends
+                g_extra_hides++;
+            }
+        }
         g_was_active = active;
         sync_cursor(NULL);
         measure_fps();
