@@ -5,7 +5,7 @@
 set -u
 setopt NULL_GLOB
 
-VERSION="1.47.0"
+VERSION="1.47.1"
 PORT=38513
 APP_ID="pg3d-mac-client-v$VERSION"
 SOURCE_BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -178,6 +178,12 @@ echo "$SERVER_PID" > "$PIDFILE"
 for i in {1..150}; do
   if /usr/bin/curl -fsS --max-time 1 "http://127.0.0.1:$PORT/api/health" 2>/dev/null | /usr/bin/grep -q "$APP_ID"; then
     nohup "$VPY" "$BASE/native_shell.py" "$URL" "$SHELL_PIDFILE" >>"$LOG" 2>&1 &
+    SHELL_PID=$!
+    # If the window process dies right away, still show the client: in the browser.
+    for j in {1..25}; do
+      /bin/sleep 0.2
+      /bin/kill -0 "$SHELL_PID" 2>/dev/null || { echo "[$(date '+%Y-%m-%dT%H:%M:%S')] window failed to open; using the browser" >>"$LOG"; /usr/bin/open "$URL"; exit 0; }
+    done
     exit 0
   fi
   /bin/kill -0 "$SERVER_PID" 2>/dev/null || break

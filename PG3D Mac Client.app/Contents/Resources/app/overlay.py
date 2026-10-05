@@ -534,6 +534,7 @@ class EditorController(NSObject):
         else:text='144 FPS' if item['id']=='fps' else (clock_text(item) if item['id']=='clock' else '32 ms')
         lab=NSTextField.labelWithString_(text); lab.setTextColor_(hex_color(item.get('color','#FFFFFF'))); lab.setFont_(NSFont.monospacedSystemFontOfSize_weight_(float(size),0.4)); lab.setSelectable_(False); lab.sizeToFit(); return lab
 
+    @objc.python_method  # a plain helper, not an Objective-C selector
     def _wrap(self,target,view,padding=8):
         f=view.frame(); box=DragBox.alloc().initWithFrame_(NSMakeRect(0,0,f.size.width+padding*2,f.size.height+padding*2)); box.controller=self; box.target=target; view.setFrameOrigin_((padding,padding)); box.addSubview_(view); return box
 

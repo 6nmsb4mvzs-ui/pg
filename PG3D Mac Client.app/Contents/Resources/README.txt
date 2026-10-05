@@ -1,4 +1,4 @@
-PG3D Mac Client 1.47.0
+PG3D Mac Client 1.47.1
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -240,3 +240,10 @@ Fixes     File pickers work in the client window: Add image (sky and
           and the "Only while PG3D runs" switch is gone.
           Every normal start now loads the mouse fix, including the start
           after a Steam Guard code.
+
+New in 1.47.1
+Fixes     The client window opens again (1.47's file-dialog code stopped it
+          from starting). If the window ever fails to open, the client now
+          opens in your browser instead of not appearing at all. The
+          in-game overlay had the same kind of startup error and starts
+          again too.

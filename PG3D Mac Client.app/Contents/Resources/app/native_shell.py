@@ -29,13 +29,21 @@ class MessageHandler(NSObject):
         pass
 
 
-try:  # adopting the protocol gives PyObjC the completion-handler block signatures
-    _UI_PROTOCOLS = [objc.protocolNamed("WKUIDelegate")]
-except Exception:
-    _UI_PROTOCOLS = []
+def run_alert(message, buttons, field=None):
+    """Modal alert; True when the first button was pressed. A plain function on
+    purpose: PyObjC turns methods of NSObject subclasses into selectors and
+    rejects helpers whose arguments don't match their names."""
+    alert = NSAlert.alloc().init()
+    alert.setMessageText_(str(message or ""))
+    for title in buttons:
+        alert.addButtonWithTitle_(title)
+    if field is not None:
+        alert.setAccessoryView_(field)
+        alert.window().setInitialFirstResponder_(field)
+    return alert.runModal() == NSAlertFirstButtonReturn
 
 
-class Shell(NSObject, protocols=_UI_PROTOCOLS):
+class Shell(NSObject):
     window = objc.ivar()
     web = objc.ivar()
     handler = objc.ivar()
@@ -106,28 +114,18 @@ class Shell(NSObject, protocols=_UI_PROTOCOLS):
         else:
             done(None)
 
-    def _alert(self, message, buttons, field=None):
-        alert = NSAlert.alloc().init()
-        alert.setMessageText_(str(message or ""))
-        for title in buttons:
-            alert.addButtonWithTitle_(title)
-        if field is not None:
-            alert.setAccessoryView_(field)
-            alert.window().setInitialFirstResponder_(field)
-        return alert.runModal() == NSAlertFirstButtonReturn
-
     def webView_runJavaScriptAlertPanelWithMessage_initiatedByFrame_completionHandler_(self, web, message, frame, done):
-        self._alert(message, ["OK"])
+        run_alert(message, ["OK"])
         done()
 
     def webView_runJavaScriptConfirmPanelWithMessage_initiatedByFrame_completionHandler_(self, web, message, frame, done):
-        done(self._alert(message, ["OK", "Cancel"]))
+        done(run_alert(message, ["OK", "Cancel"]))
 
     def webView_runJavaScriptTextInputPanelWithPrompt_defaultText_initiatedByFrame_completionHandler_(
             self, web, prompt, default, frame, done):
         field = NSTextField.alloc().initWithFrame_(NSMakeRect(0, 0, 260, 24))
         field.setStringValue_(str(default or ""))
-        done(field.stringValue() if self._alert(prompt, ["OK", "Cancel"], field) else None)
+        done(field.stringValue() if run_alert(prompt, ["OK", "Cancel"], field) else None)
 
     def windowWillClose_(self, note):
         NSApplication.sharedApplication().terminate_(None)
