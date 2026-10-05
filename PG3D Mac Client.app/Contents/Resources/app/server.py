@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.72.0"
+APP_VERSION = "1.72.1"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -7386,7 +7386,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(delete_sky(str(data.get("id", ""))))
             if path == "/api/sky/apply":
                 ids = data.get("targets")
-                ids = [int(x) for x in ids] if isinstance(ids, list) else None
+                ids = [str(x) for x in ids] if isinstance(ids, list) else None  # "d0" (sky search) / "c12" (by name)
                 return self.send_json(apply_sky(str(data.get("id", "")), ids, data.get("yaw", 0),
                                                 bool(data.get("swap_lr")), bool(data.get("flip"))))
             if path == "/api/sky/reset":
