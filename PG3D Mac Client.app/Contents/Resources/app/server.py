@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.55.0"
+APP_VERSION = "1.56.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -452,6 +452,68 @@ def _steam_running_uncached():
     except Exception:
         pass
     return False
+
+
+_EXT_CACHE = {"at": 0.0, "files": []}
+
+
+def external_bundle_files(refresh=False):
+    """Unity bundles PG3D keeps outside the app (its download cache in the user
+    Library). The copies inside the app can be old pre-installed versions."""
+    if not refresh and time.time() - _EXT_CACHE["at"] < 600:
+        return list(_EXT_CACHE["files"])
+    home = Path.home() / "Library"
+    roots = []
+    for base in (home / "Caches", home / "Application Support"):
+        try:
+            for d in base.iterdir():
+                low = d.name.lower()
+                if d.is_dir() and d != SUPPORT and ("pixel" in low or "cubic" in low or low == "unity"):
+                    roots.append(d)
+        except OSError:
+            pass
+    found, seen = [], 0
+    for root in roots:
+        for dirpath, dirnames, filenames in os.walk(root):
+            if dirpath.count(os.sep) - str(root).count(os.sep) > 8:
+                dirnames[:] = []
+                continue
+            for fn in filenames:
+                seen += 1
+                if seen > 40000:
+                    break
+                p = Path(dirpath) / fn
+                try:
+                    size = p.stat().st_size
+                    if size < 4096 or size > 350 * 1024 * 1024:
+                        continue
+                    with p.open("rb") as f:
+                        if f.read(7) != b"UnityFS":
+                            continue
+                except OSError:
+                    continue
+                if "unity" == root.name.lower() and "pixel" not in str(p).lower():
+                    continue  # another Unity game's cache
+                found.append(p)
+    _EXT_CACHE.update(at=time.time(), files=found)
+    return list(found)
+
+
+def external_cache_summary():
+    files = external_bundle_files(refresh=True)
+    if not files:
+        return "(no PG3D bundles outside the app)"
+    by_root = {}
+    for p in files:
+        parts = p.relative_to(Path.home()).parts
+        key = "~/" + "/".join(parts[:3])
+        st = p.stat()
+        r = by_root.setdefault(key, [0, 0, 0.0])
+        r[0] += 1
+        r[1] += st.st_size
+        r[2] = max(r[2], st.st_mtime)
+    return "\n".join(f"{k}: {n} bundles, {b // (1024 * 1024)} MB, newest {datetime.fromtimestamp(t):%Y-%m-%d %H:%M}"
+                     for k, (n, b, t) in sorted(by_root.items()))
 
 
 def candidate_files(root: Path, deep=False):
@@ -3592,7 +3654,7 @@ def fps_launch(game: Path, fps: str):
 
 _FPS_MESSAGES = {
     "ok": "FPS unlocker active.",
-    "fail": "The FPS unlocker couldn't hook into this PG3D build; the game runs at its own frame rate.",
+    "fail": "The FPS unlocker isn't supported on this PG3D build, so it stays off (it can't crash the game); PG3D runs at its own frame rate.",
     "exited": "PG3D closed before the FPS unlocker could start.",
     None: "PG3D is loading; the FPS unlocker switches on once the game is ready.",
 }
@@ -3609,7 +3671,8 @@ def _fps_log_state(log_path, pid, timeout):
             txt = ""
         if "render pacing override is active" in txt or "target frame rate override installed" in txt:
             return "ok"
-        if "timed out waiting for Unity initialization" in txt or "required Unity binding unavailable" in txt:
+        if ("timed out waiting for Unity initialization" in txt or "required Unity binding unavailable" in txt
+                or "FPS unlocker inactive" in txt):
             return "fail"
         if pid is not None:
             try:
@@ -4500,6 +4563,8 @@ def diagnostics_report():
         "", "--- recent game-file jobs ---", "\n".join(_JOB_HISTORY) or "(none)",
         f"now: {STATUS.get('job_phase')} {STATUS.get('job_message')} queue={STATUS.get('job_queue')}",
         "", "--- applied mods ---", _mods_summary(),
+        "", "--- PG3D bundles outside the app ---", external_cache_summary(),
+        "", "--- bundle / crc lines in PG3D's log ---", _unity_log_grep(r"crc|assetbundle|bundle|mismatch|corrupt|failed to load|exception"),
         "", "--- PG3D's own log (Player.log) ---", _unity_log_tail(),
         "", "--- newest PG3D crash report ---", _crash_report_summary(),
     ]
@@ -4548,6 +4613,24 @@ def _unity_log_tail(lines=40):
     return f"{p.name}, last written {stamp}\n" + "\n".join(keep[-lines:])
 
 
+def _unity_log_grep(pattern, limit=25):
+    logs = sorted(Path.home().glob("Library/Logs/*/*/Player*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+    logs = [p for p in logs if "pixel" in str(p).lower()]
+    if not logs:
+        return "(missing)"
+    out, seen = [], set()
+    rx = re.compile(pattern, re.I)
+    for p in logs[:2]:
+        try:
+            for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+                if rx.search(line) and line not in seen:
+                    seen.add(line)
+                    out.append(f"{p.name}: {line[:220]}")
+        except OSError:
+            pass
+    return "\n".join(out[-limit:]) or "(none)"
+
+
 def _crash_report_summary():
     reps = sorted(Path.home().glob("Library/Logs/DiagnosticReports/Pixel Gun 3D*"), key=lambda p: p.stat().st_mtime,
                   reverse=True)
@@ -4558,6 +4641,22 @@ def _crash_report_summary():
         text = p.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return p.name
+    stamp = datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")
+    try:  # .ips: a JSON header line, then the JSON report
+        body = json.loads(text.split("\n", 1)[1])
+        exc = body.get("exception") or {}
+        term = body.get("termination") or {}
+        images = body.get("usedImages") or []
+        th = (body.get("threads") or [])[int(body.get("faultingThread", 0) or 0)]
+        lines = [f"{p.name} ({stamp})",
+                 f"exception: {exc.get('type')} {exc.get('signal')} {exc.get('subtype', '')}".strip(),
+                 f"termination: {term.get('namespace')} {term.get('indicator', '')} {(term.get('reasons') or [''])[0]}".strip()]
+        for fr in (th.get("frames") or [])[:14]:
+            img = images[fr.get("imageIndex", 0)] if 0 <= fr.get("imageIndex", -1) < len(images) else {}
+            lines.append(f"  {img.get('name', '?')}  {fr.get('symbol', '')}+{fr.get('symbolLocation', fr.get('imageOffset', ''))}")
+        return "\n".join(lines)
+    except Exception:
+        pass
     picks = []
     for key in ("exception", "termination", "faultingThread", "Exception Type", "Termination Reason",
                 "Crashed Thread", "dyld", "Library not loaded", "Reason"):
@@ -4719,7 +4818,8 @@ THEME_SAMPLES = RUNTIME / "theme_samples"
 # "Reloading" animations and "SkyHammer" textures were picked up before).
 # 4: loading-screen candidates (map previews etc.) listed, ticked only when named so.
 # 5: sky names: sky word without weapon/effect words; season/preview art ticked as loading.
-CUSTOMIZE_SCAN_V = 5
+# 6: also PG3D's bundle cache in the user Library (the in-app copies may be stale).
+CUSTOMIZE_SCAN_V = 6
 
 
 def customize_catalog():
@@ -4772,13 +4872,17 @@ def finder_payload():
             "suggested": counts, "picks": _finder_picks()["picks"], "gui_ops": _finder_gui_ops()}
 
 
-def finder_list(cat, show_all=False, q="", offset=0, limit=240, picked_only=False):
+def finder_list(cat, show_all=False, q="", offset=0, limit=240, picked_only=False, near=False):
     items = _finder_data().get("items", [])
     picks = set(_finder_picks()["picks"].get(cat, []))
     q = (q or "").lower().strip()
-    out = [x for x in items if (show_all or cat in x["cats"]) and (not q or q in x["name"].lower() or q in x["relative_file"].lower())
-           and (not picked_only or x["gid"] in picks)]
-    if cat == "gui":
+    # "Same files": every texture stored next to a pick (HUD icons share a few atlases/bundles).
+    near_files = {items[g]["source_file"] for g in picks if 0 <= g < len(items)} if near else set()
+    out = [x for x in items if (show_all or near or cat in x["cats"]) and (not q or q in x["name"].lower() or q in x["relative_file"].lower())
+           and (not picked_only or x["gid"] in picks) and (not near or x["source_file"] in near_files)]
+    if near:
+        out.sort(key=lambda x: (-int(x.get("gs", 0)), x["gid"] in picks, x["name"].lower()))
+    elif cat == "gui":
         # What covers the view in a match first, then the other likely GUI pieces.
         out.sort(key=lambda x: (-int(x.get("gs", 0)), "gui" not in x["cats"], x["name"].lower()))
     elif show_all and cat in FINDER_CATS:
@@ -4808,7 +4912,7 @@ def start_finder_scan():
         app = find_app()
         if not app:
             raise RuntimeError("Pixel Gun 3D.app was not found.")
-        files = candidate_files(app / "Contents/Resources/Data", deep=True)
+        files = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files(refresh=True)
         items = customize.finder_scan(files, app, progress, log)
         shutil.rmtree(FINDER_THUMBS, ignore_errors=True)
         _FINDER_ENVS.clear()
@@ -4981,7 +5085,7 @@ def scan_customize(progress):
     if not app:
         raise RuntimeError("Pixel Gun 3D.app was not found in your Steam libraries.")
     root = app / "Contents/Resources/Data"
-    files = candidate_files(root, deep=True)
+    files = candidate_files(root, deep=True) + external_bundle_files(refresh=True)
     if not files:
         raise RuntimeError("No readable Unity asset files were found in the PG3D app.")
     shutil.rmtree(THEME_SAMPLES, ignore_errors=True)
@@ -6470,7 +6574,8 @@ class Handler(BaseHTTPRequestHandler):
             qs = parse_qs(urlparse(self.path).query)
             g = lambda k, d="": (qs.get(k) or [d])[0]
             return self.send_json(finder_list(g("cat", "sky"), g("all") == "1", g("q"), int(g("offset", "0") or 0),
-                                              min(500, int(g("limit", "240") or 240)), g("picked") == "1"))
+                                              min(500, int(g("limit", "240") or 240)), g("picked") == "1",
+                                              g("near") == "1"))
         if path.startswith("/api/finder/thumb/"):
             m = re.fullmatch(r"/api/finder/thumb/(\d{1,6})\.jpg", path)
             if not m:

@@ -1,4 +1,4 @@
-PG3D Mac Client 1.55.0
+PG3D Mac Client 1.56.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,17 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.56
+Crash     Fixed PG3D crashing a few seconds after launch. On builds where the
+          FPS unlocker can't hook in (like the current one), its fallback
+          kept calling into the game and crashed it. It now stays off there
+          and says so; PG3D runs at its own frame rate.
+Textures  Sky and loading-screen scans also look at PG3D's downloaded bundle
+          cache in your Library (the in-app copies may be stale). The
+          diagnostic report lists those files and PG3D's bundle/CRC log lines.
+GUI       GUI Finder: "Same files as selected" lists every texture stored next
+          to the sprites you picked, so the rest of a HUD atlas shows up.
 
 New in 1.55
 Speed     Applying is much faster: only game files whose own changes differ

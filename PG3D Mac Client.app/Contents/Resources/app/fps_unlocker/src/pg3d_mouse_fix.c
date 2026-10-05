@@ -147,6 +147,7 @@ static void install_click_fix(id app) {
 static int (*g_frame_count)(void);
 static bool g_measure_off;
 static double g_last_t;
+static double g_started;
 static int g_last_frames;
 
 static double now_seconds(void) {
@@ -158,6 +159,10 @@ static double now_seconds(void) {
 static void measure_fps(void) {
     if (g_measure_off) return;
     if (g_frame_count == NULL) {
+        // Never call into IL2CPP before it's initialised (that crashes the game at
+        // launch): its core library pointer stays NULL until then.
+        void *(*corlib)(void) = (void *(*)(void))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_get_corlib");
+        if (corlib == NULL || corlib() == NULL || now_seconds() - g_started < 15.0) return;
         void *(*resolve)(const char *) = (void *(*)(const char *))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_resolve_icall");
         if (resolve == NULL) return;  // GameAssembly not loaded yet
         g_frame_count = (int (*)(void))resolve("UnityEngine.Time::get_frameCount");
@@ -210,6 +215,7 @@ __attribute__((constructor)) static void start(void) {
     // With the FPS unlocker loaded too, it reports the frame rate itself.
     const char *unlock = getenv("PG3D_UNLOCK_FPS");
     g_measure_off = unlock != NULL && strcmp(unlock, "-1") != 0;
+    g_started = now_seconds();
     // The main queue only runs once the app's run loop is up.
     dispatch_after_f(dispatch_time(0, 1000LL * 1000000), MAIN_QUEUE, NULL, tick);
 }

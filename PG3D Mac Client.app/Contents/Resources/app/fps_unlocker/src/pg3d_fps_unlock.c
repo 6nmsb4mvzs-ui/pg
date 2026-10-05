@@ -49,6 +49,7 @@ static FILE *g_log_file;
 static bool g_observe_only;
 static bool g_active;
 static void *(*g_resolve_icall)(const char *);
+static void *(*g_il2cpp_corlib)(void);
 static int (*g_get_target)(void);
 static int (*g_get_vsync)(void);
 static int (*g_get_frames)(void);
@@ -154,6 +155,7 @@ static bool find_game_assembly(void) {
             return false;
         }
         g_resolve_icall = (void *(*)(const char *))dlsym(handle, "il2cpp_resolve_icall");
+        g_il2cpp_corlib = (void *(*)(void))dlsym(handle, "il2cpp_get_corlib");
         dlclose(handle);
         log_message("attached to GameAssembly (%s)", image_name);
         return true;
@@ -255,8 +257,7 @@ static bool prepare_override(Override *override) {
         wrapper_address = scan_for_wrapper(override->binding_name);
         if (wrapper_address == 0) {
             if (!override->binding_was_invalid) {
-                log_message("%s wrapper not found in this build; using enforcement instead.",
-                            override->description);
+                log_message("%s wrapper not found in this build.", override->description);
                 override->binding_was_invalid = true;
             }
             return false;
@@ -299,15 +300,25 @@ static double seconds_between(struct timespec start, struct timespec end) {
            (double)(end.tv_nsec - start.tv_nsec) / 1000000000.0;
 }
 
-static bool g_enforce_only;  // no hookable wrapper: keep re-setting the values instead
+static bool g_enforce_only;
+static bool g_unsupported;  // no hookable wrapper: the unlocker leaves the game alone
 
 static bool initialize_bindings(void) {
-    // Preferred: redirect the icall wrappers so the game can't lower the target.
-    // Builds compiled differently have no wrapper we recognise; then the values are
-    // set through Unity's own setters (looked up by name, build independent) and
-    // re-applied on every 250 ms tick, which works just as well for pacing.
+    // Redirect the icall wrappers so the game can't lower the target. Builds compiled
+    // differently have no wrapper we recognise; then nothing is changed.
     const bool have_hook = prepare_override(&g_target_frame_rate);
+    if (!have_hook && g_target_frame_rate.scanned && !g_observe_only) {
+        // No hookable wrapper. Calling Unity's setters/getters from this timer
+        // instead crashed PG3D (build 156210+), so stay out of the game entirely.
+        g_unsupported = true;
+        return false;
+    }
     if (g_resolve_icall == NULL) {
+        return false;
+    }
+    // Calling into IL2CPP before it's initialised crashes the game at launch. Its
+    // core library pointer stays NULL until then; wait for it (and a few seconds).
+    if (g_il2cpp_corlib == NULL || g_il2cpp_corlib() == NULL || g_retry_count < 40) {
         return false;
     }
     if (have_hook && __atomic_load_n(g_target_frame_rate.cache_slot, __ATOMIC_ACQUIRE) == NULL) {
@@ -404,6 +415,12 @@ static void retry_installation(void) {
     ++g_retry_count;
     if ((g_image_start != 0 || find_game_assembly()) && initialize_bindings()) {
         g_active = true;
+        return;
+    }
+    if (g_unsupported) {
+        log_message("frame-rate hook not found in this build; FPS unlocker inactive "
+                    "(PG3D runs at its own frame rate).");
+        dispatch_source_cancel(g_retry_timer);
         return;
     }
     if (g_retry_count >= kRetryLimit) {

@@ -1177,7 +1177,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="crCardHead"><h3>GUI pieces</h3><button class="btn" id="fdScan">Scan game files</button></div>
           <p class="xNote">Temporary: find the GUI pieces that matter, most of all the ones that cover your view in a match (overlays, indicators, banners, buttons). Select them and Copy report. Nothing is changed here yet.</p>
           <div class="xJob" id="fdJob"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <div class="xRow" style="margin:10px 0;gap:8px"><input class="search" id="fdSearch" placeholder="Filter by name or file" spellcheck="false" style="flex:1"><div class="curSeg" id="fdScope"><button data-s="sug" class="active">Suggested</button><button data-s="all">All textures</button><button data-s="sel">Selected</button></div></div>
+          <div class="xRow" style="margin:10px 0;gap:8px"><input class="search" id="fdSearch" placeholder="Filter by name or file" spellcheck="false" style="flex:1"><div class="curSeg" id="fdScope"><button data-s="sug" class="active">Suggested</button><button data-s="near" title="Every texture in the same files as your selected sprites (HUD icons share a few atlases)">Same files as selected</button><button data-s="all">All textures</button><button data-s="sel">Selected</button></div></div>
           <div class="fdGrid" id="fdGrid"></div>
           <div class="xRow" style="justify-content:center;margin-top:8px"><button class="btn ghost" id="fdMore" hidden>Show more</button></div>
           <div class="xRow" style="margin-top:14px"><span class="sub" id="fdCount"></span><button class="btn" id="fdReport">Copy report</button></div>
@@ -2191,7 +2191,7 @@ function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',pick
   const $p=id=>$('#'+px+id);
   F.load=async()=>{try{const prev=F.data?.generated;F.data=await api('/api/finder');if(prev!==F.data.generated)cats.forEach(c=>F.picks[c]=new Set(F.data.picks?.[c]||[]));await F.fetch(true)}catch(e){console.error(e)}};
   F.fetch=async reset=>{const q=encodeURIComponent($p('Search').value||'');const off=reset?0:F.items.length;const req=++F.req;
-    const r=await api(`/api/finder/list?cat=${F.cat}&all=${F.scope==='all'?1:0}&picked=${F.scope==='sel'?1:0}&q=${q}&offset=${off}&limit=240`);if(req!==F.req)return;
+    const r=await api(`/api/finder/list?cat=${F.cat}&all=${F.scope==='all'?1:0}&picked=${F.scope==='sel'?1:0}&near=${F.scope==='near'?1:0}&q=${q}&offset=${off}&limit=240`);if(req!==F.req)return;
     F.items=reset?r.items:F.items.concat(r.items);F.total=r.total;F.render(reset)};
   F.card=x=>{const b=el('button','fdItem'+(F.picks[F.cat].has(x.gid)?' sel':''));b.type='button';const im=el('img');im.loading='lazy';im.alt='';if(x.type!=='Cubemap')im.src=`/api/finder/thumb/${x.gid}.jpg`;
     b.append(im,el('b',null,x.name||`#${x.path_id}`),el('small',null,`${x.type} ${x.width}×${x.height} · ${x.relative_file.split('/').pop()}`));b.title=`${x.name}\n${x.relative_file} #${x.path_id}`;
@@ -2199,7 +2199,7 @@ function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',pick
   F.render=reset=>{const d=F.data;if(!d)return;$$(`#${px}Seg button`).forEach(b=>b.classList.toggle('active',b.dataset.c===F.cat));$$(`#${px}Scope button`).forEach(b=>b.classList.toggle('active',b.dataset.s===F.scope));
     const g=$p('Grid');if(reset){g.innerHTML='';g.scrollTop=0}
     if(!d.generated){g.innerHTML='';g.append(el('div','xEmpty','Press Scan game files first. It takes a few minutes.'))}
-    else{const have=g.querySelectorAll('.fdItem').length;F.items.slice(have).forEach(x=>g.append(F.card(x)));if(!F.items.length)g.append(el('div','xEmpty',F.scope==='sug'?'No suggestions here. Try All textures.':'Nothing matches.'))}
+    else{const have=g.querySelectorAll('.fdItem').length;F.items.slice(have).forEach(x=>g.append(F.card(x)));if(!F.items.length)g.append(el('div','xEmpty',F.scope==='sug'?'No suggestions here. Try All textures.':F.scope==='near'?'Select a few sprites first; this lists everything stored in the same files.':'Nothing matches.'))}
     $p('More').hidden=F.items.length>=F.total;$p('More').textContent=`Show more (${F.total-F.items.length} left)`;$p('Report').disabled=!d.generated;F.count()};
   F.count=()=>{const n=F.picks[F.cat].size;$p('Count').textContent=F.data?.generated?`${F.total} textures · ${n} selected${F.cat==='cursor'?' (the first one is used)':''}`:'';if($p('Use'))$p('Use').disabled=!n};
   let saveT;F.save=()=>{const c=F.cat,ids=[...F.picks[c]];clearTimeout(saveT);saveT=setTimeout(()=>post('/api/finder/picks',{cat:c,ids}).catch(()=>{}),300)};
