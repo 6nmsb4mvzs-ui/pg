@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.63.0"
+APP_VERSION = "1.64.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -2924,6 +2924,21 @@ def write_current_steam_account_state(login_path: Path, registry_path: Path, sel
 
 
 
+def open_privacy_pane(pane):
+    anchor = {"screen": "Privacy_ScreenCapture", "accessibility": "Privacy_Accessibility",
+              "automation": "Privacy_Automation"}.get(pane)
+    if not anchor:
+        raise RuntimeError("Unknown settings page.")
+    for url in (f"x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?{anchor}",
+                f"x-apple.systempreferences:com.apple.preference.security?{anchor}"):
+        try:
+            subprocess.Popen(["/usr/bin/open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            break
+        except Exception:
+            continue
+    return {"ok": True}
+
+
 def _open_accessibility_settings():
     """Open the exact macOS privacy pane needed for Steam chooser control."""
     for url in (
@@ -4553,6 +4568,71 @@ def _dir_size(path: Path):
 CACHE_DIRS = ("clip_thumbs", "fps_logs", "music_cache", "ember_icons")
 
 
+SIGN_NAME = "PG3D Mac Client Local Signing"
+
+
+def app_signature():
+    """'local' (same identity every version), 'adhoc' or 'none'."""
+    bundle = os.environ.get("PG3D_APP_BUNDLE") or ""
+    if not bundle:
+        return "none"
+    try:
+        r = subprocess.run(["/usr/bin/codesign", "-dvv", bundle], capture_output=True, text=True, timeout=10)
+        out = r.stdout + r.stderr
+    except Exception:
+        return "none"
+    if f"Authority={SIGN_NAME}" in out:
+        return "local"
+    return "adhoc" if "Signature=adhoc" in out or "flags=0x2(adhoc)" in out else "none"
+
+
+def accessibility_trusted():
+    try:
+        import ctypes
+        lib = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices")
+        lib.AXIsProcessTrusted.restype = ctypes.c_bool
+        return bool(lib.AXIsProcessTrusted())
+    except Exception:
+        return None
+
+
+def permissions_payload():
+    return {"signature": cached("app_signature", 30, app_signature),
+            "screen": clips.screen_permission(),
+            "accessibility": accessibility_trusted()}
+
+
+def setup_signature():
+    """The one-time setup: trust the local signing certificate (macOS asks for the
+    password once) and sign the app with it, so permissions stick across updates."""
+    bundle = os.environ.get("PG3D_APP_BUNDLE") or ""
+    if not bundle.endswith(".app"):
+        raise RuntimeError("Open the client from the Applications folder first.")
+    r = subprocess.run(["/bin/zsh", str(BASE / "sign_app.sh"), bundle], capture_output=True, text=True,
+                       timeout=300, env={**os.environ, "PG3D_TRUST": "1"})
+    log(f"Signature setup: {(r.stdout + r.stderr).strip()[-500:]}")
+    _CACHE.pop("app_signature", None)
+    for f in (SUPPORT / "signing").glob("failed-v*"):
+        f.unlink(missing_ok=True)
+    if r.returncode != 0:
+        raise RuntimeError("macOS didn't accept the signing certificate. Try again and enter your Mac password "
+                           "when asked.")
+    return {"ok": True, "signature": "local"}
+
+
+def restart_client():
+    bundle = os.environ.get("PG3D_APP_BUNDLE") or ""
+    if not bundle.endswith(".app"):
+        raise RuntimeError("Quit the client and open it again.")
+
+    def go():
+        time.sleep(0.5)
+        subprocess.Popen(["/usr/bin/open", "-n", bundle, "--args", "--signed"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    threading.Thread(target=go, daemon=True).start()
+    return {"ok": True}
+
+
 def settings_payload():
     def storage():
         clips_list = clips.list_clips()
@@ -4580,6 +4660,7 @@ def settings_payload():
             "downloads_access": not (upd and upd.get("phase") == "no_access"),
         },
         "storage": cached("settings_storage", 20, storage),
+        "permissions": permissions_payload(),
         "clips_folder": str(clips.CLIPS_DIR),
     }
 
@@ -4600,6 +4681,7 @@ def diagnostics_report():
         f"PG3D Mac Client {APP_VERSION}",
         f"macOS {run(['/usr/bin/sw_vers', '-productVersion'])} ({run(['/usr/bin/uname', '-m'])})",
         f"App: {os.environ.get('PG3D_APP_BUNDLE')}",
+        f"Permissions: {json.dumps(permissions_payload())}",
         f"Python: {sys.version.split()[0]} at {sys.executable}",
         f"ffmpeg: {ffmpeg or 'not installed'}",
         f"Game: {find_app()} build {status_payload().get('game_build')}",
@@ -6918,6 +7000,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(reveal(data.get("what")))
             if path == "/api/clips/permission":
                 return self.send_json(clips.request_screen_permission())
+            if path == "/api/setup/signature":
+                return self.send_json(setup_signature())
+            if path == "/api/setup/restart":
+                return self.send_json(restart_client())
+            if path == "/api/setup/open":
+                return self.send_json(open_privacy_pane(str(data.get("pane", ""))))
             if path == "/api/clips/screens/refresh":
                 clips.RECORDER.screens(refresh=True)
                 return self.send_json(clips.payload())

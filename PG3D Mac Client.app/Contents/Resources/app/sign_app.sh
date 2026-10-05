@@ -8,6 +8,9 @@
 # its own keychain, never sent anywhere) gives every version the same identity.
 #
 # Usage: sign_app.sh <path to PG3D Mac Client.app>
+# With PG3D_TRUST=1 the certificate is also marked as trusted for code signing (macOS
+# asks for the password once; codesign won't use an untrusted certificate). Without it
+# nothing ever prompts: an untrusted certificate just falls back to an ad-hoc signature.
 set -u
 APP="$1"
 SUPPORT="$HOME/Library/Application Support/PG3D Mac Client"
@@ -51,6 +54,16 @@ EOF
 
 [[ -n "$(identity)" ]] || create_identity || echo "sign_app: could not create the local signing identity"
 /usr/bin/security unlock-keychain -p "$PASS" "$KC" >/dev/null 2>&1
+# codesign only looks for identities in keychains on the user's search list.
+if ! /usr/bin/security list-keychains -d user | /usr/bin/grep -q "pg3d-signing"; then
+  eval "CURRENT=($(/usr/bin/security list-keychains -d user | /usr/bin/tr '\n' ' '))"
+  /usr/bin/security list-keychains -d user -s "${CURRENT[@]}" "$KC" >/dev/null 2>&1
+fi
+if [[ "${PG3D_TRUST:-}" == "1" ]]; then
+  /usr/bin/security find-certificate -c "$NAME" -p "$KC" > "$DIR/cert.pem" 2>/dev/null
+  /usr/bin/security add-trusted-cert -r trustRoot -p codeSign -k "$KC" "$DIR/cert.pem" 2>&1 \
+    && echo "sign_app: certificate trusted for code signing" && touch "$DIR/trusted"
+fi
 ID="$(identity)"
 /usr/bin/xattr -cr "$APP" 2>/dev/null
 if [[ -n "$ID" ]] && /usr/bin/codesign --force --keychain "$KC" -s "$ID" -i "$BUNDLE_ID" "$APP" 2>&1; then

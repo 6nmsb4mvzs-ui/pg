@@ -21,10 +21,11 @@ def main(out, inputs):
     header = struct.pack(">II", 0xCAFEBABE, len(slices))
     body = b""
     placed = []
-    for cputype, cpusub, data in slices:
+    for i, (cputype, cpusub, data) in enumerate(slices):
         placed.append((cputype, cpusub, offset, len(data)))
-        body += data + b"\0" * ((-len(data)) % (1 << align))
-        offset += len(data) + ((-len(data)) % (1 << align))
+        pad = (-len(data)) % (1 << align) if i < len(slices) - 1 else 0  # nothing after the last slice
+        body += data + b"\0" * pad
+        offset += len(data) + pad
     for cputype, cpusub, off, size in placed:
         header += struct.pack(">IIIII", cputype, cpusub, off, size, align)
     header += b"\0" * ((1 << align) - len(header))

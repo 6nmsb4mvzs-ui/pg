@@ -8,7 +8,7 @@ ZIG=${ZIG:-zig}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 for arch in x86_64 aarch64; do
-  $ZIG cc -target "$arch-macos.11.0" -dynamiclib -fblocks -O2 -Wall -Wextra -Werror \
+  $ZIG cc -target "$arch-macos.11.0" -Wl,-headerpad,0x4000 -dynamiclib -fblocks -O2 -Wall -Wextra -Werror \
     -Wl,-undefined,dynamic_lookup -Wl,-install_name,@rpath/PG3DMouseFix.dylib \
     src/pg3d_mouse_fix.c -o "$tmp/$arch.dylib"
 done

@@ -7,7 +7,7 @@ ZIG=${ZIG:-zig}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 for arch in x86_64 aarch64; do
-  $ZIG cc -target "$arch-macos.11.0" -O2 -Wall -Wextra -Werror src/pg3d_launcher.c -o "$tmp/$arch"
+  $ZIG cc -target "$arch-macos.11.0" -Wl,-headerpad,0x4000 -O2 -Wall -Wextra -Werror src/pg3d_launcher.c -o "$tmp/$arch"
 done
 out=../../../MacOS/PG3DMacClient
 python3 ../fps_unlocker/tools/make_fat.py "$out" "$tmp/x86_64" "$tmp/aarch64"

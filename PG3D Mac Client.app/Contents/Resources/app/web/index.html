@@ -1111,6 +1111,10 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="setRows" id="setupRows"></div>
         </div>
         <div class="crCard setCard">
+          <div class="crCardHead"><h3>Permissions</h3></div>
+          <div class="setRows" id="permRows"></div>
+        </div>
+        <div class="crCard setCard">
           <div class="crCardHead"><h3>Storage</h3></div>
           <div class="setRows" id="storageRows"></div>
         </div>
@@ -1592,6 +1596,7 @@ function renderClipStatus(){
   else if(!st.ffmpeg){t='Setting up recording';x=st.install?.message||'Downloading the recording tools. This only happens once.';dot.classList.add('saving')}
   else if(st.saving){t='Saving clip…';x='It will appear below in a moment.';dot.classList.add('saving')}
   else if(st.phase==='recording'){t='Recording';x=st.buffered>=cfg.length?`Press ${hk} to save the last ${clipLenLabel(cfg.length)}.`:`Building up footage. Press ${hk} any time to save what's recorded so far.`;if(st.capture_fps)x+=` Capturing ${Math.round(st.capture_fps)} FPS.`;dot.classList.add('rec')}
+  else if(st.phase==='no_permission'){t='Needs Screen Recording';x=st.message;dot.classList.add('warn');acts.append(clipAction('Set up permissions',()=>{setTab('settings')},true))}
   else if(st.phase==='error'){t='Recording stopped';x=st.message;dot.classList.add('warn')}
   else if(st.phase==='off'){t='Clips are off';x='Turn on the replay buffer to record while you play.';acts.append(clipAction('Turn on',()=>setClipConfig({enabled:true}),true))}
   else{t='Waiting for Pixel Gun 3D';x='Recording starts by itself once you\'re in the game.'}
@@ -1746,6 +1751,15 @@ let settingsData=null;
 async function refreshSettings(){try{settingsData=await api('/api/settings');renderSettings()}catch(e){console.error(e)}}
 function scheduleSettings(){clearTimeout(settingsTimer);if(localStorage.pg3dTab!=='settings'||document.visibilityState==='hidden')return;settingsTimer=setTimeout(async()=>{await refreshSettings();scheduleSettings()},3000)}
 function setStateBox(box,kind,title,text,btn){box.innerHTML='<span class="clipDot"></span><div><b></b><span></span></div>';box.firstChild.className='clipDot'+(kind?' '+kind:'');box.querySelector('b').textContent=title;box.querySelector(':scope>div>span').textContent=text||'';if(btn)box.appendChild(btn)}
+function renderPermissions(p){const box=$('#permRows');if(!box)return;box.innerHTML='';
+  const open=pane=>smallBtn('Open',()=>post('/api/setup/open',{pane}));
+  const row=(k,v,cls,btn,tip)=>{const r=setRow(k,v,cls,btn);r.title=tip;return r};
+  const sig=p.signature==='local';
+  box.append(row('App identity',sig?'Set up':'Not set up',sig?'ok':'warn',sig?null:smallBtn('Set up',async()=>{toast('macOS asks for your Mac password once to trust the client\'s own signing certificate.');try{await post('/api/setup/signature');toast('Done. Restart the client, then allow the permissions below.');refreshSettings()}catch(e){toast(e.message,true)}}),'Once set up, macOS keeps your permissions when the client updates'));
+  box.append(row('Screen Recording',p.screen===true?'Allowed':p.screen===false?'Not allowed':'Unknown',p.screen===true?'ok':'warn',p.screen===true?null:open('screen'),'Clips, game sound and the overlay FPS'));
+  box.append(row('Accessibility',p.accessibility===true?'Allowed':'Optional',p.accessibility===true?'ok':'',p.accessibility===true?null:open('accessibility'),'Only for switching Steam accounts'));
+  box.append(row('Automation','Asked once','',open('automation'),'Music / Spotify for the song in the overlay, System Events for account switching'));
+  box.append(row('After a change','Restart the client','',smallBtn('Restart',()=>post('/api/setup/restart')),'macOS applies permission changes when the client restarts'))}
 function setRow(k,v,cls,btn){const r=document.createElement('div');r.className='setRow';r.innerHTML='<span class="k"></span><span class="v"></span>';r.querySelector('.k').textContent=k;const vv=r.querySelector('.v');vv.textContent=v;vv.title=v;if(cls)vv.classList.add(cls);if(btn)r.appendChild(btn);return r}
 const smallBtn=(label,fn)=>{const b=clipAction(label,fn);return b};
 async function installUpdate(){try{await post('/api/update/install');toast('Installing the update…');refreshSettings();refreshStatus()}catch(e){toast(e.message,true)}}
@@ -1768,8 +1782,7 @@ function renderSettings(){
   rows.append(setRow('Python',`Ready (${s.python})`,'ok'));
   const fi=s.ffmpeg_install||{};
   rows.append(s.ffmpeg?setRow('Recording tools','Ready','ok'):fi.running?setRow('Recording tools','Downloading…'):setRow('Recording tools',fi.failed?'Download failed':'Not installed yet','warn',smallBtn(fi.failed?'Retry':'Install',async()=>{await post('/api/clips/install-ffmpeg');refreshSettings()})));
-  rows.append(setRow('Screen recording',s.screen_permission===true?'Allowed':s.screen_permission===false?'Not allowed':'Asked when clips first record',s.screen_permission===true?'ok':s.screen_permission===false?'warn':'',s.screen_permission===true?null:smallBtn('Allow',()=>post('/api/clips/permission'))));
-  if(!u.github?.connected||s.downloads_access)rows.append(setRow('Downloads access',s.downloads_access?'Allowed':'Not allowed (only needed without GitHub)',s.downloads_access?'ok':''));
+  renderPermissions(d.permissions||{});
   const st=d.storage||{},sr=$('#storageRows');sr.innerHTML='';
   sr.append(setRow('Clips',`${st.clips_count||0} ${st.clips_count===1?'clip':'clips'}, ${clipBytes(st.clips_bytes||0)}`,'',smallBtn('Open folder',()=>post('/api/settings/reveal',{what:'clips'}))));
   sr.append(setRow('App data',clipBytes(st.support_bytes||0),'',smallBtn('Show',()=>post('/api/settings/reveal',{what:'support'}))));

@@ -374,6 +374,8 @@ class Recorder:
     def start_audio(self):
         if self.audio_unavailable or (self.audio_proc and self.audio_proc.poll() is None):
             return
+        if screen_permission() is False:
+            return  # never let the helper trigger the permission prompt
         if self.audio_denied_at:
             # Try again only once macOS reports the permission, or every few minutes
             # in case it can't tell.
@@ -497,6 +499,13 @@ class Recorder:
                     self.stop_audio()
             if wanted and not running:
                 if time.time() < self.retry_at:
+                    return
+                if screen_permission() is False:
+                    # Starting capture without the permission only makes macOS show its
+                    # prompt again and again. Wait until it's allowed (Settings > Permissions).
+                    self.phase = "no_permission"
+                    self.message = ("Allow Screen Recording for PG3D Mac Client (Settings › Permissions), "
+                                    "then restart the client.")
                     return
                 self.start(ffmpeg, cfg)
             elif not wanted and running:

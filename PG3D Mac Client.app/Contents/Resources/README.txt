@@ -1,4 +1,4 @@
-PG3D Mac Client 1.63.0
+PG3D Mac Client 1.64.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,16 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.64
+Permissions Settings > Permissions shows every permission in one place, with
+          a button to its page in System Settings. "App identity > Set up"
+          trusts the client's own signing certificate (macOS asks for your
+          password once), after which permissions survive updates. The client
+          no longer starts screen capture without permission, which made
+          macOS show its Screen Recording prompt again and again.
+Fixes     The app's programs are built with room for a signature, so macOS's
+          codesign can sign them (1.63's signing failed on this).
 
 New in 1.63
 Permissions The client signs itself with a local signing identity created once
