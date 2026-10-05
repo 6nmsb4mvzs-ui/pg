@@ -2004,7 +2004,7 @@ function renderHud(){const d=hudData;const list=$('#hdList');if(!d||!list)return
     info.append(el('small',null,hidden?'Hidden':row.pct!==100?`Applied: ${row.pct}%`:'Default size'));
     const rr=el('div','rangeRow');const inp=document.createElement('input');inp.type='range';inp.min=40;inp.max=160;inp.step=5;inp.value=cur;inp.disabled=hidden;const val=el('div','rangeVal',cur+'%');
     inp.oninput=()=>{hudEdit[id]=+inp.value;val.textContent=inp.value+'%';r.classList.toggle('changed',+inp.value!==100);$('#hdApply').disabled=!Object.keys(hudEdit).length;const db=r.querySelector('.hdDef');if(db)db.disabled=false};
-    rr.append(inp,val);
+    rr.append(inp,val);if(row.resizable===false){rr.innerHTML='';rr.append(el('small',null,hidden?'Tint removed':'Full-screen tint after respawn: Hide removes it'))}
     const btns=el('div','hdBtns');
     const hide=el('button','btn',hidden?'Show':'Hide');hide.onclick=()=>{delete hudEdit[id];hudSend(hudRowSizes(row,hidden?100:0))};
     const def=el('button','btn hdDef','Default');def.disabled=row.pct===100&&hudEdit[id]===undefined;def.onclick=()=>{delete hudEdit[id];hudSend(hudRowSizes(row,100))};

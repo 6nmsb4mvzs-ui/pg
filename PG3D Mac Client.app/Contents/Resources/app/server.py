@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.70.0"
+APP_VERSION = "1.71.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1807,6 +1807,7 @@ def mods_need_reapply(state=None):
     recorded = prefs_payload().get("mods_build")
     if recorded and build not in (None, "unknown") and recorded != build:
         return "update"
+    restored = []
     for src in srcs:
         path = Path(src)
         if not path.exists():
@@ -1818,10 +1819,34 @@ def mods_need_reapply(state=None):
         if m.get("last_mod_stat") == sig:
             continue
         if sha256_file(path) != m["last_mod_sha256"]:
-            return "restored"
+            restored.append(path)
+            continue
         m["last_mod_stat"] = sig
         write_manifest(path, m)
+    if restored:
+        _record_restores(restored)
+        return "restored"
     return None
+
+
+GAME_RESTORES_JSON = STATE_DIR / "game_restores.json"
+
+
+def _record_restores(paths):
+    """Remember which modded files got their original back (PG3D re-downloading a map
+    bundle it checked, Steam verifying files, ...). Shown in the diagnostic report."""
+    d = read_json(GAME_RESTORES_JSON, {})
+    app = find_app()
+    for p in paths:
+        try:
+            key = str(Path(p).relative_to(app)) if app else Path(p).name
+        except ValueError:
+            key = Path(p).name
+        e = d.setdefault(key, {"count": 0})
+        e["count"] += 1
+        e["last"] = datetime.now().isoformat(timespec="seconds")
+    write_json(GAME_RESTORES_JSON, d)
+    log("Game files put back to original: " + ", ".join(Path(p).name for p in paths[:8]))
 
 
 _REQ = threading.local()  # per-request flags (set while handling one HTTP request)
@@ -4768,6 +4793,10 @@ def diagnostics_report():
         "Sky search: " + ("; ".join(f"{t['kind']} {t.get('name')} {t['width']}x{t['height']} ({t.get('where', '')}) in "
                                     f"{Path(t['relative_file']).name}" for t in sky_targets()[:12]) or "nothing yet"),
         "Sky applied: " + json.dumps({k: v for k, v in (load_mods().get("skybox") or {}).items() if k != "targets"}),
+        "Files put back to original (by PG3D/Steam): " + ("; ".join(
+            f"{Path(k).name} x{v.get('count')} (last {v.get('last')})"
+            for k, v in sorted(read_json(GAME_RESTORES_JSON, {}).items(), key=lambda kv: -kv[1].get("count", 0))[:15])
+            or "none"),
         f"Python: {sys.version.split()[0]} at {sys.executable}",
         f"ffmpeg: {ffmpeg or 'not installed'}",
         f"Game: {find_app()} build {status_payload().get('game_build')}",
@@ -5208,7 +5237,9 @@ def hud_payload():
             continue
         key = f"{src}:{g['path_id']}"
         pct = round(float((layout.get(key) or {}).get("pct", 100)))
-        row = rows.setdefault(label, {"label": label, "keys": [], "pct": pct, "names": []})
+        row = rows.setdefault(label, {"label": label, "keys": [], "pct": pct, "names": [],
+                                      # a full-screen tint: resizing only turns it into a box
+                                      "resizable": label != "Invincibility display"})
         row["keys"].append(key)
         row["names"].append(g["name"])
     return {"ok": True, "scanned": fresh, "reading": bool(not fresh and reading), "rows": list(rows.values())}
