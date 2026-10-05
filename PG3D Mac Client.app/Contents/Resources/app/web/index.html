@@ -887,9 +887,8 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="cursor"><span class="ico">＋</span><span class="label">Cursor</span></button>
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
       <button data-tab="theme"><span class="ico">Aa</span><span class="label">Font</span></button>
-      <button data-tab="sky"><span class="ico">☁</span><span class="label">Sky</span></button>
+      <button data-tab="sky"><span class="ico">▣</span><span class="label">Loading</span></button>
       <button data-tab="textures"><span class="ico">▤</span><span class="label">Textures</span></button>
-      <button data-tab="finder"><span class="ico">⌖</span><span class="label">GUI Finder</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1160,8 +1159,8 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <section class="page" id="page-textures">
       <div class="xPage">
         <div class="crCard">
-          <div class="crCardHead"><div class="curSeg" id="txSeg"><button data-c="sky" class="active">Sky</button><button data-c="cursor">Cursor</button><button data-c="loading">Loading screen</button></div><button class="btn" id="txScan">Scan game files</button></div>
-          <p class="xNote">Every texture in PG3D, sorted into sky, mouse cursor and loading screen. Select the ones you want and press Use selected: the cursor uses your pick, and your sky or loading picture goes onto exactly the textures you selected.</p>
+          <div class="crCardHead"><div class="curSeg" id="txSeg"><button data-c="cursor" class="active">Cursor</button><button data-c="loading">Loading screen</button></div><button class="btn" id="txScan">Scan game files</button></div>
+          <p class="xNote">Every texture in PG3D, sorted into mouse cursor and loading screen. Select the ones you want and press Use selected: the cursor uses your pick, and your loading picture goes onto exactly the textures you selected.</p>
           <div class="xJob" id="txJob"><div class="msg"></div><div class="bar"><i></i></div></div>
           <div class="xRow" style="margin:10px 0;gap:8px"><input class="search" id="txSearch" placeholder="Filter by name or file" spellcheck="false" style="flex:1"><div class="curSeg" id="txScope"><button data-s="sug" class="active">Suggested</button><button data-s="all">All textures</button><button data-s="sel">Selected</button></div></div>
           <div class="fdGrid" id="txGrid"></div>
@@ -1171,24 +1170,10 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <section class="page" id="page-finder">
-      <div class="xPage">
-        <div class="crCard">
-          <div class="crCardHead"><h3>GUI pieces</h3><button class="btn" id="fdScan">Scan game files</button></div>
-          <p class="xNote">Temporary: find the GUI pieces that matter, most of all the ones that cover your view in a match (overlays, indicators, banners, buttons). Select them and Copy report. Nothing is changed here yet.</p>
-          <div class="xJob" id="fdJob"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <div class="xRow" style="margin:10px 0;gap:8px"><input class="search" id="fdSearch" placeholder="Filter by name or file" spellcheck="false" style="flex:1"><div class="curSeg" id="fdScope"><button data-s="sug" class="active">Suggested</button><button data-s="near" title="Every texture in the same files as your selected sprites (HUD icons share a few atlases)">Same files as selected</button><button data-s="all">All textures</button><button data-s="sel">Selected</button></div></div>
-          <div class="fdGrid" id="fdGrid"></div>
-          <div class="xRow" style="justify-content:center;margin-top:8px"><button class="btn ghost" id="fdMore" hidden>Show more</button></div>
-          <div class="xRow" style="margin-top:14px"><span class="sub" id="fdCount"></span><button class="btn" id="fdReport">Copy report</button></div>
-        </div>
-      </div>
-    </section>
-
     <section class="page" id="page-sky">
       <div class="xPage">
         <div class="crCard">
-          <div class="crCardHead"><div class="curSeg skModeSeg" id="skMode"><button data-m="sky" class="active">Sky</button><button data-m="loading">Loading screen</button></div><span class="xPill" id="skActive"></span></div>
+          <div class="crCardHead"><h3 class="skModeSeg">Loading screen</h3><span class="xPill" id="skActive"></span></div>
           <div class="skGrid">
             <button class="skDrop" id="skDrop"><span>＋</span><b>Add image</b><small id="skDropHint">PNG or JPEG · 2:1 panoramas wrap around</small></button>
             <div class="skLib" id="skLib"></div>
@@ -1283,7 +1268,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',sky:'Sky & loading screen',textures:'Textures',finder:'GUI Finder (temporary)',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',sky:'Loading screen',textures:'Textures',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 async function api(path,opts={}){const r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Math.round(sec/60)} min`}
@@ -1799,11 +1784,11 @@ let lastJobPhase=null;
 function jobLine(j){const q=j.queue||[];let t=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');
   if(j.phase==='running'&&j.eta!=null&&j.eta>0)t+=` · about ${fmtEta(j.eta)} left`;if(q.length)t+=` · then: ${q.join(', ')}`;return t}
 function renderJob(){const j=statusData?.job;if(!j)return;const active=j.phase==='running'||j.phase==='waiting';
-  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#fdJob',['scan']],['#txJob',['scan','sky','change']]]){const box=$(id);if(!box)continue;
+  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#txJob',['scan','sky','change']]]){const box=$(id);if(!box)continue;
     const mine=(kinds.includes(j.kind)&&(active||j.phase==='error'))||(j.queue||[]).length>0;box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
     box.querySelector('.msg').textContent=jobLine(j);box.querySelector('.bar i').style.width=(j.phase==='running'?j.progress||0:0)+'%'}
   const hint=$('#skHint');if(hint)hint.textContent=statusData.game_stuck?'PG3D is stuck in the background: quit it on the Play tab, then this applies.':statusData.game_running?'PG3D is open: your change is applied as soon as it closes.':active?'Changes you click now are queued and run one after another.':'';
-  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='finder')FD.load();if(localStorage.pg3dTab==='textures')TX.load()}
+  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='textures')TX.load()}
   if(fin||lastJobId===undefined)lastJobId=fin?j.id:null;lastJobPhase=j.phase}
 let lastJobId;
 
@@ -1976,7 +1961,7 @@ $('#fixMouse').onclick=async()=>{try{await post('/api/game/refocus',{});toast('S
 $('#rescanGame').onclick=async()=>{const b=$('#rescanGame');b.disabled=true;try{await post('/api/gui/scan',{deep:false});try{await post('/api/customize/scan')}catch(e){if(!/running/.test(e.message))throw e}toast('Rescanning PG3D. This takes about a minute.');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}finally{setTimeout(()=>b.disabled=false,3000)}};
 
 // Sky
-let loadTargetsOn=null;let skyData=null,skySel=null,skyTargetsOff=new Set(),skMode=localStorage.pg3dSkMode==='loading'?'loading':'sky';
+let loadTargetsOn=null;let skyData=null,skySel=null,skyTargetsOff=new Set(),skMode='loading';
 let loadKeysSig=null;async function loadSky(){try{skyData=await api('/api/sky');{const sig=JSON.stringify([skyData.loading?.active?.target_keys||null,(skyData.loading?.targets||[]).length]);if(sig!==loadKeysSig){loadKeysSig=sig;loadTargetsOn=null}}const act=skyData.active;if(!skySel)skySel=act?.id||skyData.library[0]?.id||null;if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=0;setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip);
     const keys=new Set(act.target_keys||[]);skyTargetsOff=act.custom?new Set(skyData.targets.filter(t=>!keys.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id)):new Set()}
     if(!act||!act.custom){const pk=new Set(skyData.picked_keys?.sky||[]);if(pk.size)skyTargetsOff=new Set(skyData.targets.filter(t=>!pk.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id))}renderSky()}catch(e){console.error(e)}}
@@ -2186,7 +2171,7 @@ let _uiThemeSynced=false;
 
 (async function init(){setTab(localStorage.pg3dTab||'play');await refreshStatus();selectedCursor=localStorage.pg3dCursor||statusData?.mods?.cursor?.cursor||'clean_dot';cursorSize=Math.max(8,Math.min(100,Number(localStorage.pg3dCursorSize||statusData?.mods?.cursor?.size||45)));cursorColor=(localStorage.pg3dCursorColor||statusData?.mods?.cursor?.color||'#FFFFFF').toUpperCase();cursorOutline=(localStorage.pg3dCursorOutline||statusData?.mods?.cursor?.outline||'#000000').toUpperCase();cursorOutlineWidth=Number(localStorage.pg3dCursorOW!=null?localStorage.pg3dCursorOW:(statusData?.mods?.cursor?.outline_width||0));$('#cursorSize').value=cursorSize;$('#fpsSelect').value=statusData?.prefs?.fps_target||'uncapped';renderCursorGrid();updateCursorPanel();await refreshPlayerCount();scheduleStatus();setInterval(refreshPlayerCount,30000)})();
 
-/* ===== Textures (sky / cursor / loading) and GUI Finder: one component, two pages ===== */
+/* ===== Textures (cursor / loading) ===== */
 function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',picks:{},items:[],total:0,req:0};cats.forEach(c=>F.picks[c]=new Set());
   const $p=id=>$('#'+px+id);
   F.load=async()=>{try{const prev=F.data?.generated;F.data=await api('/api/finder');if(prev!==F.data.generated)cats.forEach(c=>F.picks[c]=new Set(F.data.picks?.[c]||[]));await F.fetch(true)}catch(e){console.error(e)}};
@@ -2208,9 +2193,9 @@ function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',pick
   $p('Scan').onclick=async()=>{try{await post('/api/finder/scan',{});toast('Listing PG3D\'s textures… this takes a few minutes.')}catch(e){toast(e.message,true)}};
   $p('Report').onclick=async()=>{try{await post('/api/finder/picks',{cat:F.cat,ids:[...F.picks[F.cat]]});const r=await post('/api/finder/report',{});try{await navigator.clipboard?.writeText(r.text)}catch{}toast('Report copied. Paste it in the chat.')}catch(e){toast(e.message,true)}};
   if($p('Use'))$p('Use').onclick=async()=>{try{await post('/api/finder/picks',{cat:F.cat,ids:[...F.picks[F.cat]]});const r=await post('/api/finder/use',{cat:F.cat});
-    toast(F.cat==='cursor'?`Your cursor now uses ${r.target}.`:r.applied?`Applying your ${F.cat==='sky'?'sky':'loading screen'} to the ${r.count} selected textures…`:`Saved. Pick a picture in the Sky tab and apply it; it goes onto these ${r.count} textures.`);await refreshStatus();scheduleStatus();loadSky()}catch(e){toast(e.message,true)}};
+    toast(F.cat==='cursor'?`Your cursor now uses ${r.target}.`:r.applied?`Applying your ${F.cat==='sky'?'sky':'loading screen'} to the ${r.count} selected textures…`:`Saved. Pick a picture in the Loading tab and apply it; it goes onto these ${r.count} textures.`);await refreshStatus();scheduleStatus();loadSky()}catch(e){toast(e.message,true)}};
   return F}
-const TX=makeFinder('tx',['sky','cursor','loading']),FD=makeFinder('fd',['gui'],true);
+const TX=makeFinder('tx',['cursor','loading']);
 </script>
 </body>
 </html>

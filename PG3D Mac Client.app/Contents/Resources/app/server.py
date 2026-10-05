@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.56.0"
+APP_VERSION = "1.57.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -4987,8 +4987,8 @@ def finder_use(cat):
             c["index"] = i
         write_json(CURSOR_CANDIDATES_JSON, {"items": items})
         return choose_cursor_target(0)
-    if cat == "gui":
-        raise RuntimeError("Use the size slider below to change GUI textures.")
+    if cat in ("gui", "sky"):
+        raise RuntimeError("Custom sky and GUI edits were removed from the client.")
     d = _finder_picks()
     d["used"][cat] = [{**{k: x[k] for k in ("name", "type", "width", "height", "source_file", "relative_file", "path_id")},
                        "preview": f"/api/finder/thumb/{x['gid']}.jpg"} for x in picked]
@@ -5699,13 +5699,14 @@ def set_reapply_pref(on):
 
 
 def _has_retired_mods(state):
-    return bool(state.get("theme") or state.get("hud_set") or state.get("hud_disabled")
-                or any(not v.get("role") and not v.get("finder") for v in (state.get("gui") or {}).values()))
+    return bool(state.get("theme") or state.get("hud_set") or state.get("hud_disabled") or state.get("skybox")
+                or any(not v.get("role") for v in (state.get("gui") or {}).values()))
 
 
 def retire_removed_mods():
-    """1.47 removed in-game themes and HUD resizing: take any that are still
-    applied out of the game files once, as soon as PG3D is closed."""
+    """Retired features (in-game themes and HUD resizing in 1.47, custom sky and GUI
+    Finder edits in 1.57): take any that are still applied out of the game files
+    once, as soon as PG3D is closed."""
     while True:
         try:
             if not _has_retired_mods(load_mods()):
@@ -5715,12 +5716,13 @@ def retire_removed_mods():
                     state["theme"] = None
                     state["hud_set"] = {}
                     state["hud_disabled"] = False
-                    state["gui"] = {k: v for k, v in (state.get("gui") or {}).items() if v.get("role") or v.get("finder")}
-                mutate_state(change, "Remove in-game theme and HUD changes")
-                log("Removed the in-game theme / HUD changes (features retired in 1.47).")
+                    state["skybox"] = None
+                    state["gui"] = {k: v for k, v in (state.get("gui") or {}).items() if v.get("role")}
+                mutate_state(change, "Remove retired sky / theme / HUD changes")
+                log("Removed retired sky / theme / HUD changes (original game textures restored).")
                 return
         except Exception as e:
-            log(f"Retiring theme/HUD changes failed, retrying: {e}")
+            log(f"Retiring sky/theme/HUD changes failed, retrying: {e}")
         time.sleep(30)
 
 
@@ -6661,9 +6663,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(finder_report())
             if path == "/api/finder/use":
                 return self.send_json(finder_use(data.get("cat")))
-            if path == "/api/finder/gui":
-                return self.send_json(finder_gui_apply(data.get("ids"), data.get("scale", 100), bool(data.get("hidden")),
-                                                       bool(data.get("reset"))))
+            if path in ("/api/finder/gui", "/api/sky/apply"):
+                raise RuntimeError("Custom sky and GUI edits were removed from the client.")
             if path == "/api/cursor/choose":
                 return self.send_json(choose_cursor_target(int(data.get("index", -1))))
             if path == "/api/cursor/redetect":
