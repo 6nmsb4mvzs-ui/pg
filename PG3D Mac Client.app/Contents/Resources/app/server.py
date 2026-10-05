@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.62.0"
+APP_VERSION = "1.63.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -4958,6 +4958,34 @@ def finder_thumb_path(gid):
     return out
 
 
+HUD_SCAN_JSON = STATE_DIR / "hud_scan.json"
+
+
+def start_hud_scan():
+    """Deep scan of every game file for the in-match HUD's layout objects (report only)."""
+    def job(progress):
+        app = find_app()
+        if not app:
+            raise RuntimeError("Pixel Gun 3D.app was not found.")
+        files = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files(refresh=True)
+        hits = customize.hud_scan(files, app, progress, log)
+        build = plist_value(app / "Contents/Info.plist", "CFBundleVersion")
+        write_json(HUD_SCAN_JSON, {"generated": datetime.now().isoformat(timespec="seconds"), "build": build,
+                                   "files": len(files), "hits": hits})
+        subprocess.run(["/usr/bin/pbcopy"], input=customize.hud_report(hits, build), text=True, timeout=5)
+        return f"Found {len(hits)} HUD layout objects in {len(files)} files. The report is copied: paste it into your message."
+    return start_job("scan", job, label="Scanning HUD layout")
+
+
+def copy_hud_report():
+    d = read_json(HUD_SCAN_JSON, None)
+    if not d:
+        raise RuntimeError("Run the HUD layout scan first.")
+    subprocess.run(["/usr/bin/pbcopy"], input=customize.hud_report(d.get("hits", []), d.get("build", "")),
+                   text=True, timeout=5)
+    return {"ok": True, "count": len(d.get("hits", []))}
+
+
 def start_finder_scan():
     def job(progress):
         app = find_app()
@@ -6712,6 +6740,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(start_finder_scan())
             if path == "/api/finder/picks":
                 return self.send_json(set_finder_picks(data.get("cat"), data.get("ids")))
+            if path == "/api/hud/scan":
+                return self.send_json(start_hud_scan())
+            if path == "/api/hud/report":
+                return self.send_json(copy_hud_report())
             if path == "/api/finder/report":
                 return self.send_json(finder_report())
             if path == "/api/finder/use":

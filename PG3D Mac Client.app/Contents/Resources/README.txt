@@ -1,4 +1,4 @@
-PG3D Mac Client 1.62.0
+PG3D Mac Client 1.63.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,17 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.63
+Permissions The client signs itself with a local signing identity created once
+          on this Mac, so every version is the same app to macOS: Screen
+          Recording and other permissions stay allowed after updates. The
+          Downloads folder is only read when "Use the Downloads folder" is on
+          (updates come from GitHub), so macOS stops asking about Downloads.
+HUD       Settings > Scan HUD layout: looks through every game file for the
+          in-match HUD (weapon bar, health and armor bars, ability buttons)
+          and copies a report of their layout objects, sizes and sprites.
+          Nothing is changed yet.
 
 New in 1.62
 Fixes     The client now runs natively on Apple Silicon; tools that were

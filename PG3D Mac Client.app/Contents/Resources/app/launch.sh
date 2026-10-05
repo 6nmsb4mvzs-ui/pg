@@ -5,7 +5,7 @@
 set -u
 setopt NULL_GLOB
 
-VERSION="1.62.0"
+VERSION="1.63.0"
 PORT=38513
 APP_ID="pg3d-mac-client-v$VERSION"
 SOURCE_BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -50,7 +50,13 @@ stop_running() {
 }
 
 POST_INSTALL=""
-for arg in "$@"; do [[ "$arg" == "--installed" ]] && POST_INSTALL=1; done
+JUST_SIGNED=""
+for arg in "$@"; do
+  [[ "$arg" == "--installed" ]] && POST_INSTALL=1
+  [[ "$arg" == "--signed" ]] && JUST_SIGNED=1
+done
+SIGN_NAME="PG3D Mac Client Local Signing"
+signed_ok() { /usr/bin/codesign -dvv "$1" 2>&1 | /usr/bin/grep -q "Authority=$SIGN_NAME"; }
 
 # ---------------------------------------------------------------- self-install
 # Anything not already in an Applications folder (Downloads, Desktop, or the
@@ -69,6 +75,9 @@ case "$APP_BUNDLE" in
       # You already approved this copy when opening it, so the installed copy
       # doesn't need to be checked again.
       /usr/bin/xattr -dr com.apple.quarantine "$DEST.installing" 2>/dev/null || true
+      # The same signing identity in every version keeps macOS permissions (Screen
+      # Recording, Downloads) from being asked again after updates.
+      /bin/zsh "$SOURCE_BASE/sign_app.sh" "$DEST.installing" >>"$LOG" 2>&1
       rm -rf "$DEST.previous"
       [[ -e "$DEST" ]] && mv "$DEST" "$DEST.previous"
       if mv "$DEST.installing" "$DEST"; then
@@ -82,6 +91,20 @@ case "$APP_BUNDLE" in
     echo "Install into $DEST_DIR failed; running from $APP_BUNDLE" >>"$LOG"
     ;;
 esac
+
+# ---------------------------------------------------------------- stable signature
+# A copy that isn't signed with the local identity yet (an update installed by an older
+# version) signs itself once and restarts, so macOS sees the same app as before.
+SIGN_FAILED="$SUPPORT/signing/failed-v$VERSION"
+if [[ -z "$JUST_SIGNED" && ! -f "$SIGN_FAILED" ]] && ! signed_ok "$APP_BUNDLE"; then
+  if /bin/zsh "$SOURCE_BASE/sign_app.sh" "$APP_BUNDLE" >>"$LOG" 2>&1 && signed_ok "$APP_BUNDLE"; then
+    echo "Signed $APP_BUNDLE with the local identity; restarting it" >>"$LOG"
+    /usr/bin/open -n "$APP_BUNDLE" --args --signed ${POST_INSTALL:+--installed}
+    exit 0
+  fi
+  mkdir -p "$SUPPORT/signing"; touch "$SIGN_FAILED"
+  echo "Local signing failed; continuing unsigned" >>"$LOG"
+fi
 
 # ---------------------------------------------------------------- already open?
 FAST_SHELL_PID="$(cat "$SHELL_PIDFILE" 2>/dev/null || true)"

@@ -55,7 +55,9 @@ def _read_json(path, default):
 
 
 def load_prefs():
-    prefs = {"auto_install": True, "auto_clean": True}
+    # use_downloads: look in ~/Downloads for client zips. Off by default: updates come
+    # from GitHub, and reading Downloads makes macOS ask for access.
+    prefs = {"auto_install": True, "auto_clean": True, "use_downloads": False}
     raw = _read_json(PREFS_JSON, {})
     if isinstance(raw, dict):
         for k in prefs:
@@ -66,7 +68,7 @@ def load_prefs():
 
 def save_prefs(patch):
     prefs = load_prefs()
-    for k in ("auto_install", "auto_clean"):
+    for k in ("auto_install", "auto_clean", "use_downloads"):
         if k in (patch or {}):
             prefs[k] = bool(patch[k])
     STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -246,6 +248,8 @@ class Updater:
     # ----- discovery
     def _candidates(self):
         found = []
+        if not load_prefs()["use_downloads"]:
+            return found
         try:
             entries = list(DOWNLOADS.iterdir())
         except PermissionError:
@@ -378,6 +382,10 @@ class Updater:
             if app_version(staged) != cand["version"]:
                 raise RuntimeError("The downloaded version looks incomplete.")
             subprocess.run(["/usr/bin/xattr", "-dr", "com.apple.quarantine", str(staged)], capture_output=True)
+            signer = Path(__file__).resolve().parent / "sign_app.sh"  # same identity => macOS keeps permissions
+            if signer.exists():
+                r = subprocess.run(["/bin/zsh", str(signer), str(staged)], capture_output=True, text=True, timeout=120)
+                _log(f"Updater: {(r.stdout or r.stderr).strip()[-200:]}")
 
             dest = self.app_bundle
             if not dest or not str(dest).endswith(".app") or "/AppTranslocation/" in str(dest):

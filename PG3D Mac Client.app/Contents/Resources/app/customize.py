@@ -858,3 +858,158 @@ def finder_thumb(source_file, path_id, out: Path, env_cache):
     bg.paste(img, mask=img.split()[3])
     out.parent.mkdir(parents=True, exist_ok=True)
     bg.save(out, "JPEG", quality=78)
+
+
+# ----------------------------------------------------------------------------- HUD layout scan
+# Resizing the HUD means changing the size/scale of its layout objects (RectTransforms in
+# the game's UI prefabs), not its pictures. This scan finds them: every UI object whose
+# name looks like part of the in-match HUD, with its place in the hierarchy, its size and
+# scale, and the sprites it shows. Nothing is changed.
+_HUD_STRONG = ("hud", "ingame", "weaponslot", "weaponslots", "healthbar", "armorbar", "hpbar", "ammo",
+               "crosshair", "reticle", "killfeed", "minimap", "radar", "joystick", "gadget", "hotbar",
+               "weaponpanel", "weaponbar", "inventorybar")
+_HUD_MID = ("weapon", "slot", "health", "armor", "armour", "hp", "ability", "skill", "button", "btn",
+            "key", "hotkey", "reload", "jump", "fire", "shoot", "aim", "timer", "score", "kill",
+            "damage", "grenade", "pet", "potion", "consumable", "bar", "counter", "indicator")
+_HUD_NOT = ("shop", "store", "lobby", "menu", "bank", "inventory_window", "profile", "clan", "friends",
+            "settings", "lottery", "chest", "pass", "reward", "offer", "news", "craft", "armory",
+            "avatar", "skin", "preview", "tutorial", "loading", "chat")
+
+
+def hud_name_score(name):
+    flat = re.sub(r"[^a-z0-9]", "", (name or "").lower())
+    words = set(_words(name))
+    if not flat or any(w in flat for w in _HUD_NOT):
+        return 0
+    s = 0
+    s += sum(3 for w in _HUD_STRONG if w in flat)
+    s += sum(1 for w in _HUD_MID if w in words or (len(w) > 3 and w in flat))
+    return s
+
+
+def _pid(ptr):
+    for k in ("m_PathID", "path_id"):
+        v = getattr(ptr, k, None)
+        if v is not None:
+            return int(v)
+    return 0
+
+
+def _fid(ptr):
+    return int(getattr(ptr, "m_FileID", getattr(ptr, "file_id", 0)) or 0)
+
+
+def hud_scan(files, app: Path, progress=None, log=print, limit=4000):
+    import UnityPy
+
+    hits = []
+    total = max(1, len(files))
+    for idx, p in enumerate(files, 1):
+        if progress:
+            progress(idx / total, f"Scanning HUD layout ({idx}/{total}, {len(hits)} found)…")
+        try:
+            env = UnityPy.load(str(p))
+            env._pg3d_own_files = {id(o.assets_file) for o in env.objects}
+        except Exception as e:
+            log(f"HUD LOAD FAIL {p}: {e}")
+            continue
+        try:
+            rel = str(Path(p).relative_to(app))
+        except ValueError:
+            rel = Path(p).name
+        objs = _own_objects(env)
+        gos, rts, monos, sprites = {}, {}, {}, {}
+        for obj in objs:
+            t = obj.type.name
+            if t in ("GameObject", "RectTransform", "MonoBehaviour", "Sprite"):
+                (gos if t == "GameObject" else rts if t == "RectTransform" else monos if t == "MonoBehaviour"
+                 else sprites)[int(obj.path_id)] = obj
+        if not rts:
+            del env
+            continue  # no UI in this file
+        names, comps = {}, {}
+        for pid, obj in gos.items():
+            try:
+                d = obj.parse_as_object()
+                names[pid] = str(getattr(d, "m_Name", "") or "")
+                comps[pid] = [c for c in (getattr(d, "m_Component", None) or [])]
+            except Exception:
+                continue
+        found = {pid: hud_name_score(n) for pid, n in names.items()}
+        found = {pid: s for pid, s in found.items() if s > 0}
+        if not found:
+            del env
+            continue
+        tf = {}      # transform path id -> (game object id, father transform id)
+        rt_of = {}   # game object id -> RectTransform data
+        for pid, obj in rts.items():
+            try:
+                d = obj.parse_as_object()
+            except Exception:
+                continue
+            go = _pid(d.m_GameObject)
+            tf[pid] = (go, _pid(getattr(d, "m_Father", None)))
+            rt_of[go] = d
+        go_tf = {go: t for t, (go, _) in tf.items()}
+
+        def path_of(go):
+            parts, t, seen = [], go_tf.get(go), set()
+            while t and t in tf and t not in seen and len(parts) < 12:
+                seen.add(t)
+                g, father = tf[t]
+                parts.append(names.get(g, "?"))
+                t = father
+            return "/".join(reversed(parts))
+
+        def sprite_names(go):
+            out = []
+            for c in comps.get(go, [])[:12]:
+                ptr = getattr(c, "component", c)
+                m = monos.get(_pid(ptr)) if _fid(ptr) == 0 else None
+                if m is None:
+                    continue
+                try:
+                    md = m.parse_as_object()
+                    sp = getattr(md, "m_Sprite", None)
+                    if sp is None or not _pid(sp):
+                        continue
+                    so = sprites.get(_pid(sp)) if _fid(sp) == 0 else None
+                    out.append(_name(so) if so is not None else f"(other file) #{_pid(sp)}")
+                except Exception:
+                    continue
+            return out
+
+        for go, d in rt_of.items():
+            own = found.get(go, 0)
+            path = path_of(go)
+            in_hud = hud_name_score(path)  # children of a HUD container count too (an "Icon" in "WeaponSlot")
+            if own <= 0 and in_hud < 3:
+                continue
+            try:
+                sd, sc = d.m_SizeDelta, d.m_LocalScale
+                size = [round(float(sd.x), 1), round(float(sd.y), 1)]
+                scale = [round(float(sc.x), 3), round(float(sc.y), 3)]
+            except Exception:
+                size, scale = None, None
+            hits.append({"name": names.get(go, ""), "path": path, "score": own + in_hud // 2,
+                         "size": size, "scale": scale, "sprites": sprite_names(go),
+                         "source_file": str(p), "relative_file": rel, "path_id": int(go)})
+        del env
+    hits.sort(key=lambda h: (-h["score"], h["relative_file"], h["path"]))
+    return hits[:limit]
+
+
+def hud_report(hits, build=""):
+    lines = [f"PG3D HUD layout scan · build {build} · {len(hits)} objects", ""]
+    by_file = {}
+    for h in hits:
+        by_file.setdefault(h["relative_file"], []).append(h)
+    for rel, items in sorted(by_file.items(), key=lambda kv: -max(h["score"] for h in kv[1])):
+        lines.append(f"== {rel} ({len(items)})")
+        for h in sorted(items, key=lambda h: (-h["score"], h["path"]))[:200]:
+            size = f"{h['size'][0]:g}x{h['size'][1]:g}" if h.get("size") else "?"
+            scale = f"{h['scale'][0]:g}" if h.get("scale") else "?"
+            spr = f"  sprites: {', '.join(h['sprites'][:4])}" if h.get("sprites") else ""
+            lines.append(f"  [{h['score']}] {h['path']}  size {size}  scale {scale}  #{h['path_id']}{spr}")
+        lines.append("")
+    return "\n".join(lines)
