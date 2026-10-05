@@ -1,4 +1,4 @@
-PG3D Mac Client 1.40.0
+PG3D Mac Client 1.41.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -162,3 +162,13 @@ Mouse     The in-game overlay no longer covers the whole screen or keeps
           Troubleshooting › Fix stuck mouse) to hand focus back to PG3D.
 Theme     New "Cute" theme for the client and the game: soft pink with
           deeper rose accents.
+
+New in 1.41
+Mouse fix PG3D's own Mac bugs: the system cursor staying visible in the
+          middle of the screen, and clicks that only work on the second
+          press. When PG3D is started from the client (Start or Start with
+          FPS Unlocker), a small helper is loaded into the game that keeps
+          the system cursor hidden while the game has it locked, and makes
+          the first click count. Settings › Troubleshooting › Mouse fix
+          turns it off; it switches itself off if PG3D closes right after
+          starting twice in a row.

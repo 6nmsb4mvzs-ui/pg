@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.40.0"
+APP_VERSION = "1.41.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -69,6 +69,7 @@ CURSOR_BY_ID = {x["id"]: x for x in CURSOR_CATALOG}
 FPS_SOURCE_DIR = BASE / "fps_unlocker"
 FPS_SOURCE_DYLIB = FPS_SOURCE_DIR / "build/PG3DFPSUnlock.dylib"
 FPS_SOURCE_LAUNCHER = FPS_SOURCE_DIR / "build/launch-game"
+FPS_SOURCE_MOUSEFIX = FPS_SOURCE_DIR / "build/PG3DMouseFix.dylib"
 
 SUPPORT = Path.home() / "Library/Application Support/PG3D Mac Client"
 HUD_SELECTOR_FILE = Path.home() / "Library/Application Support/PG3D HUD Asset Selector/hud_selection.json"
@@ -94,6 +95,7 @@ ACCOUNT_HELPER_REQUEST = SUPPORT / "helper_request.txt"
 ACCOUNT_HELPER_RESULT = SUPPORT / "helper_result.txt"
 FPS_DYLIB = FPS_RUNTIME_DIR / "PG3DFPSUnlock.dylib"
 FPS_LAUNCHER = FPS_RUNTIME_DIR / "launch-game"
+MOUSEFIX_DYLIB = FPS_RUNTIME_DIR / "PG3DMouseFix.dylib"
 ORIGINAL_CURSOR_BASELINE = STATE_DIR / "original_cursor_baseline.png"
 OVERLAY_CONFIG_JSON = STATE_DIR / "overlay_config.json"
 OVERLAY_RUNTIME_JSON = STATE_DIR / "overlay_runtime.json"
@@ -264,11 +266,21 @@ def prepare_fps_runtime():
     """Copy the bundled FPS helper to a stable Application Support location."""
     try:
         FPS_RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
-        for src, dst in ((FPS_SOURCE_DYLIB, FPS_DYLIB), (FPS_SOURCE_LAUNCHER, FPS_LAUNCHER)):
+        for src, dst in ((FPS_SOURCE_DYLIB, FPS_DYLIB), (FPS_SOURCE_LAUNCHER, FPS_LAUNCHER),
+                         (FPS_SOURCE_MOUSEFIX, MOUSEFIX_DYLIB)):
             if src.is_file() and src.stat().st_size > 0:
-                if (not dst.exists() or dst.stat().st_size != src.stat().st_size or
-                        sha256_file(dst) != sha256_file(src)):
+                stamp = dst.with_name(dst.name + ".src-sha256")
+                src_sha = sha256_file(src)
+                if not dst.exists() or (stamp.read_text().strip() if stamp.exists() else sha256_file(dst)) != src_sha:
                     shutil.copy2(src, dst)
+                    if dst == MOUSEFIX_DYLIB:
+                        # Built without Apple's tools, so it gets its ad-hoc signature here.
+                        try:
+                            subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", str(dst)],
+                                           capture_output=True, timeout=30)
+                        except Exception as e:
+                            log(f"Signing the mouse fix failed: {e}")
+                    stamp.write_text(src_sha)
             if dst.exists():
                 dst.chmod(dst.stat().st_mode | 0o111)
         return FPS_DYLIB.is_file() and FPS_DYLIB.stat().st_size > 0 and FPS_LAUNCHER.is_file() and FPS_LAUNCHER.stat().st_size > 0
@@ -3073,6 +3085,77 @@ def fps_target_value(value):
     return str(n)
 
 
+def binary_arches(path: Path):
+    """CPU architectures in a Mach-O executable (thin or universal)."""
+    names = {0x01000007: "x86_64", 0x0100000C: "arm64"}
+    try:
+        with open(path, "rb") as f:
+            head = f.read(4096)
+    except OSError:
+        return set()
+    magic = int.from_bytes(head[:4], "big")
+    if magic == 0xCAFEBABE:
+        count = int.from_bytes(head[4:8], "big")
+        return {names.get(int.from_bytes(head[8 + i * 20:12 + i * 20], "big"), "?") for i in range(min(count, 10))}
+    if head[:4] == b"\xcf\xfa\xed\xfe":
+        return {names.get(int.from_bytes(head[4:8], "little"), "?")}
+    return set()
+
+
+def mouse_fix_enabled():
+    return prefs_payload().get("mouse_fix", True) is not False
+
+
+def set_mouse_fix_pref(on):
+    prefs = prefs_payload()
+    prefs["mouse_fix"] = bool(on)
+    prefs["mouse_fix_failures"] = 0
+    write_json(PREFS_JSON, prefs)
+    return {"ok": True, "mouse_fix": bool(on)}
+
+
+def mouse_fix_usable(binary: Path):
+    prepare_fps_runtime()
+    return (mouse_fix_enabled() and MOUSEFIX_DYLIB.is_file()
+            and bool(binary_arches(binary) & {"x86_64", "arm64"}))
+
+
+def _watch_mouse_fix_start():
+    """If PG3D keeps closing right after starting with the mouse fix, turn the fix off."""
+    def work():
+        time.sleep(25)
+        prefs = prefs_payload()
+        if _game_running_uncached():
+            if prefs.get("mouse_fix_failures"):
+                prefs["mouse_fix_failures"] = 0
+                write_json(PREFS_JSON, prefs)
+            return
+        fails = int(prefs.get("mouse_fix_failures", 0)) + 1
+        prefs["mouse_fix_failures"] = fails
+        if fails >= 2:
+            prefs["mouse_fix"] = False
+            set_status(launch_error="PG3D closed right after starting twice in a row, so the mouse fix was turned off. "
+                                    "Turn it back on in Settings › Troubleshooting.")
+            log("Mouse fix disabled after two quick exits")
+        write_json(PREFS_JSON, prefs)
+    threading.Thread(target=work, daemon=True).start()
+
+
+def launch_with_mouse_fix(game: Path):
+    """Start PG3D directly with only the mouse fix loaded (normal frame pacing)."""
+    binary = game / "Contents/MacOS/Pixel Gun 3D"
+    log_path = FPS_LOG_DIR / f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
+    log_path.write_text(f"[PG3D Mac Client] launch {datetime.now().isoformat(timespec='seconds')} mouse fix only\n",
+                        encoding="utf-8")
+    # "-1" leaves the frame rate alone (the FPS library isn't loaded); "1" keeps Unity's own display-link path.
+    result = subprocess.run([str(FPS_LAUNCHER), str(binary), str(MOUSEFIX_DYLIB), "-1", str(log_path), "1"],
+                            cwd=str(game.parent), capture_output=True, text=True, timeout=10)
+    if result.returncode != 0:
+        raise RuntimeError(f"Starting PG3D failed: {(result.stderr or result.stdout).strip()}")
+    _watch_mouse_fix_start()
+    return {"log": str(log_path)}
+
+
 def fps_launch(game: Path, fps: str):
     prepare_fps_runtime()
     missing = []
@@ -3094,10 +3177,14 @@ def fps_launch(game: Path, fps: str):
         f"[PG3D Mac Client] launch {datetime.now().isoformat(timespec='seconds')} fps={fps}\n",
         encoding="utf-8"
     )
+    use_mouse_fix = mouse_fix_usable(binary)
+    dylibs = f"{FPS_DYLIB}:{MOUSEFIX_DYLIB}" if use_mouse_fix else str(FPS_DYLIB)
     result = subprocess.run(
-        [str(FPS_LAUNCHER), str(binary), str(FPS_DYLIB), fps, str(log_path), "0"],
+        [str(FPS_LAUNCHER), str(binary), dylibs, fps, str(log_path), "0"],
         cwd=str(game.parent), capture_output=True, text=True, timeout=10
     )
+    if use_mouse_fix and result.returncode == 0:
+        _watch_mouse_fix_start()
     if result.returncode != 0:
         tail = ""
         try:
@@ -3291,8 +3378,13 @@ def _launch_job(kind, fps):
             message = result["message"]
             set_status(last_fps={**result, "at": datetime.now().isoformat(timespec="seconds")})
         else:
-            subprocess.Popen(["open", f"steam://run/{STEAM_APP_ID}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            message = "PG3D is running."
+            game = find_app()
+            if game and FPS_LAUNCHER.is_file() and mouse_fix_usable(game / "Contents/MacOS/Pixel Gun 3D"):
+                launch_with_mouse_fix(game)
+                message = "PG3D is running with the mouse fix."
+            else:
+                subprocess.Popen(["open", f"steam://run/{STEAM_APP_ID}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                message = "PG3D is running."
         deadline = time.time() + 120
         while not _game_running_uncached():
             if time.time() > deadline:
@@ -3674,6 +3766,7 @@ def status_payload():
         "last_session": last_session_payload(),
         "game_update": game_update_info(),
         "reapply_mods": reapply_enabled(),
+        "mouse_fix": mouse_fix_enabled(),
         "job": {k[4:]: s.get(k) for k in ("job_kind", "job_phase", "job_progress", "job_message", "job_error")},
         "overlay": {"config": overlay_config(), "runtime": overlay_runtime()},
     })
@@ -3881,6 +3974,8 @@ def diagnostics_report():
         "", "--- client.log ---", tail(LOG, 80),
         "", "--- ffmpeg.log ---", tail(SUPPORT / "ffmpeg.log", 20),
         "", "--- focus.log (front app while PG3D runs) ---", tail(SUPPORT / "focus.log", 40),
+        "", f"--- last game run (mouse fix {'on' if mouse_fix_enabled() else 'off'}) ---",
+        tail(max(FPS_LOG_DIR.glob("run-*.log"), key=lambda p: p.stat().st_mtime, default=SUPPORT / "none.log"), 30),
     ]
     text = "\n".join(lines)
     try:
@@ -5466,6 +5561,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(set_rankup_sound(data.get("data"), data.get("name")))
             if path == "/api/sound/rankup/reset":
                 return self.send_json(reset_rankup_sound())
+            if path == "/api/prefs/mouse-fix":
+                return self.send_json(set_mouse_fix_pref(data.get("on", True)))
             if path == "/api/game/refocus":
                 return self.send_json(refocus_game())
             if path == "/api/game-update/install":
