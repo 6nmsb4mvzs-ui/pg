@@ -1,4 +1,4 @@
-PG3D Mac Client 1.61.0
+PG3D Mac Client 1.62.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,20 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.62
+Fixes     The client now runs natively on Apple Silicon; tools that were
+          installed for Intel Macs are reinstalled for yours automatically
+          (that caused the strange error when applying things and the empty
+          Font tab). Allow "PG3D Mac Client" once under Screen Recording.
+Overlay   One tidy card: FPS, time, ping and the song share one background,
+          with a slim progress bar. FPS now also works when the game wasn't
+          started through the FPS unlocker or mouse fix: it is measured from
+          how often PG3D's picture changes (needs Screen Recording).
+Font      10 fonts: Russo One, Lilita One, Luckiest Guy, Bangers, Bebas Neue,
+          Anton, Black Ops One, Chakra Petch, Silkscreen, Press Start.
+Removed   Hit marker and kill icon (the Cursor tab is crosshair only). Any
+          applied ones are put back to the original when PG3D is closed.
 
 New in 1.61
 Opening   The app's main program is now a small native launcher that runs the

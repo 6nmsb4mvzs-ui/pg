@@ -947,7 +947,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <section class="page" id="page-cursor">
       <div class="cursorLayout">
         <div class="card pad">
-          <div class="sectionHead"><div class="curSeg" id="curTargetSeg"><button data-t="cursor" class="active">Crosshair</button><button data-t="hitmarker">Hit marker</button><button data-t="killicon">Kill icon</button></div><div class="toolbar"><input class="search" id="cursorSearch" hidden><button class="btn" id="importCursor">Import PNG</button><input type="file" id="cursorFile" accept="image/png" hidden></div></div>
+          <div class="sectionHead"><div class="curSeg" id="curTargetSeg" hidden><button data-t="cursor" class="active">Crosshair</button></div><h2>Crosshair</h2><div class="toolbar"><input class="search" id="cursorSearch" hidden><button class="btn" id="importCursor">Import PNG</button><input type="file" id="cursorFile" accept="image/png" hidden></div></div>
           <div class="cursorGrid" id="cursorGrid"></div>
         </div>
         <div class="card previewPanel">
@@ -1357,7 +1357,7 @@ $('#startNormal').onclick=()=>launch('normal');$('#startFps').onclick=()=>launch
 function renderCursorGrid(){if(curTarget!=='cursor')return renderRoleGrid();const q=($('#cursorSearch').value||'').toLowerCase();const grid=$('#cursorGrid');grid.innerHTML='';const list=cursorCatalog.filter(x=>(x.name+' '+x.category).toLowerCase().includes(q));for(const x of list){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor===x.id?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/${x.file}"></div><div class="cursorName"></div>`;b.querySelector('.cursorName').textContent=x.name;b.onclick=()=>{selectedCursor=x.id;localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}if(statusData?.custom_cursor){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor==='custom'?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/api/custom-cursor.png?t=${Date.now()}"></div><div class="cursorName">Custom</div>`;b.onclick=()=>{selectedCursor='custom';localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}}
 $('#cursorSearch').oninput=renderCursorGrid;
 let roleSel={};try{roleSel=JSON.parse(localStorage.pg3dRoleSel||'{}')}catch{}
-let curTarget=localStorage.pg3dCurTarget||'cursor',spritesData=null,spritesLoading=false,lastGuiPhase=null,spritesErrAt=0;
+let curTarget='cursor',spritesData=null,spritesLoading=false,lastGuiPhase=null,spritesErrAt=0;
 const ROLE_NAMES={hitmarker:'hit marker',killicon:'kill icon'};
 async function loadSprites(){if(spritesLoading)return;spritesLoading=true;try{spritesData=await api('/api/sprites')}catch{spritesErrAt=Date.now()}finally{spritesLoading=false}if(curTarget!=='cursor')renderRoleGrid();updateCursorPanel()}
 function roleInstalled(){return spritesData?.roles?.[curTarget]?.installed||[]}

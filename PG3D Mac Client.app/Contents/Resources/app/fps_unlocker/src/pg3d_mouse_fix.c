@@ -212,9 +212,8 @@ __attribute__((constructor)) static void start(void) {
     const char *flag = getenv("PG3D_MOUSEFIX");
     if (flag && strcmp(flag, "0") == 0) return;
     note("loaded (%u)", 1);
-    // With the FPS unlocker loaded too, it reports the frame rate itself.
-    const char *unlock = getenv("PG3D_UNLOCK_FPS");
-    g_measure_off = unlock != NULL && strcmp(unlock, "-1") != 0;
+    // Always measure: the FPS unlocker stays off on builds it can't hook, and then
+    // reports nothing. (When it is active both report; the numbers agree.)
     g_started = now_seconds();
     // The main queue only runs once the app's run loop is up.
     dispatch_after_f(dispatch_time(0, 1000LL * 1000000), MAIN_QUEUE, NULL, tick);

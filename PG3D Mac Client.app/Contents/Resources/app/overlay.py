@@ -16,7 +16,7 @@ from urllib.parse import urlencode, quote_plus
 from urllib.request import Request, urlopen
 
 from Cocoa import (
-    NSApplication, NSApplicationActivationPolicyAccessory, NSColor, NSFont,
+    NSApplication, NSApplicationActivationPolicyAccessory, NSColor, NSColorSpace, NSFont,
     NSImage, NSImageView, NSMakeRect, NSPanel, NSProgressIndicator,
     NSScreen, NSTextField, NSView, NSWindowCollectionBehaviorCanJoinAllSpaces,
     NSWindowCollectionBehaviorFullScreenAuxiliary, NSWindowCollectionBehaviorIgnoresCycle,
@@ -24,7 +24,7 @@ from Cocoa import (
     NSWindowStyleMaskNonactivatingPanel, NSWorkspace, NSWindowBelow
 )
 
-BG_PAD_X, BG_PAD_Y, BG_ALPHA = 8, 4, 0.38  # overlay background box
+BG_PAD_X, BG_PAD_Y, BG_ALPHA = 12, 9, 0.46  # overlay background card
 from Foundation import NSObject, NSTimer
 import Quartz
 import objc
@@ -38,6 +38,8 @@ RANK_FILE = STATE_DIR / "overlay_rank.json"
 FPS_LOG_DIR = SUPPORT / "fps_logs"
 MUSIC_CACHE_DIR = SUPPORT / "music_cache"
 PIDFILE = SUPPORT / "overlay.pid"
+GAME_FPS_HELPER = Path(__file__).resolve().parent / "game_fps.py"
+GAME_FPS_JSON = SUPPORT / "state/game_fps.json"
 
 for p in (STATE_DIR, FPS_LOG_DIR, MUSIC_CACHE_DIR):
     p.mkdir(parents=True, exist_ok=True)
@@ -263,7 +265,34 @@ def fps_value():
             vals=re.findall(r'pid=%d\] engine measurement: rendered=([0-9.]+) FPS'%pid,txt)
             if vals:return round(float(vals[-1]))
     except Exception:pass
+    # No in-game measurement (Steam start, or a build the injected helpers can't read):
+    # the screen-capture helper counts PG3D's new frames instead.
+    try:
+        d=json.loads(GAME_FPS_JSON.read_text())
+        if time.time()-float(d.get('at',0))<3 and d.get('fps') is not None:return int(d['fps'])
+    except Exception:pass
     return None
+
+
+_FPS_HELPER={'proc':None,'denied_at':0.0}
+
+
+def ensure_fps_helper(wanted):
+    """Run game_fps.py while the overlay shows FPS and PG3D runs."""
+    p=_FPS_HELPER['proc']
+    if p is not None and p.poll() is not None:
+        if p.returncode in (3,4):_FPS_HELPER['denied_at']=time.time()  # no ScreenCaptureKit / no permission: retry later
+        _FPS_HELPER['proc']=p=None
+    if wanted and p is None and time.time()-_FPS_HELPER['denied_at']>300 and GAME_FPS_HELPER.exists():
+        try:
+            log_f=open(SUPPORT/'game_fps.log','a')
+            _FPS_HELPER['proc']=subprocess.Popen([sys.executable,str(GAME_FPS_HELPER)],stdout=log_f,stderr=log_f,stdin=subprocess.DEVNULL)
+            log_f.close()
+        except Exception:pass
+    elif not wanted and p is not None:
+        try:p.terminate()
+        except Exception:pass
+        _FPS_HELPER['proc']=None
 
 
 # Ping runs in the background: nettop/ping can take seconds and must never stall
@@ -524,7 +553,9 @@ class MusicView(NSView):
         self.title=NSTextField.labelWithString_(''); self.artist=NSTextField.labelWithString_(''); self.album=NSTextField.labelWithString_(''); self.lyric=NSTextField.labelWithString_('')
         for v in (self.title,self.artist,self.album,self.lyric):
             v.setSelectable_(False); self.addSubview_(v)
-        self.progress=NSProgressIndicator.alloc().initWithFrame_(NSMakeRect(0,0,160,4)); self.progress.setIndeterminate_(False); self.progress.setMinValue_(0); self.progress.setMaxValue_(1); self.addSubview_(self.progress)
+        self.progress=NSView.alloc().initWithFrame_(NSMakeRect(0,0,160,3)); self.progress.setWantsLayer_(True); self.progress.layer().setCornerRadius_(1.5)
+        self.progress.layer().setBackgroundColor_(Quartz.CGColorCreateGenericRGB(1,1,1,0.18)); self.addSubview_(self.progress)
+        self.fill=NSView.alloc().initWithFrame_(NSMakeRect(0,0,0,3)); self.fill.setWantsLayer_(True); self.fill.layer().setCornerRadius_(1.5); self.progress.addSubview_(self.fill)
         return self
 
     def update_(self, payload):
@@ -534,7 +565,8 @@ class MusicView(NSView):
         title_on=bool(mc.get('title',True)); artist_on=bool(mc.get('artist',True)); album_on=bool(mc.get('album',False)); timestamp_on=bool(mc.get('timestamp',True)); lyrics_on=bool(mc.get('lyrics',False))
         self.cover.setHidden_(not cover_on)
         if cover_on:
-            self.cover.setFrame_(NSMakeRect(0,0,cover_size,cover_size))
+            self.cover.setFrame_(NSMakeRect(0,0,cover_size,cover_size)); self.cover.setWantsLayer_(True); self.cover.layer().setCornerRadius_(6.0); self.cover.layer().setMasksToBounds_(True)
+            self.cover.setImageScaling_(3)  # proportionally up or down
             art=meta.get('art_path')
             self.cover.setImage_(NSImage.alloc().initWithContentsOfFile_(art) if art and Path(art).exists() else None)
         self.title.setHidden_(not title_on); self.artist.setHidden_(not artist_on); self.album.setHidden_(not album_on); self.progress.setHidden_(not timestamp_on); self.lyric.setHidden_(not lyrics_on)
@@ -556,7 +588,10 @@ class MusicView(NSView):
         for v in rows:
             fh=v.frame().size.height; top-=fh; v.setFrame_(NSMakeRect(x,top,text_w,fh)); top-=2
         if timestamp_on:
-            top-=7; self.progress.setFrame_(NSMakeRect(x,max(0,top),text_w,4)); dur=float(meta.get('duration') or 0); pos=float(meta.get('position') or 0); self.progress.setDoubleValue_(0 if dur<=0 else max(0,min(1,pos/dur)))
+            top-=7; self.progress.setFrame_(NSMakeRect(x,max(0,top),text_w,3)); dur=float(meta.get('duration') or 0); pos=float(meta.get('position') or 0)
+            frac=0 if dur<=0 else max(0,min(1,pos/dur)); self.fill.setFrame_(NSMakeRect(0,0,text_w*frac,3))
+            c=color.colorUsingColorSpace_(NSColorSpace.sRGBColorSpace()) if hasattr(color,'colorUsingColorSpace_') else None
+            self.fill.layer().setBackgroundColor_(Quartz.CGColorCreateGenericRGB(c.redComponent(),c.greenComponent(),c.blueComponent(),0.9) if c else Quartz.CGColorCreateGenericRGB(1,1,1,0.9))
         if lyrics_on:
             lh=self.lyric.frame().size.height; self.lyric.setFrame_(NSMakeRect(x,0,text_w,lh))
         self.setFrameSize_((x+text_w,h))
@@ -703,7 +738,7 @@ class Overlay(NSObject):
             elif item['id']=='rank':
                 text=rank_text(self.values.get('rank'))
             else:
-                value=self.values.get(item['id']); text=(f'{value} FPS' if item['id']=='fps' and value is not None else ('— FPS' if item['id']=='fps' else (f'{value} ms' if value is not None else '— ms')))
+                value=self.values.get(item['id']); text=(f'{value} FPS' if item['id']=='fps' and value is not None else ('-- FPS' if item['id']=='fps' else (f'{value} ms' if value is not None else '-- ms')))
             v.setStringValue_(text); v.setTextColor_(hex_color(display_item.get('color','#FFFFFF'))); v.setFont_(NSFont.monospacedSystemFontOfSize_weight_(float(size),0.35)); v.sizeToFit()
 
     def _layout(self):
@@ -716,7 +751,7 @@ class Overlay(NSObject):
         self.bgs=[]
         if not self.config.get('background',True):return
         cv=self.panel.contentView()
-        labels=[(k,v) for k,v in self.views.items() if k!='music']
+        labels=list(self.views.items())
         if not labels:return
         rects=[]
         if (self.config.get('group') or {}).get('enabled'):
@@ -728,7 +763,8 @@ class Overlay(NSObject):
             rects=[(f.origin.x,f.origin.y,f.size.width,f.size.height) for f in (v.frame() for _,v in labels)]
         for x,y,w,h in rects:
             b=NSView.alloc().initWithFrame_(NSMakeRect(x-BG_PAD_X,y-BG_PAD_Y,w+2*BG_PAD_X,h+2*BG_PAD_Y)); b.setWantsLayer_(True)
-            b.layer().setBackgroundColor_(Quartz.CGColorCreateGenericRGB(0.04,0.04,0.06,BG_ALPHA)); b.layer().setCornerRadius_(8.0)
+            b.layer().setBackgroundColor_(Quartz.CGColorCreateGenericRGB(0.04,0.04,0.06,BG_ALPHA)); b.layer().setCornerRadius_(10.0)
+            b.layer().setBorderWidth_(1.0); b.layer().setBorderColor_(Quartz.CGColorCreateGenericRGB(1,1,1,0.08))
             cv.addSubview_positioned_relativeTo_(b,NSWindowBelow,None); self.bgs.append(b)
 
     def _fit_panel(self):
@@ -755,7 +791,7 @@ class Overlay(NSObject):
         for it in items:self._update_view(it)
         group=self.config.get('group') or {}
         if group.get('enabled'):
-            gap=8; orient=group.get('orientation','vertical'); sizes=[self.views[it['id']].frame().size for it in items]
+            gap=6 if group.get('orientation','vertical')=='vertical' else 14; orient=group.get('orientation','vertical'); sizes=[self.views[it['id']].frame().size for it in items]
             total_w=(sum(s.width for s in sizes)+gap*max(0,len(sizes)-1)) if orient=='horizontal' else max([s.width for s in sizes] or [0]); total_h=max([s.height for s in sizes] or [0]) if orient=='horizontal' else (sum(s.height for s in sizes)+gap*max(0,len(sizes)-1))
             x=max(0,min(w-total_w,float(group.get('x',.5))*w)); ytop=max(0,min(h-total_h,float(group.get('y',.5))*h));
             if orient=='horizontal':
@@ -764,7 +800,8 @@ class Overlay(NSObject):
                     v=self.views[it['id']]; f=v.frame(); y=h-ytop-f.size.height; v.setFrameOrigin_((cursor,y)); cursor+=f.size.width+gap
             else:
                 cursor=ytop
-                for it in items:
+                for i,it in enumerate(items):
+                    if it['id']=='music' and i>0:cursor+=6  # a little air between the stats and the song
                     v=self.views[it['id']]; f=v.frame(); y=h-cursor-f.size.height; v.setFrameOrigin_((x,y)); cursor+=f.size.height+gap
             return
         if self.config.get('layout')=='free':
@@ -794,6 +831,8 @@ class Overlay(NSObject):
         except Exception:pass
 
     def _update_data(self):
+        fps_on=any(x.get('id')=='fps' and x.get('enabled',True) for x in self.config.get('items',[]))
+        ensure_fps_helper(bool(self.config.get('enabled',True) and fps_on and pg3d_pid()))
         self.values={'fps':fps_value(),'ping':ping_value(),'rank':rank_value()}; self.music=music_metadata(); self._layout()
 
     def tick_(self,timer):

@@ -5,7 +5,7 @@
 set -u
 setopt NULL_GLOB
 
-VERSION="1.61.0"
+VERSION="1.62.0"
 PORT=38513
 APP_ID="pg3d-mac-client-v$VERSION"
 SOURCE_BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -154,14 +154,14 @@ fi
 # Standalone Python has no system certificates; point it at certifi's bundle.
 export SSL_CERT_FILE="$("$VPY" -c 'import certifi; print(certifi.where())' 2>/dev/null)"
 
-# Cursor tools install in the background and never block startup.
-if ! "$VPY" -c 'import UnityPy; from PIL import Image' >/dev/null 2>&1; then
-  ( "$VPY" -m pip install --disable-pip-version-check -q "UnityPy==1.25.3" "Pillow>=10,<13" >>"$LOG" 2>&1 ||
-    "$VPY" -m pip install --disable-pip-version-check -q "UnityPy>=1.25,<2" "Pillow>=10,<13" >>"$LOG" 2>&1 ) &
-fi
-# numpy speeds up panorama skybox projection; the Sky tab works without it.
-if ! "$VPY" -c 'import numpy' >/dev/null 2>&1; then
-  ( "$VPY" -m pip install --disable-pip-version-check -q "numpy>=1.24,<3" >>"$LOG" 2>&1 ) &
+# Cursor tools install in the background and never block startup. Packages built for the
+# other architecture (the client used to run as Intel on Apple Silicon) are reinstalled.
+PROBE="$("$VPY" -c 'import UnityPy; from PIL import Image; import numpy' 2>&1)"
+if [[ $? -ne 0 ]]; then
+  FORCE=()
+  [[ "$PROBE" == *"incompatible architecture"* ]] && FORCE=(--force-reinstall --no-cache-dir)
+  ( "$VPY" -m pip install --disable-pip-version-check -q "${FORCE[@]}" "UnityPy==1.25.3" "Pillow>=10,<13" "numpy>=1.24,<3" >>"$LOG" 2>&1 ||
+    "$VPY" -m pip install --disable-pip-version-check -q "${FORCE[@]}" "UnityPy>=1.25,<2" "Pillow>=10,<13" >>"$LOG" 2>&1 ) &
 fi
 
 # Game sound in clips uses ScreenCaptureKit (macOS 13+); clips stay silent without it.

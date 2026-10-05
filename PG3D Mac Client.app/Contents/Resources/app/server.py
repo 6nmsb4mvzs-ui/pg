@@ -34,11 +34,49 @@ class _LazyModule:
 
     def _load(self):
         if self._module is None:
-            self._module = importlib.import_module(self.module_name)
+            try:
+                self._module = importlib.import_module(self.module_name)
+            except ImportError as e:
+                if "incompatible architecture" in str(e) or isinstance(e, ModuleNotFoundError):
+                    if "incompatible architecture" in str(e):
+                        _repair_packages(str(e))  # still installing otherwise (launch.sh does it)
+                    raise RuntimeError("The texture tools are being set up for this Mac. "
+                                       "Try again in a minute.") from None
+                raise
         return self._module
 
     def __getattr__(self, name):
         return getattr(self._load(), name)
+
+
+_REPAIR = {"thread": None, "done_at": 0.0}
+_REPAIR_PACKAGES = ["UnityPy==1.25.3", "Pillow>=10,<13", "numpy>=1.24,<3"]
+
+
+def _repair_packages(reason=""):
+    """Packages built for the other Mac architecture (the client used to run as Intel
+    on Apple Silicon) can't load: reinstall them for this one, in the background."""
+    t = _REPAIR["thread"]
+    if (t is not None and t.is_alive()) or time.time() - _REPAIR["done_at"] < 120:
+        return
+
+    def work():
+        try:
+            log(f"Reinstalling the texture tools for this Mac ({reason[:160]})")
+            r = subprocess.run([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q",
+                                "--force-reinstall", "--no-cache-dir", *_REPAIR_PACKAGES],
+                               capture_output=True, text=True, timeout=900)
+            log("Texture tools reinstalled." if r.returncode == 0 else f"Reinstall failed: {r.stderr[-600:]}")
+            for name in list(sys.modules):  # let the next use import the fresh copies
+                if name.split(".")[0] in ("UnityPy", "PIL", "numpy", "brotli", "_brotli", "customize"):
+                    sys.modules.pop(name, None)
+        except Exception as e:
+            log(f"Reinstall failed: {e}")
+        finally:
+            _REPAIR["done_at"] = time.time()
+    _REPAIR["thread"] = threading.Thread(target=work, daemon=True)
+    _REPAIR["thread"].start()
+
 
 UnityPy = _LazyModule("UnityPy")
 Image = _LazyModule("PIL.Image")
@@ -55,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.61.0"
+APP_VERSION = "1.62.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -113,10 +151,16 @@ SKY_DIR = SUPPORT / "skies"
 SKY_PREVIEWS = RUNTIME / "sky_previews"
 GAME_FONTS_DIR = BASE / "fonts_game"
 USER_FONTS_DIR = SUPPORT / "fonts"
-GAME_FONTS = [  # bundled, all SIL Open Font License
+GAME_FONTS = [  # bundled; SIL Open Font License (Luckiest Guy: Apache 2.0)
     {"id": "russo", "name": "Russo One", "file": "RussoOne-Regular.ttf"},
+    {"id": "lilita", "name": "Lilita One", "file": "LilitaOne-Regular.ttf"},
+    {"id": "luckiest", "name": "Luckiest Guy", "file": "LuckiestGuy-Regular.ttf"},
     {"id": "bangers", "name": "Bangers", "file": "Bangers-Regular.ttf"},
     {"id": "bebas", "name": "Bebas Neue", "file": "BebasNeue-Regular.ttf"},
+    {"id": "anton", "name": "Anton", "file": "Anton-Regular.ttf"},
+    {"id": "blackops", "name": "Black Ops One", "file": "BlackOpsOne-Regular.ttf"},
+    {"id": "chakra", "name": "Chakra Petch", "file": "ChakraPetch-Bold.ttf"},
+    {"id": "silkscreen", "name": "Silkscreen", "file": "Silkscreen-Regular.ttf"},
     {"id": "pixel", "name": "Press Start", "file": "PressStart2P-Regular.ttf"},
 ]
 KEYCHAIN_SERVICE = "PG3D Mac Client Steam"
@@ -5158,8 +5202,7 @@ def theme_payload():
     theme = mods.get("theme")
     return {
         "ok": True,
-        "presets": [{"id": k, "name": v["name"], "desc": v["desc"], "stops": v["stops"], "strength": v.get("strength")}
-                    for k, v in customize.THEMES.items()],
+        "presets": [],  # in-game themes were removed in 1.47
         "active": ({"preset": theme["preset"], "strength": theme.get("strength", 0.85),
                     "textures": sum(len(v) for v in theme.get("targets", {}).values()),
                     "files": len(theme.get("targets", {}))} if theme else None),
@@ -5708,7 +5751,7 @@ def set_reapply_pref(on):
 def _has_retired_mods(state):
     return bool(state.get("theme") or state.get("hud_set") or state.get("hud_disabled") or state.get("skybox")
                 or state.get("loading")
-                or any(not v.get("role") for v in (state.get("gui") or {}).values()))
+                or any(v.get("role") in (None, "hitmarker", "killicon") for v in (state.get("gui") or {}).values()))
 
 
 def retire_removed_mods():
@@ -5726,7 +5769,8 @@ def retire_removed_mods():
                     state["hud_disabled"] = False
                     state["skybox"] = None
                     state["loading"] = None
-                    state["gui"] = {k: v for k, v in (state.get("gui") or {}).items() if v.get("role")}
+                    state["gui"] = {k: v for k, v in (state.get("gui") or {}).items()
+                                    if v.get("role") not in (None, "hitmarker", "killicon")}
                 mutate_state(change, "Remove retired sky / loading screen / theme / HUD changes")
                 log("Removed retired sky / loading screen / theme / HUD changes (original game textures restored).")
                 return
