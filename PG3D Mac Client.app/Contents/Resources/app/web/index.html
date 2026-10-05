@@ -906,6 +906,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
       <button data-tab="theme"><span class="ico">Aa</span><span class="label">Font</span></button>
       <button data-tab="hud"><span class="ico">⊞</span><span class="label">HUD</span></button>
+      <button data-tab="sky"><span class="ico">☁</span><span class="label">Sky</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1169,7 +1170,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <section class="page" id="page-hud">
       <div class="xPage">
         <div class="crCard">
-          <div class="crCardHead"><h3>HUD size</h3><button class="btn" id="hdFind">Find the HUD</button></div>
+          <div class="crCardHead"><h3>HUD size</h3></div>
           <p class="xNote">Make parts of the in-match HUD smaller or bigger, or hide them. Each part keeps its place on screen.</p>
           <div class="xRow" id="hdTop" hidden style="margin:4px 0 10px;gap:8px"><button class="btn" id="hdHideAll">Hide all</button><button class="btn" id="hdRestoreAll">Restore all to default</button></div>
           <div class="hdList" id="hdList"></div>
@@ -1205,11 +1206,10 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <!-- Sky / loading screens were removed (1.57/1.58); the page stays unreachable so its script keeps working. -->
-    <section class="page" id="page-sky" hidden>
+    <section class="page" id="page-sky">
       <div class="xPage">
         <div class="crCard">
-          <div class="crCardHead"><h3 class="skModeSeg">Loading screen</h3><span class="xPill" id="skActive"></span></div>
+          <div class="crCardHead"><h3 class="skModeSeg">Sky</h3><span class="xPill" id="skActive"></span></div>
           <div class="skGrid">
             <button class="skDrop" id="skDrop"><span>＋</span><b>Add image</b><small id="skDropHint">PNG or JPEG · 2:1 panoramas wrap around</small></button>
             <div class="skLib" id="skLib"></div>
@@ -1220,7 +1220,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="crCardHead"><h3>Preview</h3><div class="xRow" id="skSkyOpts"><button class="ovChip" id="skSwap" type="button" title="Use if the left and right sides look mirrored in game">Mirror sides</button><button class="ovChip" id="skFlip" type="button" title="Use if the sky shows upside down in game">Upside down</button></div></div>
           <div class="skCross" id="skCross"></div>
           <div class="skLoadPrev" id="skLoadPrev" hidden></div>
-          <input type="range" id="skYaw" min="0" max="359" value="0" hidden><b id="skYawVal" hidden></b>
+          <div class="curField" style="margin-top:12px"><div class="xLabel">Rotate</div><div class="rangeRow"><input type="range" id="skYaw" min="0" max="355" step="5" value="0"><div class="rangeVal" id="skYawVal">0°</div></div></div>
           <p class="xNote" id="skLoadNote" hidden></p>
           <details class="xDetails" id="skTargetsBox"><summary id="skTargetsSum">Sky textures</summary>
             <div class="xRow" style="margin:8px 0"><button class="btn ghost" id="skAll">All</button><button class="btn ghost" id="skNone">None</button></div>
@@ -1304,7 +1304,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',hud:'HUD',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',hud:'HUD',sky:'Sky',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 async function api(path,opts={}){const r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Math.round(sec/60)} min`}
@@ -1990,14 +1990,14 @@ if(document.querySelector('#rkPromo'))$('#rkPromo').onclick=()=>$('#rkPromo').cl
 let themeData=null,themePreset=null,themeSample=0;
 function themeGradient(stops){return `linear-gradient(90deg,${stops.map(([p,c])=>`${c} ${Math.round(p*100)}%`).join(',')})`}
 const FONT_LOADED=new Set();
-let hudData=null,hudEdit={};
-async function loadHud(){try{hudData=await api('/api/hud');renderHud()}catch(e){console.error(e)}}
+let hudData=null,hudEdit={},hudPoll=null;
+async function loadHud(){clearTimeout(hudPoll);try{hudData=await api('/api/hud');renderHud();
+  if(!hudData.scanned&&localStorage.pg3dTab==='hud')hudPoll=setTimeout(loadHud,4000)}catch(e){console.error(e)}}
 async function hudSend(sizes,extra={}){try{await post('/api/hud/apply',{sizes,...extra})}catch(e){toast(e.message,true)}}
 function hudRowSizes(row,pct){const o={};for(const k of row.keys)o[k]=pct;return o}
 function renderHud(){const d=hudData;const list=$('#hdList');if(!d||!list)return;list.innerHTML='';
-  $('#hdFind').textContent=d.scanned?'Find again':'Find the HUD';
   const rows=d.rows||[];$('#hdTop').hidden=!d.scanned||!rows.length;
-  if(!d.scanned){list.append(el('div','xEmpty','Press "Find the HUD" once. It reads PG3D\'s in-match HUD layout (about a minute).'));$('#hdApply').disabled=true;return}
+  if(!d.scanned){list.append(el('div','xEmpty',d.reading?'Reading PG3D\'s HUD layout… This happens by itself once per PG3D version and takes about a minute (it waits while PG3D is open).':'Pixel Gun 3D wasn\'t found.'));$('#hdApply').disabled=true;return}
   for(const row of rows){const id=row.keys.join('|');const hidden=row.pct===0;const cur=hudEdit[id]??(hidden?100:row.pct);
     const r=el('div','hdRow'+(hidden?' hidden':cur!==100?' changed':''));
     const info=el('div');info.append(el('b',null,row.label));info.title=row.names.join(', ');
@@ -2011,7 +2011,6 @@ function renderHud(){const d=hudData;const list=$('#hdList');if(!d||!list)return
     btns.append(hide,def);r.append(info,rr,btns);list.append(r)}
   $('#hdApply').disabled=!Object.keys(hudEdit).length;
   $('#hdHint').textContent=rows.some(r=>r.pct!==100)?'Changes show the next time PG3D starts.':''}
-$('#hdFind').onclick=async()=>{try{await post('/api/hud/find')}catch(e){toast(e.message,true)}};
 $('#hdApply').onclick=async()=>{const sizes={};for(const [id,pct] of Object.entries(hudEdit))for(const k of id.split('|'))sizes[k]=pct;hudEdit={};$('#hdApply').disabled=true;await hudSend(sizes)};
 $('#hdHideAll').onclick=()=>{if(!hudData?.rows)return;const sizes={};for(const r of hudData.rows)Object.assign(sizes,hudRowSizes(r,0));hudEdit={};hudSend(sizes)};
 $('#hdRestoreAll').onclick=()=>{hudEdit={};hudSend({},{restore_all:true})};
@@ -2032,8 +2031,8 @@ $('#fixMouse').onclick=async()=>{try{await post('/api/game/refocus',{});toast('S
 $('#rescanGame').onclick=async()=>{const b=$('#rescanGame');b.disabled=true;try{await post('/api/gui/scan',{deep:false});try{await post('/api/customize/scan')}catch(e){if(!/running/.test(e.message))throw e}toast('Rescanning PG3D. This takes about a minute.');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}finally{setTimeout(()=>b.disabled=false,3000)}};
 
 // Sky
-let loadTargetsOn=null;let skyData=null,skySel=null,skyTargetsOff=new Set(),skMode='loading';
-let loadKeysSig=null;async function loadSky(){try{skyData=await api('/api/sky');{const sig=JSON.stringify([skyData.loading?.active?.target_keys||null,(skyData.loading?.targets||[]).length]);if(sig!==loadKeysSig){loadKeysSig=sig;loadTargetsOn=null}}const act=skyData.active;if(!skySel)skySel=act?.id||skyData.library[0]?.id||null;if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=0;setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip);
+let loadTargetsOn=null;let skyData=null,skySel=null,skyTargetsOff=new Set(),skMode='sky',skyPoll=null;
+let loadKeysSig=null;async function loadSky(){clearTimeout(skyPoll);try{skyData=await api('/api/sky');if(!skyData.scan?.fresh&&localStorage.pg3dTab==='sky')skyPoll=setTimeout(loadSky,5000);{const sig=JSON.stringify([skyData.loading?.active?.target_keys||null,(skyData.loading?.targets||[]).length]);if(sig!==loadKeysSig){loadKeysSig=sig;loadTargetsOn=null}}const act=skyData.active;if(!skySel)skySel=act?.id||skyData.library[0]?.id||null;if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=Math.round((act.yaw||0)/5)*5;setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip);
     const keys=new Set(act.target_keys||[]);skyTargetsOff=act.custom?new Set(skyData.targets.filter(t=>!keys.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id)):new Set()}
     if(!act||!act.custom){const pk=new Set(skyData.picked_keys?.sky||[]);if(pk.size)skyTargetsOff=new Set(skyData.targets.filter(t=>!pk.has(`${t.source_file}:${t.path_id}`)).map(t=>t.id))}renderSky()}catch(e){console.error(e)}}
 function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.innerHTML='';
@@ -2046,7 +2045,7 @@ function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.inne
   lib.querySelectorAll('.skItem').forEach(b=>b.querySelector('.live')?.remove());
   [...lib.children].forEach((b,i)=>{const s=d.library[i];const inUse=(d.active?.id===s.id)||(d.loading?.active?.id===s.id);b.querySelector('.del')?.toggleAttribute('hidden',inUse);if(act?.id===s.id)b.append(el('span','live','IN GAME'))});
   const sa=$('#skActive');sa.textContent=act?`${act.name} in game`:ld?'Original loading screen':'Original sky';sa.className='xPill'+(act?' on':'');$('#skSetup').hidden=!d.library.length;
-  $('#skDropHint').textContent=ld?'PNG or JPEG · 16:9 fills the screen':'PNG or JPEG · 2:1 panoramas wrap around';
+  $('#skDropHint').textContent=ld?'PNG or JPEG · 16:9 fills the screen':'PNG or JPEG · 2:1 panoramas fit best (free ones: polyhaven.com/hdris)';
   $('#skSkyOpts').hidden=ld;$('#skCross').hidden=ld;$('#skTargetsBox').hidden=false;$('#skLoadPrev').hidden=!ld;
   const cur=d.library.find(s=>s.id===skySel);$('#skLoadPrev').style.backgroundImage=ld&&cur?`url("${cur.thumb}")`:'';
   const lt=d.loading?.targets||[];const ln=$('#skLoadNote');ln.hidden=!ld||(!!lt.length||!d.scan.generated);ln.textContent='No loading screen texture was found in this PG3D build.';
@@ -2059,12 +2058,13 @@ function renderSky(){const d=skyData;if(!d)return;const lib=$('#skLib');lib.inne
     $('#skApply').disabled=!skySel||(d.scan.generated&&!on);return}
   $('#skYawVal').textContent=$('#skYaw').value+'°';renderSkyCross();
   const tg=$('#skTargets');tg.innerHTML='';
-  if(!d.targets.length){tg.append(el('div','xEmpty',d.scan.generated?'No sky textures were found in this PG3D build.':'Found the first time you apply a sky.'))}
-  for(const t of d.targets){const row=el('label','skTarget');const cb=el('input');cb.type='checkbox';cb.checked=!skyTargetsOff.has(t.id);cb.onchange=()=>{cb.checked?skyTargetsOff.delete(t.id):skyTargetsOff.add(t.id);renderSky()};const im=el('img');if(t.preview)im.src=t.preview;const txt=el('div');txt.append(el('b',null,t.name||`#${t.path_id}`),el('small',null,`${t.relative_file} · ${t.width}×${t.height}${t.type==='Cubemap'?' · cubemap (experimental)':''}`));row.append(cb,im,txt,el('span','skFace',t.face));tg.append(row)}
-  $('#skReset').hidden=!d.active;$('#skApply').disabled=!skySel;const on=d.targets.filter(t=>!skyTargetsOff.has(t.id)).length;$('#skTargetsSum').textContent=d.targets.length?`Replaces ${on} of ${d.targets.length} sky textures`:'Sky textures (found on first apply)'}
+  if(!d.targets.length){tg.append(el('div','xEmpty',d.scan.fresh?'No sky was found in this PG3D build.':d.scan.reading?'Looking for the sky in PG3D\'s files… This happens by itself once per PG3D version (a few minutes; it waits while PG3D is open).':'Pixel Gun 3D wasn\'t found.'))}
+  for(const t of d.targets){const row=el('label','skTarget');const cb=el('input');cb.type='checkbox';cb.checked=!skyTargetsOff.has(t.id);cb.onchange=()=>{cb.checked?skyTargetsOff.delete(t.id):skyTargetsOff.add(t.id);renderSky()};const im=el('img');if(t.preview)im.src=t.preview;const txt=el('div');txt.append(el('b',null,t.name||`#${t.path_id}`),el('small',null,`${t.where||t.relative_file} · ${t.width}×${t.height}`));txt.title=t.relative_file;row.append(cb,im,txt,el('span','skFace',t.kind==='dome'?'sky dome':t.face));tg.append(row)}
+  $('#skReset').hidden=!d.active;$('#skApply').disabled=!skySel;const on=d.targets.filter(t=>!skyTargetsOff.has(t.id)).length;$('#skTargetsSum').textContent=d.targets.length?`Replaces ${on} of ${d.targets.length} sky textures`:'Sky textures'}
 function renderSkyCross(){const c=$('#skCross');if(!skySel){c.style.backgroundImage='';return}const q=`id=${skySel}&yaw=${$('#skYaw').value}&swap=${$('#skSwap').classList.contains('on')?1:0}`;if(c._q===q)return;c._q=q;c.style.backgroundImage=`url("/api/sky/cross.png?${q}")`}
 
 $('#skSwap').onclick=()=>{$('#skYaw').dataset.touched='1';setSwitch('#skSwap',!$('#skSwap').classList.contains('on'));renderSkyCross()};
+$('#skYaw').oninput=()=>{$('#skYaw').dataset.touched='1';$('#skYawVal').textContent=$('#skYaw').value+'°';renderSkyCross()};
 $('#skFlip').onclick=()=>{$('#skYaw').dataset.touched='1';setSwitch('#skFlip',!$('#skFlip').classList.contains('on'))};
 $('#skAll').onclick=()=>{if(skMode==='loading')loadTargetsOn=new Set((skyData?.loading?.targets||[]).map(t=>t.id));else skyTargetsOff.clear();renderSky()};$('#skNone').onclick=()=>{if(skMode==='loading')loadTargetsOn=new Set();else skyTargetsOff=new Set((skyData?.targets||[]).map(t=>t.id));renderSky()};
 async function uploadSky(file){if(!file)return;if(file.size>80*1024*1024)return toast('Sky images must be smaller than 80 MB.',true);toast('Adding sky…');const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});

@@ -649,6 +649,8 @@ def project_face(pano: Image.Image, face: str, size: int, yaw_deg: float = 0.0) 
 def sky_image_for(target: dict, source: Image.Image, yaw=0.0, swap_lr=False, flat_mode="cover"):
     """Build the replacement image for one sky texture (not cubemaps)."""
     face = target.get("face") or "flat"
+    if face == "dome":
+        face = "panorama"  # a sky dome whose mesh couldn't be read: wrap the picture around
     w, h = int(target["width"]), int(target["height"])
     if swap_lr and face in ("left", "right"):
         face = "right" if face == "left" else "left"
@@ -1165,3 +1167,224 @@ def scale_transform(reader, factor, move=False):
         p["x"] = float(p["x"]) * factor
         p["y"] = float(p["y"]) * factor
     reader.save_typetree(tree)
+
+
+# ----------------------------------------------------------------------------- sky v2
+# Where PG3D's sky really is, found the way the game uses it (not by texture name, which
+# also hit weapons like "SkyHammer"):
+#  - skybox materials: each map's lighting settings (RenderSettings.m_SkyboxMaterial)
+#    and materials with a Skybox shader -> their face / cubemap / panorama textures;
+#  - sky domes: big mesh objects named like a sky (Sky, SkyDome, SkySphere, ...) -> the
+#    texture on their material plus the mesh itself, so a picture can be projected
+#    through the mesh's own UVs (no stretching, no seam).
+SKY_SCAN_V = 1
+_SKY_GO = re.compile(r"^(sky|skies|skydome|skysphere|skybox|skymesh|skyplane|skycylinder|clouds?|cloudsphere|cloudsdome)"
+                     r"(\d+|_?\w{0,8})?$")
+
+
+def _sky_go_name(name):
+    flat = re.sub(r"[^a-z0-9]", "", (name or "").lower())
+    return bool(flat) and (bool(_SKY_GO.match(flat)) or "skydome" in flat or "skysphere" in flat)
+
+
+def _deref(ptr):
+    try:
+        return ptr.deref() if ptr is not None and _pptr_ids(ptr)[1] else None
+    except Exception:
+        return None
+
+
+def _mesh_extent(mesh_reader):
+    try:
+        e = mesh_reader.parse_as_object().m_LocalAABB.m_Extent
+        return max(abs(float(e.x)), abs(float(e.y)), abs(float(e.z)))
+    except Exception:
+        return 0.0
+
+
+def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
+    """[{source_file, relative_file, path_id, name, type, width, height, face, kind,
+    where, mesh_id}] - kind: skybox | dome. thumbs(dir) saves small previews."""
+    import UnityPy
+
+    found = {}
+    total = max(1, len(files))
+    for idx, p in enumerate(files, 1):
+        if progress:
+            progress(idx / total, f"Looking for the sky ({idx}/{total}, {len(found)} found)…")
+        try:
+            env = UnityPy.load(str(p))
+        except Exception as e:
+            log(f"SKY LOAD FAIL {p}: {e}")
+            continue
+        objs = list(env.objects)
+        types = {o.type.name for o in objs}
+        if "Material" not in types and "RenderSettings" not in types:
+            del env
+            continue
+        try:
+            rel = str(Path(p).relative_to(app))
+        except ValueError:
+            rel = Path(p).name
+        hits = []  # (texture reader, face, kind, where, mesh reader)
+
+        def material_textures(mat_reader, kind, where, mesh=None):
+            try:
+                mat = mat_reader.parse_as_object()
+            except Exception:
+                return
+            shader = ""
+            sh = _deref(getattr(mat, "m_Shader", None))
+            if sh is not None:
+                shader = _name(sh) or ""
+            for key, env_ in _tex_env_items(mat):
+                slot = SKYBOX_MATERIAL_SLOTS.get(key) if kind == "skybox" else ("dome" if key == "_MainTex" else None)
+                if not slot:
+                    continue
+                tex = _deref(getattr(env_, "m_Texture", None))
+                if tex is not None and tex.type.name in ("Texture2D", "Cubemap"):
+                    hits.append((tex, slot, kind, f"{where} · {getattr(mat, 'm_Name', '')} ({shader})", mesh))
+
+        for o in objs:
+            t = o.type.name
+            try:
+                if t == "RenderSettings":
+                    m = _deref(getattr(o.parse_as_object(), "m_SkyboxMaterial", None))
+                    if m is not None:
+                        material_textures(m, "skybox", "map skybox")
+                elif t == "Material":
+                    mat = o.parse_as_object()
+                    sh = _deref(getattr(mat, "m_Shader", None))
+                    if sh is not None and "skybox" in (_name(sh) or "").lower():
+                        material_textures(o, "skybox", "skybox material")
+                elif t == "GameObject":
+                    go = o.parse_as_object()
+                    if not _sky_go_name(getattr(go, "m_Name", "")):
+                        continue
+                    mesh, mats = None, []
+                    for c in getattr(go, "m_Component", None) or []:
+                        comp = _deref(getattr(c, "component", c))
+                        if comp is None:
+                            continue
+                        if comp.type.name == "MeshFilter":
+                            mesh = _deref(getattr(comp.parse_as_object(), "m_Mesh", None))
+                        elif comp.type.name == "MeshRenderer":
+                            mats = [_deref(m) for m in (getattr(comp.parse_as_object(), "m_Materials", None) or [])]
+                    if mesh is None or _mesh_extent(mesh) < 30:
+                        continue  # small objects named "sky..." aren't the sky
+                    for m in mats:
+                        if m is not None:
+                            material_textures(m, "dome", f"sky dome {go.m_Name}", mesh)
+            except Exception as e:
+                log(f"SKY OBJ FAIL {p} {getattr(o, 'path_id', '?')}: {e}")
+
+        for tex, slot, kind, where, mesh in hits:
+            key = (str(p), int(tex.path_id))
+            if key in found:
+                continue
+            try:
+                data = tex.parse_as_object()
+                w, h = int(data.m_Width), int(data.m_Height)
+            except Exception:
+                continue
+            typ = tex.type.name
+            face = "cube" if typ == "Cubemap" else ("panorama" if slot in ("panorama", "cube") else slot)
+            item = {"source_file": str(p), "relative_file": rel, "path_id": int(tex.path_id), "name": _name(tex),
+                    "type": typ, "width": w, "height": h, "face": face, "kind": kind, "where": where,
+                    "mesh_id": int(mesh.path_id) if mesh is not None else None}
+            if thumbs is not None and typ == "Texture2D":
+                try:
+                    im = data.image.convert("RGB")
+                    im.thumbnail((192, 192))
+                    item["_thumb"] = im
+                except Exception:
+                    pass
+            found[key] = item
+        del env
+    return list(found.values())
+
+
+def _mesh_arrays(mesh_reader):
+    """Vertex positions (N,3), UVs (N,2) and triangles (M,3) of a Unity mesh."""
+    import numpy as np
+    from UnityPy.helpers.MeshHelper import MeshHandler
+
+    h = MeshHandler(mesh_reader.parse_as_object())
+    h.process()
+    pos = np.asarray(h.m_Vertices, dtype=np.float64).reshape(-1, 3)
+    uv = np.asarray(h.m_UV0, dtype=np.float64).reshape(-1, 2)
+    if h.m_UV0 is None or not len(uv):
+        raise ValueError("the sky mesh has no UVs")
+    tris = []
+    for sub in h.get_triangles():
+        for f in sub:
+            if len(f) == 3:
+                tris.append(f)
+            elif len(f) == 4:  # quads
+                tris += [(f[0], f[1], f[2]), (f[0], f[2], f[3])]
+    if not tris:
+        raise ValueError("the sky mesh has no triangles")
+    return pos, uv, np.asarray(tris, dtype=np.int64).reshape(-1, 3)
+
+
+def project_on_mesh(pano: Image.Image, pos, uv, tris, size, yaw=0.0, mirror=False, flip=False):
+    """Paint an equirectangular picture onto a sky mesh's UV layout: every texel gets the
+    picture's colour in the direction its spot on the mesh is seen from the centre."""
+    import numpy as np
+
+    W, H = size
+    src = np.asarray(pano.convert("RGB"), dtype=np.uint8)
+    sh, sw = src.shape[:2]
+    out = np.zeros((H, W, 3), dtype=np.uint8)
+    filled = np.zeros((H, W), dtype=bool)
+    centre = (pos.min(0) + pos.max(0)) / 2.0
+    d = pos - centre
+    px = uv[:, 0] * W - 0.5
+    py = (1.0 - uv[:, 1]) * H - 0.5  # Unity UV origin is bottom-left
+    yaw_r = math.radians(yaw)
+    for a, b, c in tris:
+        xs, ys = px[[a, b, c]], py[[a, b, c]]
+        x0, x1 = int(max(0, math.floor(xs.min()))), int(min(W - 1, math.ceil(xs.max())))
+        y0, y1 = int(max(0, math.floor(ys.min()))), int(min(H - 1, math.ceil(ys.max())))
+        if x1 < x0 or y1 < y0:
+            continue
+        gx, gy = np.meshgrid(np.arange(x0, x1 + 1), np.arange(y0, y1 + 1))
+        den = (ys[1] - ys[2]) * (xs[0] - xs[2]) + (xs[2] - xs[1]) * (ys[0] - ys[2])
+        if abs(den) < 1e-12:
+            continue
+        l0 = ((ys[1] - ys[2]) * (gx - xs[2]) + (xs[2] - xs[1]) * (gy - ys[2])) / den
+        l1 = ((ys[2] - ys[0]) * (gx - xs[2]) + (xs[0] - xs[2]) * (gy - ys[2])) / den
+        l2 = 1.0 - l0 - l1
+        inside = (l0 >= -1e-3) & (l1 >= -1e-3) & (l2 >= -1e-3)
+        if not inside.any():
+            continue
+        v = l0[..., None] * d[a] + l1[..., None] * d[b] + l2[..., None] * d[c]
+        v = v[inside]
+        lon = np.arctan2(v[:, 0], v[:, 2]) + yaw_r
+        if mirror:
+            lon = -lon
+        lat = np.arctan2(v[:, 1], np.hypot(v[:, 0], v[:, 2]))
+        if flip:
+            lat = -lat
+        u = ((lon / (2 * math.pi)) + 0.5) % 1.0
+        t = 0.5 - lat / math.pi
+        sx = np.clip((u * sw).astype(np.int64), 0, sw - 1)
+        sy = np.clip((t * sh).astype(np.int64), 0, sh - 1)
+        yy, xx = gy[inside], gx[inside]
+        out[yy, xx] = src[sy, sx]
+        filled[yy, xx] = True
+    img = Image.fromarray(out, "RGB")
+    if not filled.all():  # texels no triangle covers: bleed neighbours in (no black seams on filtering)
+        mask = Image.fromarray((filled * 255).astype(np.uint8), "L")
+        blur = img.filter(ImageFilter.BoxBlur(4))
+        img = Image.composite(img, blur, mask)
+    return img.convert("RGBA")
+
+
+def equirect_from(img: Image.Image, yaw=0.0) -> Image.Image:
+    """The picture as a 2:1 wrap-around panorama (photos are made seamless first)."""
+    pano = as_panorama(img)
+    if yaw:
+        shift = int(round(yaw / 360.0 * pano.width)) % pano.width
+        pano = ImageChops.offset(pano.convert("RGBA"), -shift, 0)
+    return pano

@@ -1,4 +1,4 @@
-PG3D Mac Client 1.68.0
+PG3D Mac Client 1.69.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,19 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.69
+HUD       The HUD list loads by itself (no Find button): once per PG3D
+          version, and after a PG3D update your sizes are matched to the new
+          files before they are put back. "SetTurretPanel" is left out;
+          "Invincibility display" is named that way now.
+Sky       The Sky tab is back, rebuilt. The client looks for the sky the way
+          the game uses it: each map's skybox material and big sky-dome
+          objects (not textures that just have "sky" in their name, which hit
+          weapons before). On a sky dome your picture is projected through
+          the dome's own mesh, so it fits without stretching or a seam.
+          Rotate, Mirror sides and Upside down line it up. The search runs by
+          itself once per PG3D version. Free 2:1 skies: polyhaven.com/hdris.
 
 New in 1.68
 HUD       Reworked HUD tab: Armor, Health, Pet / Crosshair, Ammo / Gadgets,

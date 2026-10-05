@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.68.0"
+APP_VERSION = "1.69.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1637,6 +1637,25 @@ def _rebuild_one(source_str, state):
                 skipped["sky textures"] = skipped.get("sky textures", 0) + 1
                 continue
             data = reader.parse_as_object()
+            if t.get("kind") == "dome" and t.get("mesh_id") is not None and reader.type.name == "Texture2D":
+                mesh_reader = _find(int(t["mesh_id"]))
+                if mesh_reader is not None:
+                    def make(d=data, mr=mesh_reader, t=t):
+                        size = (int(d.m_Width), int(d.m_Height))
+                        try:
+                            pos, uv, tris = customize._mesh_arrays(mr)
+                            return customize.project_on_mesh(customize.equirect_from(sky_image), pos, uv, tris, size,
+                                                             sky.get("yaw", 0), mirror=sky.get("swap_lr", False),
+                                                             flip=sky.get("flip", False))
+                        except Exception as e:
+                            log(f"Sky dome {t.get('name')}: mesh not readable ({e}); wrapping the picture instead")
+                            img = customize.sky_image_for({**t, "face": "panorama", "width": size[0], "height": size[1]},
+                                                          sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
+                            return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if sky.get("flip") else img
+                    set_texture_cached(data, ("skydome", sky.get("image"), sky.get("yaw", 0), sky.get("swap_lr"),
+                                              sky.get("flip"), str(source), int(t["mesh_id"])), make)
+                    save_parsed_object(data, reader)
+                    continue
             if reader.type.name == "Cubemap":
                 size = int(data.m_Width) or int(t.get("width", 512))
                 faces = customize.cubemap_faces(sky_image, size, sky.get("yaw", 0), sky.get("swap_lr", False))
@@ -4704,6 +4723,9 @@ def diagnostics_report():
         f"macOS {run(['/usr/bin/sw_vers', '-productVersion'])} ({run(['/usr/bin/uname', '-m'])})",
         f"App: {os.environ.get('PG3D_APP_BUNDLE')}",
         f"Permissions: {json.dumps(permissions_payload())}",
+        "Sky search: " + ("; ".join(f"{t['kind']} {t.get('name')} {t['width']}x{t['height']} ({t.get('where', '')}) in "
+                                    f"{Path(t['relative_file']).name}" for t in sky_targets()[:12]) or "nothing yet"),
+        "Sky applied: " + json.dumps({k: v for k, v in (load_mods().get("skybox") or {}).items() if k != "targets"}),
         f"Python: {sys.version.split()[0]} at {sys.executable}",
         f"ffmpeg: {ffmpeg or 'not installed'}",
         f"Game: {find_app()} build {status_payload().get('game_build')}",
@@ -5084,12 +5106,13 @@ HUD_ROWS = [
     (lambda k: k == "bottomrightanchor", "Gadgets, Abilities"),
     (lambda k: "blockcol" in k, None),
     (lambda k: "consumable" in k, None),
-    (lambda k: "invincib" in k, "Gadget invincibility display"),
+    (lambda k: "invincib" in k or ("gadget" in k and "sfx" in k), "Invincibility display"),
     (lambda k: "gridstreak" in k, None),          # resizing it glitches in game
     (lambda k: "ingamenotification" in k, "In-game notifications"),
     (lambda k: "killstreak" in k, "Kill streaks label"),
     (lambda k: "revive" in k, None),
-    (lambda k: "turret" in k, None),
+    # "SetTurretPanel" (PG3D spells turret in several ways)
+    (lambda k: any(w in k for w in ("turret", "turel", "turet", "turrel")) or (k.startswith("set") and "panel" in k), None),
     (lambda k: "shard" in k, None),
 ]
 
@@ -5102,12 +5125,39 @@ def _hud_row_label(name):
     return name  # a group this list doesn't know yet: shown under its own name
 
 
+def _hud_groups_fresh():
+    src = _hud_source()
+    if not src:
+        return None, False
+    build = plist_value(find_app() / "Contents/Info.plist", "CFBundleVersion")
+    d = read_json(HUD_GROUPS_JSON, {})
+    return d, (bool(d) and d.get("build") == build and d.get("source") == str(src)
+               and d.get("v") == customize.HUD_GROUPS_V)
+
+
+_HUD_AUTO = {"started": 0.0}
+
+
+def auto_hud_find():
+    """Read the HUD layout by itself when it's missing or out of date (first run, a PG3D
+    update, a client update that changed the list). No button needed."""
+    src = _hud_source()
+    if not src or not src.exists():
+        return False
+    _, fresh = _hud_groups_fresh()
+    if fresh or time.time() - _HUD_AUTO["started"] < 600:
+        return False
+    _HUD_AUTO["started"] = time.time()
+    start_hud_find()
+    return True
+
+
 def hud_payload():
     src = _hud_source()
-    build = plist_value(find_app() / "Contents/Info.plist", "CFBundleVersion") if src else None
-    d = read_json(HUD_GROUPS_JSON, {})
-    fresh = (bool(d) and d.get("build") == build and d.get("source") == str(src)
-             and d.get("v") == customize.HUD_GROUPS_V)
+    d, fresh = _hud_groups_fresh()
+    reading = False
+    if not fresh:
+        reading = auto_hud_find() or time.time() - _HUD_AUTO["started"] < 600
     layout = load_mods().get("hud_layout") or {}
     rows = {}
     for g in (d.get("groups") or []) if fresh else []:
@@ -5119,40 +5169,57 @@ def hud_payload():
         row = rows.setdefault(label, {"label": label, "keys": [], "pct": pct, "names": []})
         row["keys"].append(key)
         row["names"].append(g["name"])
-    return {"ok": True, "scanned": fresh, "rows": list(rows.values())}
+    return {"ok": True, "scanned": fresh, "reading": bool(not fresh and reading), "rows": list(rows.values())}
 
 
 def start_hud_find():
     """List the in-match HUD's anchor groups (read from the original resources.assets)."""
     def job(progress):
-        src = _hud_source()
-        if not src or not src.exists():
-            raise RuntimeError("Pixel Gun 3D.app was not found.")
         progress(0.1, "Reading PG3D's HUD layout…")
-        m = load_manifest(src)
-        read_from = Path(m["original"]) if m and m.get("original") and Path(m["original"]).exists() else src
-        groups = customize.hud_groups(read_from, log)
-        if not groups:
-            raise RuntimeError("PG3D's in-match HUD (InGameGUI) wasn't found in this build.")
-        build = plist_value(find_app() / "Contents/Info.plist", "CFBundleVersion")
-        write_json(HUD_GROUPS_JSON, {"build": build, "source": str(src), "groups": groups, "v": customize.HUD_GROUPS_V,
-                                     "generated": datetime.now().isoformat(timespec="seconds")})
-        # Sizes already applied pick up how each group is scaled now (e.g. the weapon bar).
-        by_pid = {int(g["path_id"]): g for g in groups}
+        src, groups = refresh_hud_groups()
         layout = load_mods().get("hud_layout") or {}
-        if any(int(op.get("path_id", -1)) in by_pid and
-               (op.get("mode", "self"), op.get("child_ids", [])) != (by_pid[int(op["path_id"])].get("mode", "self"),
-                                                                    by_pid[int(op["path_id"])].get("child_ids", []))
-               for op in layout.values()):
-            def change(state):
-                for op in (state.get("hud_layout") or {}).values():
-                    g = by_pid.get(int(op.get("path_id", -1)))
-                    if g:
-                        op["mode"], op["child_ids"] = g.get("mode", "self"), g.get("child_ids", [])
-            mutate_state(change, "HUD size", progress)
-            return f"Found {len(groups)} HUD groups and updated your HUD sizes."
-        return f"Found {len(groups)} HUD groups."
-    return start_job("scan", job, label="Finding the HUD")
+        if layout:
+            new, lost = _remap_hud_layout(layout, src, groups)
+            if json.dumps(new, sort_keys=True) != json.dumps(layout, sort_keys=True):
+                mutate_state(lambda state: state.update(hud_layout=new), "HUD size", progress)
+                return "HUD layout read; your HUD sizes were matched to it again."
+        return f"Found {len(groups)} HUD parts."
+    return start_job("scan", job, label="Reading the HUD layout")
+
+
+def refresh_hud_groups():
+    """Read the HUD's groups from the unmodified resources.assets (after a PG3D update the
+    new file becomes the baseline) and remember them."""
+    src = _hud_source()
+    if not src or not src.exists():
+        raise RuntimeError("Pixel Gun 3D.app was not found.")
+    m = ensure_baseline(src)
+    groups = customize.hud_groups(Path(m["original"]), log)
+    if not groups:
+        raise RuntimeError("PG3D's in-match HUD (InGameGUI) wasn't found in this build.")
+    build = plist_value(find_app() / "Contents/Info.plist", "CFBundleVersion")
+    write_json(HUD_GROUPS_JSON, {"build": build, "source": str(src), "groups": groups, "v": customize.HUD_GROUPS_V,
+                                 "generated": datetime.now().isoformat(timespec="seconds")})
+    return src, groups
+
+
+def _remap_hud_layout(layout, src, groups):
+    """Point saved HUD sizes at the same parts again (object ids change between builds):
+    by place in the layout first, then by name."""
+    by_path = {g["path"]: g for g in groups}
+    by_name = {}
+    for g in groups:
+        by_name.setdefault(g["name"], g)
+    out, lost = {}, []
+    for op in layout.values():
+        g = by_path.get(op.get("path")) or by_name.get(op.get("name"))
+        if not g:
+            lost.append(op.get("name") or "HUD part")
+            continue
+        out[f"{src}:{g['path_id']}"] = {**op, "source_file": str(src), "path_id": int(g["path_id"]), "path": g["path"],
+                                         "name": g["name"], "mode": g.get("mode", "self"),
+                                         "child_ids": g.get("child_ids", [])}
+    return out, lost
 
 
 def apply_hud_sizes(sizes, restore_all=False):
@@ -5188,7 +5255,7 @@ def apply_hud_sizes(sizes, restore_all=False):
             else:
                 layout[key] = {"source_file": src, "relative_file": rel,
                                "path_id": int(g["path_id"]), "name": g["name"], "pct": pct,
-                               "mode": g.get("mode", "self"), "child_ids": g.get("child_ids", [])}
+                               "mode": g.get("mode", "self"), "child_ids": g.get("child_ids", []), "path": g["path"]}
     def job(progress):
         mutate_state(change, "HUD size", progress)
         return "HUD size applied. It shows the next time PG3D starts."
@@ -5660,14 +5727,77 @@ def delete_sky(sky_id):
     return {"ok": True}
 
 
+SKY_SCAN_JSON = STATE_DIR / "sky_scan.json"
+_SKY_AUTO = {"started": 0.0}
+
+
+def _sky_scan_state():
+    app = find_app()
+    if not app:
+        return None, False
+    build = plist_value(app / "Contents/Info.plist", "CFBundleVersion")
+    d = read_json(SKY_SCAN_JSON, {})
+    return d, bool(d) and d.get("build") == build and d.get("v") == customize.SKY_SCAN_V
+
+
+def sky_targets():
+    d, fresh = _sky_scan_state()
+    return (d or {}).get("targets", []) if fresh else []
+
+
+def run_sky_scan(progress):
+    """Deep search for the sky in every game file (see customize.sky_deep_scan)."""
+    app = find_app()
+    if not app:
+        raise RuntimeError("Pixel Gun 3D.app was not found.")
+    files = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files(refresh=True)
+    targets = customize.sky_deep_scan(files, app, progress, log, thumbs=True)
+    for old in SKY_PREVIEWS.glob("sky2_*.jpg"):
+        old.unlink(missing_ok=True)
+    for i, t in enumerate(targets):
+        t["id"] = i
+        thumb = t.pop("_thumb", None)
+        if thumb is not None:
+            try:
+                thumb.save(SKY_PREVIEWS / f"sky2_{i}.jpg", quality=82)
+                t["preview"] = f"/api/sky/t2/{i}.jpg"
+            except Exception:
+                pass
+    build = plist_value(app / "Contents/Info.plist", "CFBundleVersion")
+    write_json(SKY_SCAN_JSON, {"build": build, "v": customize.SKY_SCAN_V, "targets": targets,
+                               "files": len(files), "generated": datetime.now().isoformat(timespec="seconds")})
+    log(f"Sky scan: {len(targets)} sky textures ({sum(t['kind'] == 'dome' for t in targets)} on sky domes) "
+        f"in {len(files)} files")
+    return targets
+
+
+def start_sky_scan():
+    def job(progress):
+        targets = run_sky_scan(progress)
+        return f"Found {len(targets)} sky textures." if targets else "No sky was found in this PG3D build."
+    return start_job("scan", job, label="Looking for the sky")
+
+
+def auto_sky_scan():
+    """Search for the sky by itself when there's no up-to-date result (no button)."""
+    _, fresh = _sky_scan_state()
+    if fresh or not find_app() or time.time() - _SKY_AUTO["started"] < 900:
+        return False
+    _SKY_AUTO["started"] = time.time()
+    start_sky_scan()
+    return True
+
+
 def sky_payload():
     cat = customize_catalog()
     sky = load_mods().get("skybox")
+    _, fresh = _sky_scan_state()
+    reading = auto_sky_scan() or (not fresh and time.time() - _SKY_AUTO["started"] < 900)
     return {
         "ok": True,
         "library": [{**s, "thumb": f"/api/sky/thumb/{s['id']}.jpg"} for s in sky_library()],
-        "targets": cat.get("sky", []),
-        "scan": {"generated": cat.get("generated"), "fresh": _catalog_fresh(cat)},
+        "targets": sky_targets(),
+        "scan": {"generated": fresh, "fresh": fresh, "reading": bool(reading)},
         "active": ({k: sky.get(k) for k in ("id", "name", "yaw", "swap_lr", "flip")} |
                    {"count": len(sky.get("targets", [])),
                     "target_keys": [f"{t['source_file']}:{t['path_id']}" for t in sky.get("targets", [])],
@@ -5829,12 +5959,12 @@ def apply_sky(sky_id, target_ids=None, yaw=0, swap_lr=False, flip=False):
         yaw = 0.0
 
     def job(progress):
-        cat = ensure_catalog(_sub_progress(progress, 0, 0.4))
-        all_targets = cat.get("sky", [])
+        all_targets = sky_targets() or run_sky_scan(_sub_progress(progress, 0, 0.4))
         if not all_targets:
-            raise RuntimeError("No skybox textures were found in this PG3D build.")
+            raise RuntimeError("No sky was found in this PG3D build.")
         picked = all_targets if not target_ids else [t for t in all_targets if t["id"] in set(target_ids)]
-        picked = [{k: t[k] for k in ("source_file", "relative_file", "path_id", "name", "type", "face", "width", "height")}
+        picked = [{k: t.get(k) for k in ("source_file", "relative_file", "path_id", "name", "type", "face", "width",
+                                         "height", "kind", "mesh_id")}
                   for t in picked if Path(t["source_file"]).exists()]
         if not picked:
             raise RuntimeError("None of the selected sky textures exist anymore. Scan again.")
@@ -5953,17 +6083,36 @@ def _remap_state(state, progress):
                           pivot_y=float(hit.get("pivot_y", .5)))
                 remapped[hit["key"]] = op
             new[field] = remapped
-    if new.get("theme") or new.get("skybox") or new.get("loading") or new.get("font"):
-        cat = scan_customize(_sub_progress(progress, .35, .7))
+    if new.get("hud_layout"):
+        progress(.3, "Finding your HUD sizes in the updated game…")
+        try:
+            src, groups = refresh_hud_groups()
+            new["hud_layout"], hud_lost = _remap_hud_layout(new["hud_layout"], src, groups)
+            lost += hud_lost
+        except Exception as e:
+            log(f"HUD layout after the update: {e}")
+            new["hud_layout"] = {}
+            lost.append("HUD sizes")
+    if new.get("skybox"):
+        progress(.32, "Finding the sky in the updated game…")
+        try:
+            found = run_sky_scan(_sub_progress(progress, .32, .5))
+        except Exception as e:
+            log(f"Sky after the update: {e}")
+            found = []
+        old = new["skybox"].get("targets", [])
+        same = lambda a, b: (a.get("relative_file"), a.get("name"), a.get("kind"), a.get("face")) == \
+            (b.get("relative_file"), b.get("name"), b.get("kind"), b.get("face"))
+        picked = [t for t in found if any(same(t, o) for o in old)] or found
+        new["skybox"]["targets"] = [{k: t.get(k) for k in ("source_file", "relative_file", "path_id", "name", "type",
+                                                         "face", "width", "height", "kind", "mesh_id")} for t in picked]
+        if not picked:
+            new["skybox"] = None
+            lost.append("sky")
+    if new.get("theme") or new.get("loading") or new.get("font"):
+        cat = scan_customize(_sub_progress(progress, .5, .7))
         if new.get("theme"):
             new["theme"]["targets"] = theme_targets(cat)
-        if new.get("skybox"):
-            old = new["skybox"].get("targets", [])
-            picked = [t for t in cat.get("sky", []) if any(_match_item(o, [t]) for o in old)] or cat.get("sky", [])
-            new["skybox"]["targets"] = [{k: t[k] for k in ("source_file", "relative_file", "path_id", "name", "type", "face", "width", "height")} for t in picked]
-            if not picked:
-                new["skybox"] = None
-                lost.append("sky")
         for key, fields in (("loading", ("source_file", "relative_file", "path_id", "name", "width", "height")),
                             ("font", ("source_file", "relative_file", "path_id", "name"))):
             if new.get(key):
@@ -6011,7 +6160,7 @@ def set_reapply_pref(on):
 
 
 def _has_retired_mods(state):
-    return bool(state.get("theme") or state.get("hud_set") or state.get("hud_disabled") or state.get("skybox")
+    return bool(state.get("theme") or state.get("hud_set") or state.get("hud_disabled")
                 or state.get("loading")
                 or any(v.get("role") in (None, "hitmarker", "killicon") for v in (state.get("gui") or {}).values()))
 
@@ -6029,7 +6178,6 @@ def retire_removed_mods():
                     state["theme"] = None
                     state["hud_set"] = {}
                     state["hud_disabled"] = False
-                    state["skybox"] = None
                     state["loading"] = None
                     state["gui"] = {k: v for k, v in (state.get("gui") or {}).items()
                                     if v.get("role") not in (None, "hitmarker", "killicon")}
@@ -6061,7 +6209,7 @@ def restore_game_files():
 
 def _needs_target_repair(state):
     return any((state.get(k) or {}).get("targets") and (state.get(k) or {}).get("targets_v", 1) < CUSTOMIZE_SCAN_V
-               for k in ("skybox", "loading"))
+               for k in ("loading",))  # the sky has its own search since 1.69
 
 
 def repair_texture_targets():
@@ -6081,7 +6229,7 @@ def repair_texture_targets():
                     report = {}
 
                     def change(state):
-                        sky = state.get("skybox")
+                        sky = None  # sky targets come from the sky search now
                         if sky and sky.get("targets"):
                             before = len(sky["targets"])
                             sky["targets"] = [t for t in sky["targets"] if (t["source_file"], int(t["path_id"])) in keep_sky]
@@ -6908,6 +7056,11 @@ class Handler(BaseHTTPRequestHandler):
             if not re.fullmatch(r"\d{1,2}\.png", name):
                 return self.send_error(403)
             return self.send_file(CURSOR_CANDIDATE_DIR / name)
+        if path.startswith("/api/sky/t2/"):
+            name = Path(path).name
+            if not re.fullmatch(r"\d{1,5}\.jpg", name):
+                return self.send_error(403)
+            return self.send_file(SKY_PREVIEWS / f"sky2_{name}")
         if path.startswith("/api/sky/target/"):
             name = Path(path).name
             if not re.fullmatch(r"\d{1,5}\.jpg", name):
@@ -6988,7 +7141,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(finder_report())
             if path == "/api/finder/use":
                 return self.send_json(finder_use(data.get("cat")))
-            if path in ("/api/finder/gui", "/api/sky/apply", "/api/loading/apply"):
+            if path in ("/api/finder/gui", "/api/loading/apply"):
                 raise RuntimeError("Custom sky, loading screens and GUI edits were removed from the client.")
             if path == "/api/cursor/choose":
                 return self.send_json(choose_cursor_target(int(data.get("index", -1))))
@@ -7301,6 +7454,21 @@ def main():
     threading.Thread(target=mods_reapply_watch, daemon=True).start()
     threading.Thread(target=retire_removed_mods, daemon=True).start()
     threading.Thread(target=cleanup_old_app_copies, daemon=True).start()
+    def _auto_hud():
+        time.sleep(45)
+        try:
+            auto_hud_find()
+        except Exception as e:
+            log(f"Reading the HUD layout failed: {e}")
+    threading.Thread(target=_auto_hud, daemon=True).start()
+
+    def _auto_sky():
+        time.sleep(60)
+        try:
+            auto_sky_scan()
+        except Exception as e:
+            log(f"Looking for the sky failed: {e}")
+    threading.Thread(target=_auto_sky, daemon=True).start()
     threading.Thread(target=repair_texture_targets, daemon=True).start()
     global WIN_WATCHER
     WIN_WATCHER = ranks.WinWatcher(win_config, _on_auto_win, game_running, log)
