@@ -1177,14 +1177,18 @@ def scale_transform(reader, factor, move=False):
 #  - sky domes: big mesh objects named like a sky (Sky, SkyDome, SkySphere, ...) -> the
 #    texture on their material plus the mesh itself, so a picture can be projected
 #    through the mesh's own UVs (no stretching, no seam).
-SKY_SCAN_V = 1
-_SKY_GO = re.compile(r"^(sky|skies|skydome|skysphere|skybox|skymesh|skyplane|skycylinder|clouds?|cloudsphere|cloudsdome)"
-                     r"(\d+|_?\w{0,8})?$")
+SKY_SCAN_V = 2  # 2: textures/meshes recorded in the file they really live in; stricter names
+_SKY_TOKENS = {"sky", "skies", "skydome", "skysphere", "skybox", "skymesh", "skyplane"}
 
 
 def _sky_go_name(name):
-    flat = re.sub(r"[^a-z0-9]", "", (name or "").lower())
-    return bool(flat) and (bool(_SKY_GO.match(flat)) or "skydome" in flat or "skysphere" in flat)
+    """Objects named like the sky itself ("Sky", "sky_01", "SkyDome", "CP_skydome",
+    "skybox_13_cloud"), not "skyscraper_1" or plain cloud layers."""
+    spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", name or "")
+    tokens = [t for t in re.split(r"[^a-z0-9]+", spaced.lower()) if t]
+    tokens = [re.sub(r"\d+$", "", t) for t in tokens]
+    joined = "".join(tokens)
+    return any(t in _SKY_TOKENS for t in tokens) or joined in ("skydome", "skysphere", "skybox")
 
 
 def _deref(ptr):
@@ -1218,6 +1222,7 @@ def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
             log(f"SKY LOAD FAIL {p}: {e}")
             continue
         objs = list(env.objects)
+        own = {id(o.assets_file) for o in objs}  # before following references loads other files
         types = {o.type.name for o in objs}
         if "Material" not in types and "RenderSettings" not in types:
             del env
@@ -1278,8 +1283,21 @@ def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
             except Exception as e:
                 log(f"SKY OBJ FAIL {p} {getattr(o, 'path_id', '?')}: {e}")
 
+        def home(reader):
+            """(physical file, inner file name) of an object: a scene's sky texture often
+            lives in another file (level5 -> sharedassets5.assets)."""
+            af = reader.assets_file
+            cab = str(getattr(af, "name", "") or "")
+            if id(af) in own:
+                return str(p), cab
+            cand = Path(p).parent / cab
+            return (str(cand), cab) if cab and cand.is_file() else (None, cab)
+
         for tex, slot, kind, where, mesh in hits:
-            key = (str(p), int(tex.path_id))
+            tex_file, tex_cab = home(tex)
+            if tex_file is None:
+                continue  # in a bundle we can't place
+            key = (tex_file, tex_cab, int(tex.path_id))
             if key in found:
                 continue
             try:
@@ -1287,11 +1305,19 @@ def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
                 w, h = int(data.m_Width), int(data.m_Height)
             except Exception:
                 continue
+            if tex.type.name == "Texture2D" and min(w, h) < 64:
+                continue  # gradients / 16x16 fillers, not a picture of a sky
+            mesh_file, mesh_cab = home(mesh) if mesh is not None else (None, None)
+            try:
+                rel = str(Path(tex_file).relative_to(app))
+            except ValueError:
+                rel = Path(tex_file).name
             typ = tex.type.name
             face = "cube" if typ == "Cubemap" else ("panorama" if slot in ("panorama", "cube") else slot)
-            item = {"source_file": str(p), "relative_file": rel, "path_id": int(tex.path_id), "name": _name(tex),
-                    "type": typ, "width": w, "height": h, "face": face, "kind": kind, "where": where,
-                    "mesh_id": int(mesh.path_id) if mesh is not None else None}
+            item = {"source_file": tex_file, "relative_file": rel, "path_id": int(tex.path_id), "name": _name(tex),
+                    "type": typ, "width": w, "height": h, "face": face, "kind": kind, "where": where, "cab": tex_cab,
+                    "mesh_id": int(mesh.path_id) if mesh is not None and mesh_file else None,
+                    "mesh_file": mesh_file, "mesh_cab": mesh_cab}
             if thumbs is not None and typ == "Texture2D":
                 try:
                     im = data.image.convert("RGB")

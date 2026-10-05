@@ -1,4 +1,4 @@
-PG3D Mac Client 1.69.0
+PG3D Mac Client 1.70.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,15 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.70
+Sky       Fixed "'Mesh' object has no attribute 'm_TextureFormat'" when applying
+          a sky: a map's sky texture often lives in another game file than the
+          map (level5 -> sharedassets5.assets); the client now records and
+          edits the right file. Objects like "skyscraper" and small filler
+          textures are no longer taken for the sky, and one odd texture can't
+          make the whole apply fail any more. The sky search runs again by
+          itself; apply your sky again once it's listed.
 
 New in 1.69
 HUD       The HUD list loads by itself (no Find button): once per PG3D

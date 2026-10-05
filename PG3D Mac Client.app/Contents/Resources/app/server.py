@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.69.0"
+APP_VERSION = "1.70.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1380,6 +1380,28 @@ def all_operations_for_source(state, source_str: str):
     return gui
 
 
+_MESH_ENVS = {}
+
+
+def _external_mesh(path, pid, cab=None):
+    """A sky dome's mesh that lives in another game file (read-only, from its original)."""
+    m = load_manifest(Path(path))
+    src = m["original"] if m and m.get("original") and Path(m["original"]).exists() else path
+    env = _MESH_ENVS.get(src)
+    if env is None:
+        try:
+            env = UnityPy.load(str(src))
+        except Exception as e:
+            log(f"Sky dome mesh file {Path(path).name} not readable: {e}")
+            return None
+        _MESH_ENVS.clear()
+        _MESH_ENVS[src] = env
+    for o in env.objects:
+        if int(o.path_id) == pid and o.type.name == "Mesh" and (not cab or getattr(o.assets_file, "name", "") == cab):
+            return o
+    return None
+
+
 def _load_sky_image(sky):
     path = SKY_DIR / Path(str(sky.get("image", ""))).name
     if not path.is_file():
@@ -1631,43 +1653,63 @@ def _rebuild_one(source_str, state):
 
         # Skybox textures.
         skipped = {}
+        def _find_in(pid, types, cab=None):
+            """Object with this id, of these types, in this inner file: ids repeat across
+            the files inside one bundle (a texture id can also be a Mesh elsewhere)."""
+            r = _find(pid)
+            if r is not None and r.type.name in types and (not cab or getattr(r.assets_file, "name", "") == cab):
+                return r
+            for o in env.objects:
+                if int(o.path_id) == int(pid) and o.type.name in types and \
+                        (not cab or getattr(o.assets_file, "name", "") == cab):
+                    return o
+            return None
+
         for t in sky_ops:
-            reader = _find(int(t["path_id"]))
-            if reader is None:
-                skipped["sky textures"] = skipped.get("sky textures", 0) + 1
-                continue
-            data = reader.parse_as_object()
-            if t.get("kind") == "dome" and t.get("mesh_id") is not None and reader.type.name == "Texture2D":
-                mesh_reader = _find(int(t["mesh_id"]))
-                if mesh_reader is not None:
-                    def make(d=data, mr=mesh_reader, t=t):
-                        size = (int(d.m_Width), int(d.m_Height))
-                        try:
-                            pos, uv, tris = customize._mesh_arrays(mr)
-                            return customize.project_on_mesh(customize.equirect_from(sky_image), pos, uv, tris, size,
-                                                             sky.get("yaw", 0), mirror=sky.get("swap_lr", False),
-                                                             flip=sky.get("flip", False))
-                        except Exception as e:
-                            log(f"Sky dome {t.get('name')}: mesh not readable ({e}); wrapping the picture instead")
-                            img = customize.sky_image_for({**t, "face": "panorama", "width": size[0], "height": size[1]},
-                                                          sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
-                            return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if sky.get("flip") else img
-                    set_texture_cached(data, ("skydome", sky.get("image"), sky.get("yaw", 0), sky.get("swap_lr"),
-                                              sky.get("flip"), str(source), int(t["mesh_id"])), make)
-                    save_parsed_object(data, reader)
+            try:
+                reader = _find_in(int(t["path_id"]), ("Texture2D", "Cubemap"), t.get("cab"))
+                if reader is None:
+                    skipped["sky textures"] = skipped.get("sky textures", 0) + 1
                     continue
-            if reader.type.name == "Cubemap":
-                size = int(data.m_Width) or int(t.get("width", 512))
-                faces = customize.cubemap_faces(sky_image, size, sky.get("yaw", 0), sky.get("swap_lr", False))
-                customize.write_cubemap(data, faces, flip=not sky.get("flip", False))
-            else:
-                def make(d=data, t=t):
-                    img = customize.sky_image_for({**t, "width": d.m_Width, "height": d.m_Height},
-                                                  sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
-                    return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if sky.get("flip") else img
-                set_texture_cached(data, ("sky", sky.get("image"), sky.get("yaw", 0), sky.get("swap_lr"), sky.get("flip"),
-                                          t.get("face")), make)
-            save_parsed_object(data, reader)
+                data = reader.parse_as_object()
+                if t.get("kind") == "dome" and t.get("mesh_id") is not None and reader.type.name == "Texture2D":
+                    mesh_reader = None
+                    if not t.get("mesh_file") or t["mesh_file"] == source_str:
+                        mesh_reader = _find_in(int(t["mesh_id"]), ("Mesh",), t.get("mesh_cab"))
+                    else:
+                        mesh_reader = _external_mesh(t["mesh_file"], int(t["mesh_id"]), t.get("mesh_cab"))
+                    if mesh_reader is not None:
+                        def make(d=data, mr=mesh_reader, t=t):
+                            size = (int(d.m_Width), int(d.m_Height))
+                            try:
+                                pos, uv, tris = customize._mesh_arrays(mr)
+                                return customize.project_on_mesh(customize.equirect_from(sky_image), pos, uv, tris, size,
+                                                                 sky.get("yaw", 0), mirror=sky.get("swap_lr", False),
+                                                                 flip=sky.get("flip", False))
+                            except Exception as e:
+                                log(f"Sky dome {t.get('name')}: mesh not readable ({e}); wrapping the picture instead")
+                                img = customize.sky_image_for({**t, "face": "panorama", "width": size[0], "height": size[1]},
+                                                              sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
+                                return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if sky.get("flip") else img
+                        set_texture_cached(data, ("skydome", sky.get("image"), sky.get("yaw", 0), sky.get("swap_lr"),
+                                                  sky.get("flip"), str(source), int(t["mesh_id"])), make)
+                        save_parsed_object(data, reader)
+                        continue
+                if reader.type.name == "Cubemap":
+                    size = int(data.m_Width) or int(t.get("width", 512))
+                    faces = customize.cubemap_faces(sky_image, size, sky.get("yaw", 0), sky.get("swap_lr", False))
+                    customize.write_cubemap(data, faces, flip=not sky.get("flip", False))
+                else:
+                    def make(d=data, t=t):
+                        img = customize.sky_image_for({**t, "width": d.m_Width, "height": d.m_Height},
+                                                      sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
+                        return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if sky.get("flip") else img
+                    set_texture_cached(data, ("sky", sky.get("image"), sky.get("yaw", 0), sky.get("swap_lr"), sky.get("flip"),
+                                              t.get("face")), make)
+                save_parsed_object(data, reader)
+            except Exception as e:  # one odd texture never fails the whole apply
+                log(f"Sky texture {t.get('name')} in {source.name} skipped: {type(e).__name__}: {e}")
+                skipped["sky textures"] = skipped.get("sky textures", 0) + 1
 
         # Loading screens: the picked image, filling the texture like CSS cover.
         if load_ops:
@@ -5964,7 +6006,7 @@ def apply_sky(sky_id, target_ids=None, yaw=0, swap_lr=False, flip=False):
             raise RuntimeError("No sky was found in this PG3D build.")
         picked = all_targets if not target_ids else [t for t in all_targets if t["id"] in set(target_ids)]
         picked = [{k: t.get(k) for k in ("source_file", "relative_file", "path_id", "name", "type", "face", "width",
-                                         "height", "kind", "mesh_id")}
+                                         "height", "kind", "mesh_id", "cab", "mesh_file", "mesh_cab")}
                   for t in picked if Path(t["source_file"]).exists()]
         if not picked:
             raise RuntimeError("None of the selected sky textures exist anymore. Scan again.")
@@ -6105,7 +6147,8 @@ def _remap_state(state, progress):
             (b.get("relative_file"), b.get("name"), b.get("kind"), b.get("face"))
         picked = [t for t in found if any(same(t, o) for o in old)] or found
         new["skybox"]["targets"] = [{k: t.get(k) for k in ("source_file", "relative_file", "path_id", "name", "type",
-                                                         "face", "width", "height", "kind", "mesh_id")} for t in picked]
+                                                         "face", "width", "height", "kind", "mesh_id", "cab",
+                                                         "mesh_file", "mesh_cab")} for t in picked]
         if not picked:
             new["skybox"] = None
             lost.append("sky")
