@@ -1,4 +1,4 @@
-PG3D Mac Client 1.65.0
+PG3D Mac Client 1.66.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,13 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.66
+HUD       New HUD tab: make parts of the in-match HUD smaller or bigger (top
+          left health/armor, center crosshair/ammo, weapon bar, bottom left and
+          bottom right buttons). PG3D's HUD is its "InGameGUI" layout; each
+          part is a corner group that is scaled as a whole, so it keeps its
+          place on screen. Reset all puts the original sizes back.
 
 New in 1.65
 HUD       The HUD layout scan also understands NGUI (the UI system PG3D's

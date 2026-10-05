@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.65.0"
+APP_VERSION = "1.66.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1017,7 +1017,7 @@ def start_gui_scan(deep=False):
 
 def default_mods():
     return {"cursor": None, "gui": {}, "hud_set": {}, "hud_disabled": False, "theme": None, "skybox": None,
-            "loading": None, "font": None}
+            "loading": None, "font": None, "hud_layout": {}}
 
 
 def load_mods():
@@ -1063,6 +1063,10 @@ def _source_sig(state, src):
         if mine:
             params = {k: val for k, val in v.items() if k not in ("targets", "targets_v", "custom")}
             sig[key] = [params, sorted(int(t["path_id"]) for t in mine)]
+    hud = sorted((int(op["path_id"]), op.get("pct")) for op in (state.get("hud_layout") or {}).values()
+                 if op.get("source_file") == src)
+    if hud:
+        sig["hud_layout"] = hud
     return json.dumps(sig, sort_keys=True, default=str)
 
 
@@ -1085,6 +1089,7 @@ def sources_for_state(state):
         sky = state.get(key)
         if sky:
             out.update(t["source_file"] for t in sky.get("targets", []) if t.get("source_file"))
+    out.update(op["source_file"] for op in (state.get("hud_layout") or {}).values() if op.get("source_file"))
     return out
 
 
@@ -1492,7 +1497,10 @@ def _rebuild_one(source_str, state):
     if sky_ops and sky_image is None:
         sky_image = _load_sky_image(sky)
     font_ops = [t for t in ((state.get("font") or {}).get("targets") or []) if t.get("source_file") == source_str]
-    if not needs_cursor and not gui_ops and not theme_pids and not sky_ops and not load_ops and not font_ops:
+    hud_ops = [op for op in (state.get("hud_layout") or {}).values()
+               if op.get("source_file") == source_str and abs(float(op.get("pct", 100)) - 100) > 0.01]
+    if (not needs_cursor and not gui_ops and not theme_pids and not sky_ops and not load_ops and not font_ops
+            and not hud_ops):
         shutil.copy2(original, source)
         manifest["last_mod_sha256"] = None
         manifest["restored"] = datetime.now().isoformat(timespec="seconds")
@@ -1664,6 +1672,14 @@ def _rebuild_one(source_str, state):
             data = reader.parse_as_object()
             customize.replace_font_data(data, font_bytes(state["font"]))
             save_parsed_object(data, reader)
+
+        # HUD group sizes: scale the anchor group's Transform (from the original value).
+        for op in hud_ops:
+            reader = _find(int(op["path_id"]))
+            if reader is None or reader.type.name not in ("Transform", "RectTransform"):
+                skipped["HUD groups"] = skipped.get("HUD groups", 0) + 1
+                continue
+            customize.scale_transform(reader, float(op["pct"]) / 100.0)
 
         if skipped:
             log(f"{source.name}: not found, skipped " + ", ".join(f"{n} {k}" for k, n in skipped.items())
@@ -4851,7 +4867,7 @@ def _sub_progress(progress, lo, hi):
     return lambda frac, msg: progress(lo + (hi - lo) * max(0.0, min(1.0, frac)), msg)
 
 
-JOB_LABELS = {"sky": "Sky", "theme": "Theme", "font": "Font", "scan": "Scanning game files", "change": "Change",
+JOB_LABELS = {"sky": "Sky", "theme": "Theme", "font": "Font", "hud": "HUD size", "scan": "Scanning game files", "change": "Change",
               "reapply": "Re-applying mods", "restore": "Restoring game files", "repair": "Fixing textures"}
 _JOBS = {"queue": [], "seq": 0, "worker": None, "current": None}
 _JOB_COND = threading.Condition()
@@ -5041,6 +5057,75 @@ def finder_thumb_path(gid):
 
 
 HUD_SCAN_JSON = STATE_DIR / "hud_scan.json"
+HUD_GROUPS_JSON = STATE_DIR / "hud_groups.json"
+
+
+def _hud_source():
+    app = find_app()
+    return app / "Contents/Resources/Data/resources.assets" if app else None
+
+
+def hud_payload():
+    src = _hud_source()
+    build = plist_value(find_app() / "Contents/Info.plist", "CFBundleVersion") if src else None
+    d = read_json(HUD_GROUPS_JSON, {})
+    fresh = bool(d) and d.get("build") == build and d.get("source") == str(src)
+    layout = load_mods().get("hud_layout") or {}
+    groups = []
+    for g in (d.get("groups") or []) if fresh else []:
+        key = f"{src}:{g['path_id']}"
+        groups.append({**g, "key": key, "pct": round(float((layout.get(key) or {}).get("pct", 100)))})
+    return {"ok": True, "scanned": fresh, "groups": groups}
+
+
+def start_hud_find():
+    """List the in-match HUD's anchor groups (read from the original resources.assets)."""
+    def job(progress):
+        src = _hud_source()
+        if not src or not src.exists():
+            raise RuntimeError("Pixel Gun 3D.app was not found.")
+        progress(0.1, "Reading PG3D's HUD layout…")
+        m = load_manifest(src)
+        read_from = Path(m["original"]) if m and m.get("original") and Path(m["original"]).exists() else src
+        groups = customize.hud_groups(read_from, log)
+        if not groups:
+            raise RuntimeError("PG3D's in-match HUD (InGameGUI) wasn't found in this build.")
+        build = plist_value(find_app() / "Contents/Info.plist", "CFBundleVersion")
+        write_json(HUD_GROUPS_JSON, {"build": build, "source": str(src), "groups": groups,
+                                     "generated": datetime.now().isoformat(timespec="seconds")})
+        return f"Found {len(groups)} HUD groups."
+    return start_job("scan", job, label="Finding the HUD")
+
+
+def apply_hud_sizes(sizes):
+    """sizes: {key: percent}. 100 removes the change."""
+    d = read_json(HUD_GROUPS_JSON, {})
+    src = d.get("source")
+    by_key = {f"{src}:{g['path_id']}": g for g in d.get("groups", [])}
+    if not by_key:
+        raise RuntimeError("Find the HUD first.")
+    app = find_app()
+    try:
+        rel = str(Path(src).relative_to(app)) if app else Path(src).name
+    except ValueError:
+        rel = Path(src).name
+
+    def change(state):
+        layout = state.setdefault("hud_layout", {})
+        for key, pct in (sizes or {}).items():
+            g = by_key.get(key)
+            if not g:
+                continue
+            pct = max(40.0, min(160.0, float(pct)))
+            if abs(pct - 100) < 0.5:
+                layout.pop(key, None)
+            else:
+                layout[key] = {"source_file": src, "relative_file": rel,
+                               "path_id": int(g["path_id"]), "name": g["name"], "pct": pct}
+    def job(progress):
+        mutate_state(change, "HUD size", progress)
+        return "HUD size applied. It shows the next time PG3D starts."
+    return start_job("hud", job, label="Resizing the HUD")
 
 
 def start_hud_scan():
@@ -5891,7 +5976,7 @@ def retire_removed_mods():
 
 def mods_active(state=None):
     st = state or load_mods()
-    return any(st.get(k) for k in ("cursor", "gui", "theme", "skybox", "loading", "font", "hud_set"))
+    return any(st.get(k) for k in ("cursor", "gui", "theme", "skybox", "loading", "font", "hud_set", "hud_layout"))
 
 
 def restore_game_files():
@@ -6735,6 +6820,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_file(SKY_PREVIEWS / name, cache=True)
         if path == "/api/finder":
             return self.send_json(finder_payload())
+        if path == "/api/hud":
+            return self.send_json(hud_payload())
         if path == "/api/finder/list":
             qs = parse_qs(urlparse(self.path).query)
             g = lambda k, d="": (qs.get(k) or [d])[0]
@@ -6822,6 +6909,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(start_finder_scan())
             if path == "/api/finder/picks":
                 return self.send_json(set_finder_picks(data.get("cat"), data.get("ids")))
+            if path == "/api/hud/find":
+                return self.send_json(start_hud_find())
+            if path == "/api/hud/apply":
+                return self.send_json(apply_hud_sizes(data.get("sizes") or {}))
             if path == "/api/hud/scan":
                 return self.send_json(start_hud_scan())
             if path == "/api/hud/report":

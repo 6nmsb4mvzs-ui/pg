@@ -1060,3 +1060,98 @@ def hud_report(result, build=""):
         kids = ", ".join(r["children"][:25])
         lines.append(f"  [{r['score']}] {r['file']} :: {r['root']} ({r['objects']} objects): {kids}")
     return "\n".join(lines)
+
+
+# ----------------------------------------------------------------------------- HUD groups
+# PG3D's in-match HUD is the NGUI prefab "InGameGUI" in resources.assets. Its pieces sit in
+# screen-corner anchor groups (TopLeftAnchor, WeaponTogglesForCharacter, BottomRightAnchor,
+# ...). Scaling one group's Transform resizes that whole block around its corner.
+HUD_GROUP_PARENTS = ("InGameInterface/InterfaceContainer", "JoystikPanel/JoystickContainer")
+HUD_GROUP_LABELS = {
+    "topleftanchor": "Top left: health, armor, pet",
+    "toprightanchor": "Top right",
+    "topanchor": "Top center",
+    "centeranchorscope": "Center: crosshair and ammo",
+    "centeranchor": "Center",
+    "weapontogglesforcharacter": "Weapon bar",
+    "bottomleftanchor": "Bottom left buttons",
+    "bottomrightanchor": "Bottom right: gadgets and abilities",
+    "bottomanchor": "Bottom center",
+    "leftanchor": "Left side",
+    "rightanchor": "Right side",
+}
+
+
+def hud_groups(path, log=print):
+    """The anchor groups of the in-match HUD: [{path_id (Transform), name, label, path,
+    scale [x,y,z], children [...]}]."""
+    import UnityPy
+
+    env = UnityPy.load(str(path))
+    names, tf, children = {}, {}, {}
+    objs = list(env.objects)
+    for obj in objs:
+        if obj.type.name == "GameObject":
+            try:
+                names[int(obj.path_id)] = str(obj.parse_as_object().m_Name or "")
+            except Exception:
+                pass
+    for obj in objs:
+        if obj.type.name not in ("Transform", "RectTransform"):
+            continue
+        try:
+            d = obj.parse_as_object()
+        except Exception:
+            continue
+        pid, go, father = int(obj.path_id), _pid(d.m_GameObject), _pid(getattr(d, "m_Father", None))
+        try:
+            sc = d.m_LocalScale
+            scale = [float(sc.x), float(sc.y), float(sc.z)]
+        except Exception:
+            scale = [1.0, 1.0, 1.0]
+        tf[pid] = (go, father, scale)
+        children.setdefault(father, []).append(pid)
+
+    def name(t):
+        return names.get(tf[t][0], "") if t in tf else ""
+
+    def path_of(t):
+        parts, seen = [], set()
+        while t in tf and t not in seen and len(parts) < 16:
+            seen.add(t)
+            parts.append(name(t))
+            t = tf[t][1]
+        return "/".join(reversed(parts))
+
+    roots = [t for t, (go, father, _) in tf.items() if father not in tf and name(t) == "InGameGUI"]
+    out = []
+    for root in roots:
+        stack = [root]
+        while stack:
+            t = stack.pop()
+            p = path_of(t)
+            stack.extend(children.get(t, []))
+            if not any(p.endswith(parent) for parent in HUD_GROUP_PARENTS):
+                continue
+            for c in children.get(t, []):
+                n = name(c)
+                if not n or "(off)" in n.lower():
+                    continue
+                key = re.sub(r"[^a-z]", "", n.lower())
+                kids = [name(k) for k in children.get(c, [])[:10]]
+                out.append({"path_id": c, "name": n, "label": HUD_GROUP_LABELS.get(key, n), "path": path_of(c),
+                            "scale": tf[c][2], "children": [k for k in kids if k]})
+    order = list(HUD_GROUP_LABELS)
+    out.sort(key=lambda g: (order.index(re.sub(r"[^a-z]", "", g["name"].lower()))
+                            if re.sub(r"[^a-z]", "", g["name"].lower()) in order else len(order), g["path"]))
+    log(f"HUD groups: {len(out)} in {Path(path).name}")
+    return out
+
+
+def scale_transform(reader, factor):
+    """Multiply a Transform's x/y scale (z kept) in place, from the file's own value."""
+    tree = reader.read_typetree()
+    s = tree["m_LocalScale"]
+    s["x"] = float(s["x"]) * factor
+    s["y"] = float(s["y"]) * factor
+    reader.save_typetree(tree)
