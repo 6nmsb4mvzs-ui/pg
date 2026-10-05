@@ -356,8 +356,8 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .curSeg{display:inline-grid;grid-auto-flow:column;gap:4px;background:hsl(var(--nh) var(--ns) 3.1%);border:1px solid var(--line);border-radius:9px;padding:4px}
 .curSeg button{border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer}
 .fnRow{display:flex;gap:8px;flex-wrap:wrap}
-.hdList{display:grid;gap:8px;margin-top:6px}.hdRow{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:14px;align-items:center;padding:11px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface2)}
-.hdRow b{display:block;font-size:13px}.hdRow small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdRow.changed{border-color:rgba(var(--accent-rgb),.45)}
+.hdList{display:grid;gap:8px;margin-top:6px}.hdRow{display:grid;grid-template-columns:minmax(0,1fr) 220px auto;gap:14px;align-items:center;padding:11px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface2)}
+.hdRow b{display:block;font-size:13px}.hdRow small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdRow.changed{border-color:rgba(var(--accent-rgb),.45)}.hdRow.hidden{opacity:.6}.hdBtns{display:flex;gap:6px}.hdBtns .btn{padding:6px 10px;font-size:12px}
 .fnChip{border:1px solid var(--border);background:hsl(var(--nh) var(--ns) 6%);color:var(--text);border-radius:10px;padding:10px 14px;cursor:pointer;font-size:15px;min-width:96px;text-align:center;position:relative}
 .fnChip:hover:not(:disabled){border-color:hsl(var(--nh) var(--ns) 30%)}.fnChip.sel{border-color:var(--accent);box-shadow:0 0 0 1px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .35)}
 .fnChip:disabled{opacity:.45;cursor:not-allowed}.fnChip.add{color:var(--muted);font-size:13px}.fnChip.pixel{font-size:10px;line-height:19px}
@@ -1170,10 +1170,11 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <div class="xPage">
         <div class="crCard">
           <div class="crCardHead"><h3>HUD size</h3><button class="btn" id="hdFind">Find the HUD</button></div>
-          <p class="xNote">Make parts of the in-match HUD smaller or bigger. Each part keeps its place on screen and scales from its corner.</p>
+          <p class="xNote">Make parts of the in-match HUD smaller or bigger, or hide them. Each part keeps its place on screen.</p>
+          <div class="xRow" id="hdTop" hidden style="margin:4px 0 10px;gap:8px"><button class="btn" id="hdHideAll">Hide all</button><button class="btn" id="hdRestoreAll">Restore all to default</button></div>
           <div class="hdList" id="hdList"></div>
           <div class="xJob" id="hdJob" style="margin-top:12px"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <div class="xRow" style="margin-top:14px"><button class="btn primary" id="hdApply" disabled>Apply</button><button class="btn" id="hdReset">Reset all</button><span class="sub" id="hdHint"></span></div>
+          <div class="xRow" style="margin-top:14px"><button class="btn primary" id="hdApply" disabled>Apply sizes</button><span class="sub" id="hdHint"></span></div>
         </div>
       </div>
     </section>
@@ -1991,19 +1992,29 @@ function themeGradient(stops){return `linear-gradient(90deg,${stops.map(([p,c])=
 const FONT_LOADED=new Set();
 let hudData=null,hudEdit={};
 async function loadHud(){try{hudData=await api('/api/hud');renderHud()}catch(e){console.error(e)}}
+async function hudSend(sizes,extra={}){try{await post('/api/hud/apply',{sizes,...extra})}catch(e){toast(e.message,true)}}
+function hudRowSizes(row,pct){const o={};for(const k of row.keys)o[k]=pct;return o}
 function renderHud(){const d=hudData;const list=$('#hdList');if(!d||!list)return;list.innerHTML='';
   $('#hdFind').textContent=d.scanned?'Find again':'Find the HUD';
+  const rows=d.rows||[];$('#hdTop').hidden=!d.scanned||!rows.length;
   if(!d.scanned){list.append(el('div','xEmpty','Press "Find the HUD" once. It reads PG3D\'s in-match HUD layout (about a minute).'));$('#hdApply').disabled=true;return}
-  for(const g of d.groups){const cur=hudEdit[g.key]??g.pct;const r=el('div','hdRow'+(cur!==100?' changed':''));
-    const info=el('div');info.append(el('b',null,g.label));info.append(el('small',null,g.children?.length?g.children.join(', '):g.name));info.title=g.path;
-    const rr=el('div','rangeRow');const inp=document.createElement('input');inp.type='range';inp.min=40;inp.max=160;inp.step=5;inp.value=cur;const val=el('div','rangeVal',cur+'%');
-    inp.oninput=()=>{hudEdit[g.key]=+inp.value;val.textContent=inp.value+'%';r.classList.toggle('changed',+inp.value!==100);$('#hdApply').disabled=!Object.keys(hudEdit).some(k=>hudEdit[k]!==(d.groups.find(x=>x.key===k)?.pct))};
-    rr.append(inp,val);r.append(info,rr);list.append(r)}
+  for(const row of rows){const id=row.keys.join('|');const hidden=row.pct===0;const cur=hudEdit[id]??(hidden?100:row.pct);
+    const r=el('div','hdRow'+(hidden?' hidden':cur!==100?' changed':''));
+    const info=el('div');info.append(el('b',null,row.label));info.title=row.names.join(', ');
+    info.append(el('small',null,hidden?'Hidden':row.pct!==100?`Applied: ${row.pct}%`:'Default size'));
+    const rr=el('div','rangeRow');const inp=document.createElement('input');inp.type='range';inp.min=40;inp.max=160;inp.step=5;inp.value=cur;inp.disabled=hidden;const val=el('div','rangeVal',cur+'%');
+    inp.oninput=()=>{hudEdit[id]=+inp.value;val.textContent=inp.value+'%';r.classList.toggle('changed',+inp.value!==100);$('#hdApply').disabled=!Object.keys(hudEdit).length;const db=r.querySelector('.hdDef');if(db)db.disabled=false};
+    rr.append(inp,val);
+    const btns=el('div','hdBtns');
+    const hide=el('button','btn',hidden?'Show':'Hide');hide.onclick=()=>{delete hudEdit[id];hudSend(hudRowSizes(row,hidden?100:0))};
+    const def=el('button','btn hdDef','Default');def.disabled=row.pct===100&&hudEdit[id]===undefined;def.onclick=()=>{delete hudEdit[id];hudSend(hudRowSizes(row,100))};
+    btns.append(hide,def);r.append(info,rr,btns);list.append(r)}
   $('#hdApply').disabled=!Object.keys(hudEdit).length;
-  $('#hdHint').textContent=d.groups.some(g=>g.pct!==100)?'Changes show the next time PG3D starts.':''}
+  $('#hdHint').textContent=rows.some(r=>r.pct!==100)?'Changes show the next time PG3D starts.':''}
 $('#hdFind').onclick=async()=>{try{await post('/api/hud/find')}catch(e){toast(e.message,true)}};
-$('#hdApply').onclick=async()=>{try{await post('/api/hud/apply',{sizes:hudEdit});hudEdit={};$('#hdApply').disabled=true}catch(e){toast(e.message,true)}};
-$('#hdReset').onclick=async()=>{if(!hudData?.groups)return;const sizes={};for(const g of hudData.groups)sizes[g.key]=100;hudEdit={};try{await post('/api/hud/apply',{sizes})}catch(e){toast(e.message,true)}};
+$('#hdApply').onclick=async()=>{const sizes={};for(const [id,pct] of Object.entries(hudEdit))for(const k of id.split('|'))sizes[k]=pct;hudEdit={};$('#hdApply').disabled=true;await hudSend(sizes)};
+$('#hdHideAll').onclick=()=>{if(!hudData?.rows)return;const sizes={};for(const r of hudData.rows)Object.assign(sizes,hudRowSizes(r,0));hudEdit={};hudSend(sizes)};
+$('#hdRestoreAll').onclick=()=>{hudEdit={};hudSend({},{restore_all:true})};
 function renderFonts(){const f=themeData?.font;const row=$('#fnRow');if(!f||!row)return;row.innerHTML='';
   const busy=statusData?.game_running||statusData?.job?.phase==='running';
   const mk=(id,name,family)=>{const b=el('button','fnChip'+((f.active||'')===id?' sel':'')+(id==='pixel'?' pixel':''),name);b.type='button';if(family)b.style.fontFamily=family;b.disabled=busy;

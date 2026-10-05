@@ -1,4 +1,4 @@
-PG3D Mac Client 1.67.0
+PG3D Mac Client 1.68.0
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -365,6 +365,14 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           backgrounds and map previews are ticked as loading screens.
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
+
+New in 1.68
+HUD       Reworked HUD tab: Armor, Health, Pet / Crosshair, Ammo / Gadgets,
+          Abilities / Gadget invincibility display / In-game notifications /
+          Kill streaks label (all kill streak parts as one) / Weapon Hotbar.
+          Each part can be resized, hidden, or put back to default; "Hide all"
+          and "Restore all to default" are at the top. Parts that glitch or
+          aren't useful are left out (and any change on them is undone).
 
 New in 1.67
 HUD       The weapon bar can be resized too: PG3D sets the bar's own size while

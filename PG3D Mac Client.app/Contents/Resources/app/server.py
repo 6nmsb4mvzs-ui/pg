@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.67.0"
+APP_VERSION = "1.68.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1675,7 +1675,8 @@ def _rebuild_one(source_str, state):
 
         # HUD group sizes: scale the anchor group's Transform (from the original value).
         for op in hud_ops:
-            factor = float(op["pct"]) / 100.0
+            # Hidden: shrunk to (almost) nothing. A true 0 can upset NGUI's math.
+            factor = float(op["pct"]) / 100.0 if float(op["pct"]) > 0 else 0.0001
             if op.get("mode") == "children" and op.get("child_ids"):
                 targets, move = [_find(int(c)) for c in op["child_ids"]], True
             else:
@@ -5070,6 +5071,37 @@ def _hud_source():
     return app / "Contents/Resources/Data/resources.assets" if app else None
 
 
+# The HUD tab's rows: (match on the group's name with only letters, row label or None
+# to leave the group out). First match wins; groups sharing a label become one row.
+HUD_ROWS = [
+    (lambda k: k == "topleftanchor", "Armor, Health, Pet"),
+    (lambda k: k == "toprightanchor", None),
+    (lambda k: k.startswith("centeranchor"), "Crosshair, Ammo"),
+    (lambda k: k == "weapontogglesforcharacter", None),
+    (lambda k: "weapontoggles" in k and "extraction" in k, None),
+    (lambda k: k == "weapontoggles", "Weapon Hotbar"),
+    (lambda k: k == "bottomleftanchor", None),
+    (lambda k: k == "bottomrightanchor", "Gadgets, Abilities"),
+    (lambda k: "blockcol" in k, None),
+    (lambda k: "consumable" in k, None),
+    (lambda k: "invincib" in k, "Gadget invincibility display"),
+    (lambda k: "gridstreak" in k, None),          # resizing it glitches in game
+    (lambda k: "ingamenotification" in k, "In-game notifications"),
+    (lambda k: "killstreak" in k, "Kill streaks label"),
+    (lambda k: "revive" in k, None),
+    (lambda k: "turret" in k, None),
+    (lambda k: "shard" in k, None),
+]
+
+
+def _hud_row_label(name):
+    k = re.sub(r"[^a-z]", "", (name or "").lower())
+    for match, label in HUD_ROWS:
+        if match(k):
+            return label
+    return name  # a group this list doesn't know yet: shown under its own name
+
+
 def hud_payload():
     src = _hud_source()
     build = plist_value(find_app() / "Contents/Info.plist", "CFBundleVersion") if src else None
@@ -5077,11 +5109,17 @@ def hud_payload():
     fresh = (bool(d) and d.get("build") == build and d.get("source") == str(src)
              and d.get("v") == customize.HUD_GROUPS_V)
     layout = load_mods().get("hud_layout") or {}
-    groups = []
+    rows = {}
     for g in (d.get("groups") or []) if fresh else []:
+        label = _hud_row_label(g["name"])
+        if not label:
+            continue
         key = f"{src}:{g['path_id']}"
-        groups.append({**g, "key": key, "pct": round(float((layout.get(key) or {}).get("pct", 100)))})
-    return {"ok": True, "scanned": fresh, "groups": groups}
+        pct = round(float((layout.get(key) or {}).get("pct", 100)))
+        row = rows.setdefault(label, {"label": label, "keys": [], "pct": pct, "names": []})
+        row["keys"].append(key)
+        row["names"].append(g["name"])
+    return {"ok": True, "scanned": fresh, "rows": list(rows.values())}
 
 
 def start_hud_find():
@@ -5117,8 +5155,9 @@ def start_hud_find():
     return start_job("scan", job, label="Finding the HUD")
 
 
-def apply_hud_sizes(sizes):
-    """sizes: {key: percent}. 100 removes the change."""
+def apply_hud_sizes(sizes, restore_all=False):
+    """sizes: {key: percent}; 100 removes the change, 0 hides. restore_all clears every
+    HUD change. Parts left out of the list never keep a change."""
     d = read_json(HUD_GROUPS_JSON, {})
     src = d.get("source")
     by_key = {f"{src}:{g['path_id']}": g for g in d.get("groups", [])}
@@ -5132,11 +5171,18 @@ def apply_hud_sizes(sizes):
 
     def change(state):
         layout = state.setdefault("hud_layout", {})
+        if restore_all:
+            layout.clear()
+            return
+        for key in list(layout):
+            g = by_key.get(key)
+            if g and not _hud_row_label(g["name"]):
+                layout.pop(key)
         for key, pct in (sizes or {}).items():
             g = by_key.get(key)
             if not g:
                 continue
-            pct = max(40.0, min(160.0, float(pct)))
+            pct = 0.0 if float(pct) <= 0 else max(40.0, min(160.0, float(pct)))  # 0 = hidden
             if abs(pct - 100) < 0.5:
                 layout.pop(key, None)
             else:
@@ -6933,7 +6979,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/hud/find":
                 return self.send_json(start_hud_find())
             if path == "/api/hud/apply":
-                return self.send_json(apply_hud_sizes(data.get("sizes") or {}))
+                return self.send_json(apply_hud_sizes(data.get("sizes") or {}, bool(data.get("restore_all"))))
             if path == "/api/hud/scan":
                 return self.send_json(start_hud_scan())
             if path == "/api/hud/report":
