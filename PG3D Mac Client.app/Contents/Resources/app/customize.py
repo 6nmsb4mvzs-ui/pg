@@ -492,7 +492,7 @@ _FACE_DIRS = {
     "up": lambda a, b: (a, 1.0, b),
     "down": lambda a, b: (a, -1.0, -b),
 }
-SKY_MIN_FACE = 1024  # many PG3D sky faces are 256-512 px, which looks blurry fullscreen
+SKY_MIN_FACE = 0  # keep each texture's own size (1.49.0 enlarged them; safer to leave sizes alone)
 CUBEMAP_ORDER = ("right", "left", "up", "down", "front", "back")  # +X -X +Y -Y +Z -Z
 
 

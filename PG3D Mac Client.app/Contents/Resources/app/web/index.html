@@ -62,6 +62,7 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 
 /* v1.15 additions */
 .buildBadge{display:none;margin-top:12px;font-size:11px;padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:hsl(var(--nh) var(--ns) 7.3%);color:var(--muted)}
+#quickExit .btn{padding:3px 9px;font-size:11px;margin-left:6px}
 .buildBadge.show{display:inline-block}.buildBadge.warn{border-color:#5a4520;color:var(--warn);background:#1a1509}
 .playtime{display:flex;gap:18px;margin-top:14px;color:var(--muted);font-size:11px}
 .playtime b{display:block;color:var(--text);font-size:15px;font-weight:700}
@@ -910,7 +911,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
             <div class="lpBar"><i id="lpFill"></i></div>
             <small id="lpEta"></small>
           </div>
-          <div class="buildBadge" id="buildBadge"></div><div class="message" id="launchMessage"></div>
+          <div class="buildBadge" id="buildBadge"></div><div class="buildBadge warn" id="quickExit"><span></span><button class="btn" type="button">Restore original game files</button></div><div class="message" id="launchMessage"></div>
         </div>
         <div class="playStats">
           <div class="playtime" id="playtime"></div>
@@ -1092,7 +1093,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="crCardHead"><h3>Troubleshooting</h3></div>
           <p class="setNote">If something isn't working, copy the report and paste it into your message.</p>
           <button class="xSwitch" id="mouseFixSw" role="switch" style="margin-bottom:12px"><div><b>Mouse fix</b><small>Fixes PG3D's Mac cursor staying in the middle and clicks needing two tries. Applies the next time PG3D starts from here.</small></div><span class="pillToggle"></span></button>
-          <div class="setActions"><button class="btn primary" id="diagCopy">Copy diagnostic report</button><button class="btn" id="diagLogs">Show log files</button><button class="btn" id="redetectCursor">Re-detect cursor</button><button class="btn" id="fixMouse" title="Mouse stuck in the middle, or clicks need two tries? This hands focus back to PG3D. In game: Ctrl+Shift+M">Fix stuck mouse</button><button class="btn" id="rescanGame" title="Look through PG3D's files again, for example after a game update">Rescan game files</button></div>
+          <div class="setActions"><button class="btn primary" id="diagCopy">Copy diagnostic report</button><button class="btn" id="diagLogs">Show log files</button><button class="btn" id="redetectCursor">Re-detect cursor</button><button class="btn" id="fixMouse" title="Mouse stuck in the middle, or clicks need two tries? This hands focus back to PG3D. In game: Ctrl+Shift+M">Fix stuck mouse</button><button class="btn" id="rescanGame" title="Look through PG3D's files again, for example after a game update">Rescan game files</button><button class="btn" id="restoreFiles" title="PG3D won't open or looks broken? Puts every game file the client changed back to the original">Restore original game files</button></div>
         </div>
       </div>
     </section>
@@ -1257,7 +1258,10 @@ function renderStatus(){if(!statusData)return;
   const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderLastSession();renderGameUpdate();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
   if(statusData.overlay && (!overlayConfig || !overlayDirty)){overlayConfig=structuredClone(statusData.overlay.config);renderOverlayEditor()}
 }
-function renderBuildBadge(){const b=$('#buildBadge');if(!b||!statusData)return;const m=statusData.fps_build_match,build=statusData.game_build;if(m===false){b.className='buildBadge show warn';b.textContent=`The FPS unlocker couldn't attach to PG3D build ${build}. Start still works.`}else if(m===true){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build} · FPS unlocker compatible`}else{b.className='buildBadge'}}
+async function restoreGameFiles(){if(!confirm('Put every game file the client changed back to the original? Your cursor, sky, loading screen and font are taken out; you can apply them again afterwards.'))return;try{await post('/api/game/restore-files',{});toast('Restoring the original game files…');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}}
+$('#restoreFiles').onclick=restoreGameFiles;$('#quickExit button').onclick=restoreGameFiles;
+function renderQuickExit(){const q=statusData?.quick_exit,b=$('#quickExit');const show=!!(q&&q.mods&&!statusData.game_running);b.classList.toggle('show',show);if(show)b.querySelector('span').textContent=`PG3D closed ${q.seconds}s after starting. Changed game files can cause that. `}
+function renderBuildBadge(){renderQuickExit();const b=$('#buildBadge');if(!b||!statusData)return;const m=statusData.fps_build_match,build=statusData.game_build;if(m===false){b.className='buildBadge show warn';b.textContent=`The FPS unlocker couldn't attach to PG3D build ${build}. Start still works.`}else if(m===true){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build} · FPS unlocker compatible`}else{b.className='buildBadge'}}
 function renderPlaytime(){const el=$('#playtime'),p=statusData?.playtime;if(!el||!p)return;const cells=[];if(p.live)cells.push(['live','This session',p.live]);cells.push(['','Today',p.today],['','Last 7 days',p.week],['','All time',p.total]);const sig=JSON.stringify(cells);if(sig===el.__sig)return;el.__sig=sig;el.innerHTML='';for(const[c,l,v]of cells){const d=document.createElement('div');d.className=c;const b=document.createElement('b');b.textContent=v;d.append(b,document.createTextNode(l));el.appendChild(d)}}
 function renderLastSession(){const box=$('#lastSession'),r=statusData?.last_session;if(!box)return;const show=!!r&&!statusData.game_running&&(Date.now()/1000-r.start<4*86400);box.hidden=!show;if(!show)return;
   const sig=JSON.stringify(r);if(box.__sig===sig)return;box.__sig=sig;const n=v=>Number(v||0).toLocaleString();

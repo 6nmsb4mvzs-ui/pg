@@ -1,4 +1,4 @@
-PG3D Mac Client 1.49.1
+PG3D Mac Client 1.49.2
 
 Installing
 Double-click PG3D Mac Client. The very first time, macOS asks you to confirm
@@ -284,3 +284,12 @@ Fixes     Loading screens and skies no longer change other textures. The
           loading images. Textures changed by mistake are put back by
           themselves once (after PG3D is closed); your sky and loading
           screen stay.
+
+New in 1.49.2
+Fixes     Settings > Troubleshooting > Restore original game files puts every
+          game file the client changed back to the original (if PG3D won't
+          open or looks broken). If PG3D closes right after starting while
+          mods are applied, the Play tab says so and offers the same button.
+          Sky textures keep their original size again (1.49.0 enlarged them).
+          The diagnostic report now includes PG3D's own log and its newest
+          crash report.

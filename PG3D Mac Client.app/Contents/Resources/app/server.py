@@ -55,7 +55,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.49.1"
+APP_VERSION = "1.49.2"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -4041,6 +4041,12 @@ def playtime_watch():
                     STATUS["session_start"] = now
             elif not running and session is not None:
                 length = now - session["start"]
+                if length < 45 and not _LAUNCH.get("stage"):
+                    # PG3D closed right after opening: often damaged game files.
+                    log(f"PG3D closed {length:.0f}s after starting (mods active: {mods_active()})")
+                    set_status(quick_exit={"at": int(now), "seconds": int(length), "mods": mods_active()})
+                elif length >= 45:
+                    set_status(quick_exit=None)
                 with _LOCK:
                     STATUS["session_start"] = None
                 if length >= 30:
@@ -4157,6 +4163,8 @@ def diagnostics_report():
         "", "--- focus.log (front app while PG3D runs) ---", tail(SUPPORT / "focus.log", 40),
         "", f"--- last game run (mouse fix {'on' if mouse_fix_enabled() else 'off'}) ---",
         _game_run_summary(max(FPS_LOG_DIR.glob("run-*.log"), key=lambda p: p.stat().st_mtime, default=SUPPORT / "none.log")),
+        "", "--- PG3D's own log (Player.log) ---", _unity_log_tail(),
+        "", "--- newest PG3D crash report ---", _crash_report_summary(),
     ]
     text = "\n".join(lines)
     try:
@@ -4164,6 +4172,41 @@ def diagnostics_report():
     except Exception:
         pass
     return {"ok": True, "chars": len(text)}
+
+
+def _unity_log_tail(lines=40):
+    logs = sorted(Path.home().glob("Library/Logs/*/*/Player*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+    logs = [p for p in logs if "pixel" in str(p).lower()]
+    if not logs:
+        return "(missing)"
+    p = logs[0]
+    try:
+        text = p.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return "(unreadable)"
+    stamp = datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")
+    keep = [l for l in text if l.strip() and not l.startswith(("    \"memorysetup", "(Filename:"))]
+    return f"{p.name}, last written {stamp}\n" + "\n".join(keep[-lines:])
+
+
+def _crash_report_summary():
+    reps = sorted(Path.home().glob("Library/Logs/DiagnosticReports/Pixel Gun 3D*"), key=lambda p: p.stat().st_mtime,
+                  reverse=True)
+    if not reps:
+        return "(none)"
+    p = reps[0]
+    try:
+        text = p.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return p.name
+    picks = []
+    for key in ("exception", "termination", "faultingThread", "Exception Type", "Termination Reason",
+                "Crashed Thread", "dyld", "Library not loaded", "Reason"):
+        for m in re.finditer(r'.{0,60}' + re.escape(key) + r'.{0,160}', text):
+            picks.append(m.group(0).strip())
+            break
+    stamp = datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")
+    return f"{p.name} ({stamp})\n" + "\n".join(picks[:10])
 
 
 def _game_run_summary(path):
@@ -4896,6 +4939,24 @@ def retire_removed_mods():
         except Exception as e:
             log(f"Retiring theme/HUD changes failed, retrying: {e}")
         time.sleep(30)
+
+
+def mods_active(state=None):
+    st = state or load_mods()
+    return any(st.get(k) for k in ("cursor", "gui", "theme", "skybox", "loading", "font", "hud_set"))
+
+
+def restore_game_files():
+    """Put every game file the client changed back to its original copy. Your
+    settings stay in the undo history; apply things again one by one later."""
+    def job(progress):
+        def change(state):
+            state.clear()
+            state.update(default_mods())
+        mutate_state(change, "Restore original game files", progress)
+        set_status(quick_exit=None)
+        return "Original game files restored. Start PG3D to check it opens."
+    return start_job("restore", job)
 
 
 def _needs_target_repair(state):
@@ -5879,6 +5940,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(reset_rankup_sound())
             if path == "/api/prefs/mouse-fix":
                 return self.send_json(set_mouse_fix_pref(data.get("on", True)))
+            if path == "/api/game/restore-files":
+                return self.send_json(restore_game_files())
             if path == "/api/game/refocus":
                 return self.send_json(refocus_game())
             if path == "/api/game-update/install":
