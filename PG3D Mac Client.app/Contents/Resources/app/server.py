@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.4"
+APP_VERSION = "1.73.5"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -6228,7 +6228,24 @@ def _sky_targets_payload(sky):
     return cands
 
 
+_FAMILY_AUTO = {"num": None}
+
+
+def _auto_sky_family():
+    """A pick without the other-maps search yet (made before 1.73.4, or the search was
+    cut off): run it by itself once, no button needed."""
+    pick = read_json(SKY_PICK_JSON, None)
+    if not pick or SKY_FAMILY_JSON.exists() or _FAMILY_AUTO["num"] == pick.get("at") or jobs_pending():
+        return
+    _FAMILY_AUTO["num"] = pick.get("at")
+    try:
+        start_sky_family()
+    except Exception as e:
+        log(f"Other-maps sky search not started: {e}")
+
+
 def sky_payload():
+    _auto_sky_family()
     cat = customize_catalog()
     sky = load_mods().get("skybox")
     _, fresh = _sky_scan_state()

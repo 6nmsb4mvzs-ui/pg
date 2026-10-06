@@ -366,6 +366,11 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.5
+Sky       The search for your sky in the other maps starts by itself when you
+          open the Sky tab with a pick that hasn't been searched yet (no button
+          needed). The button is always there to search again.
+
 New in 1.73.4
 Sky       Most maps have their own sky. After you pick yours with the sky test,
           the client looks through every map for skies drawn the same way
