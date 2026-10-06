@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.10"
+APP_VERSION = "1.73.11"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1762,15 +1762,18 @@ def _rebuild_one(source_str, state):
                     customize.write_cubemap(data, faces, flip=not sky.get("flip", False))
                 else:
                     def make(d=data, t=t):
-                        img = customize.sky_image_for({**t, "width": d.m_Width, "height": d.m_Height},
-                                                      sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
+                        if t.get("mirror") is not None:
+                            # Wrapped round a sky dome (top half of a sphere, seen from inside).
+                            img = customize.sky_dome_image(sky_image, (int(d.m_Width), int(d.m_Height)),
+                                                           sky.get("yaw", 0))
+                        else:
+                            img = customize.sky_image_for({**t, "width": d.m_Width, "height": d.m_Height},
+                                                          sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
                         if t.get("mirror") is not None and bool(t["mirror"]) != bool(sky.get("swap_lr")):
                             img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-                        if t.get("mirror") is not None:  # wrapped round a sky sphere: no pinwheel at the top
-                            img = customize.calm_poles(img)
                         return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if sky.get("flip") else img
                     set_texture_cached(data, ("sky", sky.get("image"), sky.get("yaw", 0), sky.get("swap_lr"), sky.get("flip"),
-                                              t.get("face"), t.get("mirror")), make)
+                                              t.get("face"), t.get("mirror"), "dome2"), make)
                 save_parsed_object(data, reader)
             except Exception as e:  # one odd texture never fails the whole apply
                 log(f"Sky texture {t.get('name')} in {source.name} skipped: {type(e).__name__}: {e}")

@@ -366,6 +366,15 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.11
+Sky       PG3D's sky domes only cover the top half of a sphere (the texture's
+          bottom edge is the horizon). The whole panorama used to go onto them,
+          so the horizon and sun sat halfway up the sky and the ground half
+          filled the lower sky. Now only the sky half of your picture is used,
+          so it fills the whole visible sky. Towards the top each row is
+          smoothed as much as the dome squeezes it, ending in one colour at the
+          zenith, so the top no longer looks messy.
+
 New in 1.73.10
 Sky       With your skies picked, the Sky tab no longer shows the sky test's
           number field ("Pick other skies" starts a new test if you want one).

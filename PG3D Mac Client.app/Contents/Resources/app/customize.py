@@ -1725,6 +1725,42 @@ def calm_poles(img: Image.Image, frac=0.07) -> Image.Image:
     return Image.fromarray(np.clip(a + 0.5, 0, 255).astype(np.uint8), "RGBA")
 
 
+def sky_dome_image(source: Image.Image, size, yaw=0.0, below=5.0) -> Image.Image:
+    """The picture for a sky dome that covers the top half of a sphere (the texture's
+    bottom edge sits at the horizon, its top at the zenith; as seen on PG3D's maps):
+    only the sky half of the panorama, from a few degrees below the horizon up to the
+    zenith. Towards the zenith every row is smoothed sideways as much as the dome
+    squeezes it, ending in one colour at the top, so no pinwheel of wedges appears."""
+    import numpy as np
+
+    W, H = int(size[0]), int(size[1])
+    pano = equirect_from(source, yaw).convert("RGB")
+    ph = pano.height
+    bottom = int(round(ph * (0.5 + below / 180.0)))
+    part = pano.crop((0, 0, pano.width, max(2, bottom))).resize((W, H), Image.Resampling.LANCZOS)
+    a = np.asarray(part, dtype=np.float64)
+    span = 90.0 + below
+    out = np.empty_like(a)
+    for y in range(H):
+        elev = 90.0 - (y + 0.5) / H * span          # degrees above the horizon
+        c = math.cos(math.radians(min(elev, 89.9)))
+        r = int(min(W // 2, max(0, round((1.0 / max(c, 1e-3) - 1.0) * 2.0))))
+        row = a[y]
+        if r <= 0:
+            out[y] = row
+            continue
+        cs = np.cumsum(np.concatenate([row[-r:], row, row[:r]]), axis=0)
+        cs = np.concatenate([np.zeros((1, 3)), cs])
+        out[y] = (cs[2 * r + 1:] - cs[:-2 * r - 1]) / (2 * r + 1)
+    # The last few degrees: one colour (all columns meet in a point there).
+    cap = max(2, int(H * 6.0 / span))
+    top = out[:max(1, cap // 2)].reshape(-1, 3).mean(axis=0)
+    for y in range(cap):
+        w = ((y + 1) / cap) ** 1.5
+        out[y] = out[y] * w + top * (1 - w)
+    return Image.fromarray(np.clip(out + 0.5, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
+
+
 def _mesh_arrays(mesh_reader):
     """Vertex positions (N,3), UVs (N,2) and triangles (M,3) of a Unity mesh."""
     import numpy as np
