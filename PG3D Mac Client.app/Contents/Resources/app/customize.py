@@ -1177,7 +1177,8 @@ def scale_transform(reader, factor, move=False):
 #  - sky domes: big mesh objects named like a sky (Sky, SkyDome, SkySphere, ...) -> the
 #    texture on their material plus the mesh itself, so a picture can be projected
 #    through the mesh's own UVs (no stretching, no seam).
-SKY_SCAN_V = 2  # 2: textures/meshes recorded in the file they really live in; stricter names
+SKY_SCAN_V = 3  # 2: textures/meshes recorded in the file they really live in; stricter names
+# 3: a dome's Transform (rotation/scale) is kept, so a scaled-up small sphere counts too
 _SKY_TOKENS = {"sky", "skies", "skydome", "skysphere", "skybox", "skymesh", "skyplane"}
 
 
@@ -1231,9 +1232,9 @@ def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
             rel = str(Path(p).relative_to(app))
         except ValueError:
             rel = Path(p).name
-        hits = []  # (texture reader, face, kind, where, mesh reader)
+        hits = []  # (texture reader, face, kind, where, mesh reader, matrix)
 
-        def material_textures(mat_reader, kind, where, mesh=None):
+        def material_textures(mat_reader, kind, where, mesh=None, matrix=None):
             try:
                 mat = mat_reader.parse_as_object()
             except Exception:
@@ -1248,7 +1249,7 @@ def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
                     continue
                 tex = _deref(getattr(env_, "m_Texture", None))
                 if tex is not None and tex.type.name in ("Texture2D", "Cubemap"):
-                    hits.append((tex, slot, kind, f"{where} · {getattr(mat, 'm_Name', '')} ({shader})", mesh))
+                    hits.append((tex, slot, kind, f"{where} · {getattr(mat, 'm_Name', '')} ({shader})", mesh, matrix))
 
         for o in objs:
             t = o.type.name
@@ -1266,7 +1267,7 @@ def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
                     go = o.parse_as_object()
                     if not _sky_go_name(getattr(go, "m_Name", "")):
                         continue
-                    mesh, mats = None, []
+                    mesh, mats, tr = None, [], None
                     for c in getattr(go, "m_Component", None) or []:
                         comp = _deref(getattr(c, "component", c))
                         if comp is None:
@@ -1275,11 +1276,20 @@ def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
                             mesh = _deref(getattr(comp.parse_as_object(), "m_Mesh", None))
                         elif comp.type.name == "MeshRenderer":
                             mats = [_deref(m) for m in (getattr(comp.parse_as_object(), "m_Materials", None) or [])]
-                    if mesh is None or _mesh_extent(mesh) < 30:
+                        elif comp.type.name in ("Transform", "RectTransform"):
+                            tr = comp
+                    if mesh is None:
+                        continue
+                    try:
+                        matrix = _transform_matrix(tr) if tr is not None else None
+                    except Exception:
+                        matrix = None
+                    scale = float(abs(matrix).sum(axis=0).max()) if matrix is not None else 1.0
+                    if _mesh_extent(mesh) * scale < 30:
                         continue  # small objects named "sky..." aren't the sky
                     for m in mats:
                         if m is not None:
-                            material_textures(m, "dome", f"sky dome {go.m_Name}", mesh)
+                            material_textures(m, "dome", f"sky dome {go.m_Name}", mesh, matrix)
             except Exception as e:
                 log(f"SKY OBJ FAIL {p} {getattr(o, 'path_id', '?')}: {e}")
 
@@ -1293,7 +1303,7 @@ def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
             cand = Path(p).parent / cab
             return (str(cand), cab) if cab and cand.is_file() else (None, cab)
 
-        for tex, slot, kind, where, mesh in hits:
+        for tex, slot, kind, where, mesh, matrix in hits:
             tex_file, tex_cab = home(tex)
             if tex_file is None:
                 continue  # in a bundle we can't place
@@ -1317,7 +1327,8 @@ def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
             item = {"source_file": tex_file, "relative_file": rel, "path_id": int(tex.path_id), "name": _name(tex),
                     "type": typ, "width": w, "height": h, "face": face, "kind": kind, "where": where, "cab": tex_cab,
                     "mesh_id": int(mesh.path_id) if mesh is not None and mesh_file else None,
-                    "mesh_file": mesh_file, "mesh_cab": mesh_cab}
+                    "mesh_file": mesh_file, "mesh_cab": mesh_cab,
+                    "matrix": [[float(v) for v in row] for row in matrix] if matrix is not None and mesh_file else None}
             if thumbs is not None and typ == "Texture2D":
                 try:
                     im = data.image.convert("RGB")
@@ -1328,6 +1339,114 @@ def sky_deep_scan(files, app: Path, progress=None, log=print, thumbs=None):
             found[key] = item
         del env
     return list(found.values())
+
+
+def _transform_matrix(tr_reader):
+    """Rotation and scale (3x3, no position) from an object's own space to the world:
+    a sky sphere is often a small mesh scaled up, turned or mirrored by its Transform."""
+    import numpy as np
+
+    m = np.eye(3)
+    seen = set()
+    while tr_reader is not None and int(tr_reader.path_id) not in seen:
+        seen.add(int(tr_reader.path_id))
+        tr = tr_reader.parse_as_object()
+        q, s = tr.m_LocalRotation, tr.m_LocalScale
+        x, y, z, w = float(q.x), float(q.y), float(q.z), float(q.w)
+        n = math.sqrt(x * x + y * y + z * z + w * w) or 1.0
+        x, y, z, w = x / n, y / n, z / n, w / n
+        r = np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                      [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                      [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+        m = r @ np.diag([float(s.x), float(s.y), float(s.z)]) @ m
+        tr_reader = _deref(getattr(tr, "m_Father", None))
+    return m
+
+
+def find_texture_mesh(files, tex_file, path_id, cab=None, progress=None, log=print):
+    """The mesh that draws one texture in the game (the sky sphere behind a sky texture
+    found by the sky test): {mesh_id, mesh_file, mesh_cab, matrix, object, extent} or None.
+    The biggest one wins when several objects use the texture."""
+    import UnityPy
+    import numpy as np
+
+    best = None
+    total = max(1, len(files))
+    for idx, p in enumerate(files, 1):
+        if progress:
+            progress(idx / total, f"Looking for the shape of your sky ({idx}/{total})…")
+        try:
+            env = UnityPy.load(str(p))
+        except Exception:
+            continue
+        objs = list(env.objects)
+        if not any(o.type.name == "MeshRenderer" for o in objs):
+            del env
+            continue
+        own = {id(o.assets_file) for o in objs}
+
+        def home(reader):
+            af = reader.assets_file
+            name = str(getattr(af, "name", "") or "")
+            if id(af) in own:
+                return str(p), name
+            cand = Path(p).parent / name
+            return (str(cand), name) if name and cand.is_file() else (None, name)
+
+        uses = {}  # material (file, id) -> uses the texture
+
+        def material_uses(m):
+            key = (id(m.assets_file), int(m.path_id))
+            if key not in uses:
+                uses[key] = False
+                try:
+                    for _, tenv in _tex_env_items(m.parse_as_object()):
+                        tex = _deref(getattr(tenv, "m_Texture", None))
+                        if tex is not None and int(tex.path_id) == int(path_id):
+                            f, c = home(tex)
+                            if f == str(tex_file) and (not cab or c == cab):
+                                uses[key] = True
+                                break
+                except Exception:
+                    pass
+            return uses[key]
+
+        for o in objs:
+            if o.type.name != "MeshRenderer":
+                continue
+            try:
+                rend = o.parse_as_object()
+                mats = [_deref(m) for m in (getattr(rend, "m_Materials", None) or [])]
+                if not any(m is not None and material_uses(m) for m in mats):
+                    continue
+                go_r = _deref(getattr(rend, "m_GameObject", None))
+                if go_r is None:
+                    continue
+                go = go_r.parse_as_object()
+                mesh, tr = None, None
+                for c in getattr(go, "m_Component", None) or []:
+                    comp = _deref(getattr(c, "component", c))
+                    if comp is None:
+                        continue
+                    if comp.type.name == "MeshFilter":
+                        mesh = _deref(getattr(comp.parse_as_object(), "m_Mesh", None))
+                    elif comp.type.name in ("Transform", "RectTransform"):
+                        tr = comp
+                if mesh is None:
+                    continue
+                mesh_file, mesh_cab = home(mesh)
+                if mesh_file is None:
+                    continue
+                matrix = _transform_matrix(tr) if tr is not None else np.eye(3)
+                extent = _mesh_extent(mesh) * float(np.abs(matrix).sum(axis=0).max())
+                if best is None or extent > best["extent"]:
+                    best = {"mesh_id": int(mesh.path_id), "mesh_file": mesh_file, "mesh_cab": mesh_cab,
+                            "matrix": [[float(v) for v in row] for row in matrix],
+                            "object": str(getattr(go, "m_Name", "") or ""), "extent": extent}
+            except Exception as e:
+                log(f"SKY SHAPE skip {p} {o.path_id}: {e}")
+        del env
+    return best
 
 
 def _mesh_arrays(mesh_reader):
@@ -1353,10 +1472,14 @@ def _mesh_arrays(mesh_reader):
     return pos, uv, np.asarray(tris, dtype=np.int64).reshape(-1, 3)
 
 
-def project_on_mesh(pano: Image.Image, pos, uv, tris, size, yaw=0.0, mirror=False, flip=False):
+def project_on_mesh(pano: Image.Image, pos, uv, tris, size, yaw=0.0, mirror=False, flip=False, matrix=None):
     """Paint an equirectangular picture onto a sky mesh's UV layout: every texel gets the
-    picture's colour in the direction its spot on the mesh is seen from the centre."""
+    picture's colour in the direction its spot on the mesh is seen from the centre.
+    matrix: the object's rotation/scale, so directions are the world's (up is up)."""
     import numpy as np
+
+    if matrix is not None:
+        pos = np.asarray(pos, dtype=np.float64) @ np.asarray(matrix, dtype=np.float64).T
 
     W, H = size
     src = np.asarray(pano.convert("RGB"), dtype=np.uint8)

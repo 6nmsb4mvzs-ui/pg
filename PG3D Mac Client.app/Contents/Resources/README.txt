@@ -366,6 +366,15 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73
+Sky       "That's my sky" uses the numbers exactly as the running sky test
+          painted them, then looks through PG3D's files for the sphere that
+          draws that texture and lays your picture onto its real shape
+          (turned and scaled like in the game). If no sphere is found the
+          picture is wrapped round and mirrored, the way the test showed the
+          sky is seen from inside; Mirror sides undoes that.
+          The sky search also counts small spheres scaled up to sky size.
+
 New in 1.72.1
 Sky       Fixed "invalid literal for int() with base 10" when pressing Apply
           sky (the new texture ids weren't read correctly).

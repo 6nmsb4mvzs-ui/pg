@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.72.1"
+APP_VERSION = "1.73.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1698,14 +1698,15 @@ def _rebuild_one(source_str, state):
                                 pos, uv, tris = customize._mesh_arrays(mr)
                                 return customize.project_on_mesh(customize.equirect_from(sky_image), pos, uv, tris, size,
                                                                  sky.get("yaw", 0), mirror=sky.get("swap_lr", False),
-                                                                 flip=sky.get("flip", False))
+                                                                 flip=sky.get("flip", False), matrix=t.get("matrix"))
                             except Exception as e:
                                 log(f"Sky dome {t.get('name')}: mesh not readable ({e}); wrapping the picture instead")
                                 img = customize.sky_image_for({**t, "face": "panorama", "width": size[0], "height": size[1]},
                                                               sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
                                 return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if sky.get("flip") else img
                         set_texture_cached(data, ("skydome", sky.get("image"), sky.get("yaw", 0), sky.get("swap_lr"),
-                                                  sky.get("flip"), str(source), int(t["mesh_id"])), make)
+                                                  sky.get("flip"), str(source), int(t["mesh_id"]),
+                                                  json.dumps(t.get("matrix"))), make)
                         save_parsed_object(data, reader)
                         continue
                 if reader.type.name == "Cubemap":
@@ -1716,9 +1717,11 @@ def _rebuild_one(source_str, state):
                     def make(d=data, t=t):
                         img = customize.sky_image_for({**t, "width": d.m_Width, "height": d.m_Height},
                                                       sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
+                        if t.get("mirror") is not None and bool(t["mirror"]) != bool(sky.get("swap_lr")):
+                            img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
                         return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if sky.get("flip") else img
                     set_texture_cached(data, ("sky", sky.get("image"), sky.get("yaw", 0), sky.get("swap_lr"), sky.get("flip"),
-                                              t.get("face")), make)
+                                              t.get("face"), t.get("mirror")), make)
                 save_parsed_object(data, reader)
             except Exception as e:  # one odd texture never fails the whole apply
                 log(f"Sky texture {t.get('name')} in {source.name} skipped: {type(e).__name__}: {e}")
@@ -5877,11 +5880,24 @@ def run_sky_scan(progress):
 
 SKY_PICK_JSON = STATE_DIR / "sky_pick.json"
 SKY_FIELDS = ("source_file", "relative_file", "path_id", "name", "type", "face", "width", "height", "kind", "mesh_id",
-              "cab", "mesh_file", "mesh_cab")
+              "cab", "mesh_file", "mesh_cab", "matrix", "mirror")
 
 
 def _sky_key(t):
-    return f"{t['source_file']}:{t.get('cab') or ''}:{int(t['path_id'])}"
+    """One texture: file + id (the same pair the candidate list is unique by; the inner
+    file name isn't part of it, a rescan may know it where the old scan didn't)."""
+    return f"{t['source_file']}|{int(t['path_id'])}"
+
+
+def _pick_keys(pick=None):
+    pick = read_json(SKY_PICK_JSON, {}) if pick is None else pick
+    out = set()
+    for k in (pick or {}).get("keys") or []:
+        if "|" not in k:  # 1.72 form "file:cab:id"
+            parts = str(k).rsplit(":", 2)
+            k = f"{parts[0]}|{parts[-1]}" if len(parts) == 3 else k
+        out.add(k)
+    return out
 
 
 def sky_candidates():
@@ -5906,7 +5922,40 @@ def sky_candidates():
             out.append({**t, "id": f"c{t['id']}", "kind": "name", "where": "named like a sky", "origin": "name"})
     for i, t in enumerate(out, 1):
         t["num"] = i
+    pick = read_json(SKY_PICK_JSON, {}) or {}
+    keys = _pick_keys(pick)
+    if keys and "shape" in pick:
+        shape = pick.get("shape")
+        for t in out:
+            if _sky_key(t) not in keys or t.get("type") == "Cubemap":
+                continue
+            if t.get("origin") == "name":
+                # Without its shape: the sky test showed it wraps round like a panorama seen
+                # from inside (numbers mirrored), so the picture is wrapped and mirrored.
+                t.update(face="panorama", mirror=True)
+            if shape:  # the sphere/dome that draws it: the picture is laid onto its real shape
+                t.update(kind="dome", **{k: shape[k] for k in ("mesh_id", "mesh_file", "mesh_cab", "matrix")})
     return out
+
+
+def _sky_shape_files(hit):
+    """Game files to look through for the object that draws the picked texture: scenes
+    (and the texture's own file) first, where sky spheres live; then everything else."""
+    app = find_app()
+    files = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files() if app else []
+    src = Path(hit["source_file"])
+    first = [f for f in files if Path(f) == src or Path(f).name.startswith("level")]
+    rest = [f for f in files if f not in first]
+    return first, rest
+
+
+def find_sky_shape(hit, progress):
+    first, rest = _sky_shape_files(hit)
+    args = (str(hit["source_file"]), int(hit["path_id"]), hit.get("cab"))
+    shape = customize.find_texture_mesh(first, *args, progress=_sub_progress(progress, 0, 0.5), log=log)
+    if shape is None and rest:
+        shape = customize.find_texture_mesh(rest, *args, progress=_sub_progress(progress, 0.5, 1.0), log=log)
+    return shape
 
 
 def start_sky_test():
@@ -5932,8 +5981,11 @@ def start_sky_test():
 def pick_sky(num):
     """The number seen in the sky during the test -> that texture becomes the sky target
     (plus the same texture where it's repeated in other files), then the test ends."""
-    cands = sky_candidates()
-    hit = next((t for t in cands if t["num"] == int(num)), None)
+    num = int(num)
+    test = load_mods().get("skybox") or {}
+    # The numbers as painted by the running test (a newer sky search may number differently).
+    cands = test.get("targets") if test.get("test") and test.get("targets") else sky_candidates()
+    hit = next((t for t in cands if int(t.get("num") or 0) == num), None)
     if not hit:
         raise RuntimeError(f"There's no texture #{num} in the test. Check the number in the sky.")
     same = [t for t in cands if t is hit or (t.get("name") == hit.get("name") and
@@ -5946,7 +5998,20 @@ def pick_sky(num):
         if (load_mods().get("skybox") or {}).get("test"):
             def change(state):
                 state["skybox"] = None
-            mutate_state(change, "End sky test", progress)
+            mutate_state(change, "End sky test", _sub_progress(progress, 0, 0.4))
+        shape = None
+        if hit.get("type") != "Cubemap":
+            try:
+                shape = find_sky_shape(hit, _sub_progress(progress, 0.4, 1.0))
+            except Exception as e:
+                log(f"Sky shape lookup failed: {type(e).__name__}: {e}")
+        pick = read_json(SKY_PICK_JSON, {}) or {}
+        if pick.get("num") == int(num):
+            pick["shape"] = ({k: shape[k] for k in ("mesh_id", "mesh_file", "mesh_cab", "matrix", "object")}
+                             if shape else None)
+            write_json(SKY_PICK_JSON, pick)
+        log(f"Sky shape for #{num}: " + (f"{shape['object']} (mesh {shape['mesh_id']} in {Path(shape['mesh_file']).name})"
+                                          if shape else "not found, the picture is wrapped round"))
         return f"Texture #{num} ({hit.get('name')}) is your sky now. Pick a picture and press Apply sky."
     return start_job("sky", job, label="Ending the sky test")
 
@@ -5975,7 +6040,7 @@ def auto_sky_scan():
 
 def _sky_targets_payload(sky):
     cands = sky_candidates()
-    pick = set((read_json(SKY_PICK_JSON, {}) or {}).get("keys") or [])
+    pick = _pick_keys()
     active = None if not sky or sky.get("test") else {_sky_key(t) for t in sky.get("targets", [])}
     for t in cands:
         k = _sky_key(t)
@@ -6164,7 +6229,7 @@ def apply_sky(sky_id, target_ids=None, yaw=0, swap_lr=False, flip=False):
         if target_ids:
             picked = [t for t in all_targets if t["id"] in set(map(str, target_ids))]
         else:
-            pick = set((read_json(SKY_PICK_JSON, {}) or {}).get("keys") or [])
+            pick = _pick_keys()
             picked = [t for t in all_targets if (_sky_key(t) in pick if pick else t["origin"] == "search")]
         picked = [{k: t.get(k) for k in SKY_FIELDS} for t in picked if Path(t["source_file"]).exists()]
         if not picked:
