@@ -1316,13 +1316,13 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 
         <div class="emCmdSection"><h4>Weapons</h4>
           <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_all_weapons">All weapons</div>
-            <div class="emCmd" data-cmd="add_primary">All primary</div>
-            <div class="emCmd" data-cmd="add_backup">All backup</div>
-            <div class="emCmd" data-cmd="add_melee">All melee</div>
-            <div class="emCmd" data-cmd="add_special">All special</div>
-            <div class="emCmd" data-cmd="add_sniper">All sniper</div>
-            <div class="emCmd" data-cmd="add_heavy">All heavy</div>
+            <div class="emCmd" data-cmd="add_all_weapons" data-params='{"level":65,"rarity":5}'>All weapons</div>
+            <div class="emCmd" data-cmd="add_primary" data-params='{"level":65}'>All primary</div>
+            <div class="emCmd" data-cmd="add_backup" data-params='{"level":65}'>All backup</div>
+            <div class="emCmd" data-cmd="add_melee" data-params='{"level":65}'>All melee</div>
+            <div class="emCmd" data-cmd="add_special" data-params='{"level":65}'>All special</div>
+            <div class="emCmd" data-cmd="add_sniper" data-params='{"level":65}'>All sniper</div>
+            <div class="emCmd" data-cmd="add_heavy" data-params='{"level":65}'>All heavy</div>
           </div>
         </div>
 
@@ -1341,7 +1341,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="emCmdGrid">
             <div class="emCmd" data-cmd="add_all_gadgets">All gadgets</div>
             <div class="emCmd" data-cmd="add_all_pets">All pets</div>
-            <div class="emCmd" data-cmd="upgrade_all_modules">All modules</div>
+            <div class="emCmd" data-cmd="upgrade_all_modules" data-params='{"cap":10}'>All modules</div>
           </div>
         </div>
 
@@ -1349,8 +1349,8 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="emCmdGrid">
             <div class="emCmd" data-cmd="add_veteran_badge">Veteran badge</div>
             <div class="emCmd" data-cmd="add_dlc_sets">DLC sets</div>
-            <div class="emCmd" data-cmd="add_clan_valor">Clan valor</div>
-            <div class="emCmd" data-cmd="add_goblins">Goblins</div>
+            <div class="emCmd" data-cmd="add_clan_valor" data-params='{"shields":500}'>Clan valor</div>
+            <div class="emCmd" data-cmd="add_goblins" data-params='{"days":30,"negative":false}'>Goblins</div>
           </div>
         </div>
 
@@ -2520,7 +2520,7 @@ async function emLoadAccounts(){
     if(!accs.length){grid.innerHTML='<div class="xEmpty">No game accounts linked to this Ember account.</div>';$('#emAccountCard').hidden=false;return}
     for(const a of accs){
       const el=document.createElement('div');el.className='emAcc';el.dataset.id=a.id||a._id||'';
-      el.innerHTML=`<b>${esc(a.nickname||a.name||a.player_id||'Account')}</b><small>ID: ${esc(a.player_id||a.id||'–')}</small>`;
+      el.innerHTML=`<b>${esc(a.nickname||a.name||a.pg3d_uid||a.player_id||'Account')}</b><small>ID: ${esc(a.pg3d_uid||a.player_id||a.id||'–')}</small>`;
       el.onclick=async()=>{
         $$('.emAcc').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');
         try{const r=await post('/api/ember/connect',{account_id:a.id||a._id});
@@ -2539,7 +2539,8 @@ $$('.emCmd').forEach(el=>{el.onclick=async()=>{
   if(!_emConnected)return toast('Connect to a game account first.',true);
   if(el.classList.contains('busy'))return;
   el.classList.add('busy');el.style.opacity='.5';
-  try{await post('/api/ember/command',{command:el.dataset.cmd});toast('Done: '+el.dataset.cmd.replace(/_/g,' '))}catch(e){toast(e.message,true)}
+  let params={};try{if(el.dataset.params)params=JSON.parse(el.dataset.params)}catch{}
+  try{await post('/api/ember/command',{command:el.dataset.cmd,params});toast('Done: '+el.dataset.cmd.replace(/_/g,' '))}catch(e){toast(e.message,true)}
   finally{el.classList.remove('busy');el.style.opacity=''}
 }});
 $('#emCurAdd').onclick=async()=>{
@@ -2633,7 +2634,7 @@ function _chStopCapture(btnId,newKey){
 document.addEventListener('keydown',e=>{
   if(!_chListening)return;
   e.preventDefault();e.stopPropagation();
-  const key=e.key.toLowerCase()===' '?'space':e.key.length===1?e.key.toLowerCase():e.key.toLowerCase().replace('arrow','arrow');
+  const key=e.key.toLowerCase()===' '?'space':e.key.length===1?e.key.toLowerCase():e.key.toLowerCase();
   _chStopCapture(_chListening,key);
   chSave();
 },{capture:true});
