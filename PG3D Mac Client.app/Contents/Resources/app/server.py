@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.5"
+APP_VERSION = "1.73.6"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1766,6 +1766,8 @@ def _rebuild_one(source_str, state):
                                                       sky_image, sky.get("yaw", 0), sky.get("swap_lr", False))
                         if t.get("mirror") is not None and bool(t["mirror"]) != bool(sky.get("swap_lr")):
                             img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+                        if t.get("mirror") is not None:  # wrapped round a sky sphere: no pinwheel at the top
+                            img = customize.calm_poles(img)
                         return img.transpose(Image.Transpose.FLIP_TOP_BOTTOM) if sky.get("flip") else img
                     set_texture_cached(data, ("sky", sky.get("image"), sky.get("yaw", 0), sky.get("swap_lr"), sky.get("flip"),
                                               t.get("face"), t.get("mirror")), make)
@@ -4879,6 +4881,10 @@ def diagnostics_report():
                                                                      "mirror", "mesh_id", "width", "height")}
                                               for t in (load_mods().get("skybox") or {}).get("targets", [])[:8]]),
         "Sky check after the last apply: " + json.dumps(read_json(SKY_CHECK_JSON, None)),
+        "Sky in other maps: " + (lambda f: json.dumps({"how": f.get("how"), "count": len(f.get("targets") or []),
+                                                       "names": [f"{t.get('name')} ({Path(t['source_file']).name})"
+                                                                 for t in (f.get("targets") or [])[:40]]})
+                                 if f else "not searched")(read_json(SKY_FAMILY_JSON, None)),
         "Sky test numbers: " + json.dumps({k: v for k, v in (read_json(SKY_TEST_JSON, {}) or {}).items() if k != "targets"}),
         "Files put back to original (by PG3D/Steam): " + ("; ".join(
             f"{Path(k).name} x{v.get('count')} (last {v.get('last')})"
@@ -6109,9 +6115,9 @@ def pick_sky(num):
                                           f"{Path(shape['mesh_file']).name}, shader '{shape.get('shader')}')"
                                           if shape else "not found, the picture is wrapped round"))
         msg = f"Texture #{num} ({hit.get('name')}) is your sky now."
-        if shape:
+        if hit.get("type") != "Cubemap":
             n = _run_sky_family(pick, _sub_progress(progress, 0.55, 1.0))
-            msg += f" The same kind of sky was found in {n} more places (other maps)." if n else \
+            msg += f" The same kind of sky was found in {n} more place{'s' if n != 1 else ''} (other maps)." if n else \
                 " No other map seems to use the same kind of sky."
         return msg + " Pick a picture and press Apply sky."
     return start_job("sky", job, label="Ending the sky test")
@@ -6140,16 +6146,51 @@ def _run_sky_family(pick, progress):
     """Look through every map for skies drawn like the picked one; saves and returns how many."""
     shape = pick.get("shape") or {}
     app = find_app()
-    if not shape or not app:
+    if not app:
         return 0
     files = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files()
-    fam = customize.find_sky_family(files, shape, app, progress, log)
+    how = {}
+    if shape.get("mesh_id") is not None and ("mesh_name" in shape or "extent" in shape):
+        fam = customize.find_sky_family(files, shape, app, progress, log)
+        how["by"] = "sky object"
+    else:
+        # Drawn by a skybox material, not an object in the map: match by its material's
+        # shader, plus textures named in the same numbered series (skybox_11_... -> skybox_N).
+        hit = pick.get("hit") or {}
+        if not hit:
+            keys = _pick_keys(pick)
+            hit = next((t for t in sky_candidates() if _sky_key(t) in keys), {})
+        fam = []
+        if hit:
+            ref, fam = customize.find_material_family(files, hit["source_file"], int(hit["path_id"]), hit.get("cab"),
+                                                      app, progress, log)
+            how.update(by="sky material", material=ref)
+        fam += _sky_name_series(pick.get("name") or hit.get("name") or "", {_sky_key(t) for t in fam})
     keys = _pick_keys(pick)
     fam = [t for t in fam if _sky_key(t) not in keys]
     write_json(SKY_FAMILY_JSON, {"num": pick.get("num"), "at": datetime.now().isoformat(timespec="seconds"),
-                                 "targets": fam})
+                                 "how": how, "targets": fam})
     log(f"Same sky in other maps: {len(fam)} " + ", ".join(f"{t['name']} ({Path(t['source_file']).name})" for t in fam[:12]))
     return len(fam)
+
+
+def _sky_name_series(name, have):
+    """Textures named in the same numbered series as the picked sky: "skybox_11_snow_clouds"
+    -> every "skybox_<number>..." (at least 64 px), from the sky search and the name list."""
+    m = re.match(r"^([A-Za-z]*sky[A-Za-z]*)[_\- ]?(\d+)", name or "", re.I)
+    if not m:
+        return []
+    rx = re.compile(r"^" + re.escape(m.group(1)) + r"[_\- ]?\d+", re.I)
+    out = []
+    for t in sky_candidates():
+        if t.get("origin") == "family" or not rx.match(t.get("name") or "") or _sky_key(t) in have:
+            continue
+        if t.get("type") == "Cubemap" or min(int(t.get("width") or 0), int(t.get("height") or 0)) < 64:
+            continue
+        have.add(_sky_key(t))
+        out.append({**{k: t.get(k) for k in SKY_FIELDS}, "face": "panorama", "mirror": True,
+                    "where": "same sky name series"})
+    return out
 
 
 def start_sky_family():
@@ -6167,15 +6208,15 @@ def start_sky_family():
             hit = next((t for t in sky_candidates() if _sky_key(t) in keys), None)
         if not hit:
             raise RuntimeError("Your picked sky texture wasn't found any more. Run the sky test again.")
+        p.setdefault("hit", {k: hit.get(k) for k in SKY_FIELDS})
         shape = p.get("shape") or {}
-        if not shape.get("mesh_name") and "extent" not in shape:
-            shape = find_sky_shape(hit, _sub_progress(progress, 0, 0.45))
-            if not shape:
-                raise RuntimeError("The object that draws your sky wasn't found, so other maps can't be matched to it.")
-            p["shape"] = {k: shape.get(k) for k in SHAPE_FIELDS}
-            write_json(SKY_PICK_JSON, p)
+        if shape and not shape.get("mesh_name") and "extent" not in shape:
+            # A pick from 1.73.3 or older: find its object again, with what's needed to compare.
+            shape = find_sky_shape(hit, _sub_progress(progress, 0, 0.45)) or None
+            p["shape"] = {k: shape.get(k) for k in SHAPE_FIELDS} if shape else None
+        write_json(SKY_PICK_JSON, p)
         n = _run_sky_family(p, _sub_progress(progress, 0.45, 1.0))
-        return (f"Found the same kind of sky in {n} more places (other maps). Press Apply sky to put your picture "
+        return (f"Found the same kind of sky in {n} more place{'s' if n != 1 else ''} (other maps). Press Apply sky to put your picture "
                 "on all of them." if n else "No other map seems to use the same kind of sky.")
     return start_job("sky", job, label="Looking for your sky in the other maps")
 

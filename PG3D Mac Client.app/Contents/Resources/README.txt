@@ -366,6 +366,15 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.6
+Sky       Skies that no object in the map draws (a skybox material, like
+          skybox_11_snow_clouds) are found in the other maps too: by their
+          material's sky shader and by their numbered name series
+          (skybox_1, skybox_3, skybox_10, ...). Before, the search stopped
+          with "The object that draws your sky wasn't found".
+          The very top of a wrapped sky fades into one colour, so the picture
+          no longer squeezes into a pinwheel of wedges there.
+
 New in 1.73.5
 Sky       The search for your sky in the other maps starts by itself when you
           open the Sky tab with a pick that hasn't been searched yet (no button

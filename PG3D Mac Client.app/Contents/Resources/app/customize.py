@@ -1563,6 +1563,128 @@ def find_sky_family(files, ref, app, progress=None, log=print):
     return list(out.values())
 
 
+def find_material_family(files, tex_file, path_id, cab, app, progress=None, log=print):
+    """For a sky that no object in the map draws (a skybox material): the material that
+    uses the picked texture, and every texture in the same slot of materials with the
+    same (non-generic) shader in all files. Returns (ref, targets)."""
+    import UnityPy
+
+    ref = {}
+    out = {}
+    own_first = sorted(files, key=lambda f: str(f) != str(tex_file))
+
+    def walk(file_list, visit, label, lo, hi):
+        total = max(1, len(file_list))
+        for idx, p in enumerate(file_list, 1):
+            if progress:
+                progress(lo + (hi - lo) * idx / total, f"{label} ({idx}/{total})…")
+            try:
+                env = UnityPy.load(str(p))
+            except Exception:
+                continue
+            objs = list(env.objects)
+            if not any(o.type.name == "Material" for o in objs):
+                del env
+                continue
+            own = {id(o.assets_file) for o in objs}
+            shaders = {}
+
+            def home(reader):
+                af = reader.assets_file
+                name = str(getattr(af, "name", "") or "")
+                if id(af) in own:
+                    return str(p), name
+                cand = Path(p).parent / name
+                return (str(cand), name) if name and cand.is_file() else (None, name)
+
+            def shader_name(mat):
+                sh = _deref(getattr(mat, "m_Shader", None))
+                if sh is None:
+                    return ""
+                k = (id(sh.assets_file), int(sh.path_id))
+                if k not in shaders:
+                    shaders[k] = _shader_name(sh)
+                return shaders[k]
+            for o in objs:
+                if o.type.name != "Material":
+                    continue
+                try:
+                    if visit(o.parse_as_object(), home, shader_name, p) is False:
+                        del env
+                        return
+                except Exception as e:
+                    log(f"SKY MATERIAL skip {p} {o.path_id}: {e}")
+            del env
+
+    def find_ref(mat, home, shader_name, p):
+        for slot, tenv in _tex_env_items(mat):
+            tex = _deref(getattr(tenv, "m_Texture", None))
+            if tex is not None and int(tex.path_id) == int(path_id):
+                f, c = home(tex)
+                if f == str(tex_file) and (not cab or c == cab):
+                    ref.update(shader=shader_name(mat), slot=slot, material=str(getattr(mat, "m_Name", "") or ""))
+                    return False
+        return None
+    walk(own_first[:1], find_ref, "Looking for your sky's material", 0.0, 0.05)
+    if not ref:
+        walk(own_first[1:], find_ref, "Looking for your sky's material", 0.05, 0.5)
+    if not ref:
+        return {}, []
+    log(f"Sky material: {ref}")
+    if str(ref.get("shader") or "").lower() in _GENERIC_SHADERS:
+        return ref, []
+
+    def collect(mat, home, shader_name, p):
+        if shader_name(mat) != ref["shader"]:
+            return None
+        for slot, tenv in _tex_env_items(mat):
+            if slot != ref["slot"]:
+                continue
+            tex = _deref(getattr(tenv, "m_Texture", None))
+            if tex is None or tex.type.name != "Texture2D":
+                continue
+            f, c = home(tex)
+            if f is None or (f, c, int(tex.path_id)) in out:
+                continue
+            try:
+                data = tex.parse_as_object()
+                w, h = int(data.m_Width), int(data.m_Height)
+            except Exception:
+                continue
+            if min(w, h) < 64:
+                continue
+            try:
+                rel = str(Path(f).relative_to(app))
+            except ValueError:
+                rel = Path(f).name
+            out[(f, c, int(tex.path_id))] = {
+                "source_file": f, "relative_file": rel, "path_id": int(tex.path_id), "name": _name(tex),
+                "type": "Texture2D", "face": "panorama", "width": w, "height": h, "kind": "name", "cab": c,
+                "mesh_id": None, "mesh_file": None, "mesh_cab": None, "matrix": None, "mirror": True,
+                "where": f"same sky shader · {getattr(mat, 'm_Name', '')}"}
+        return None
+    walk(files, collect, "Looking for the same sky in the other maps", 0.5, 1.0)
+    return ref, list(out.values())
+
+
+def calm_poles(img: Image.Image, frac=0.07) -> Image.Image:
+    """A picture wrapped round a sky sphere meets itself at the very top and bottom,
+    where every column squeezes into one point: differing colours there show as a
+    pinwheel of wedges. The top and bottom rows fade into their average colour."""
+    import numpy as np
+
+    a = np.asarray(img.convert("RGBA"), dtype=np.float32)
+    h = a.shape[0]
+    n = max(2, int(h * frac))
+    for rows, avg_rows in ((range(n), a[:max(1, n // 2)]), (range(h - n, h), a[h - max(1, n // 2):])):
+        avg = avg_rows.reshape(-1, 4).mean(axis=0)
+        for i, y in enumerate(rows):
+            d = (y + 1) / n if y < n else (h - y) / n  # 0 at the pole -> 1 at the edge of the cap
+            w = max(0.0, min(1.0, d)) ** 1.5
+            a[y] = a[y] * w + avg * (1 - w)
+    return Image.fromarray(np.clip(a + 0.5, 0, 255).astype(np.uint8), "RGBA")
+
+
 def _mesh_arrays(mesh_reader):
     """Vertex positions (N,3), UVs (N,2) and triangles (M,3) of a Unity mesh."""
     import numpy as np
