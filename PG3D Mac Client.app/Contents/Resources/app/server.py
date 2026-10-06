@@ -7762,6 +7762,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/ws/status":
             after = int(query.get("after", [0])[0])
             return self.send_json({**_WS_CLIENT.status(), "events": _WS_CLIENT.events(after)})
+        if path == "/api/ws/commands":
+            cmds = {}
+            for name, info in ws_commands.COMMAND_REGISTRY.items():
+                cmds[name] = [{"name": a[0], "type": a[1]} for a in info["args"]]
+            return self.send_json({"commands": cmds})
         if path == "/api/overlay/config":
             return self.send_json({"ok": True, "config": overlay_config(), "runtime": overlay_runtime()})
         if path == "/api/clips":
@@ -8183,20 +8188,26 @@ class Handler(BaseHTTPRequestHandler):
                 _WS_CLIENT.disconnect()
                 return self.send_json({"ok": True})
             if path == "/api/ws/command":
-                cmd = str(data.get("cmd", ""))
-                if cmd == "get_progress":
-                    pid = int(data.get("player_id") or _WS_CLIENT._creds.get("uniq_id", 0))
-                    slots = data.get("slots") or [1, 3, 4]
-                    event, payload = ws_commands.get_progress(pid, slots)
-                elif cmd == "add_currency":
-                    event, payload = ws_commands.add_currency(str(data.get("currency", "Coins")), int(data.get("amount", 0)))
-                elif cmd == "add_weapon":
-                    event, payload = ws_commands.add_weapon(int(data.get("index", 0)), int(data.get("level", 65)), int(data.get("rarity", 5)))
-                elif cmd == "raw":
+                cmd = str(data.get("command", data.get("cmd", "")))
+                if cmd == "raw":
                     event = str(data.get("event", ""))
                     payload = data.get("payload", {})
                     if not event:
                         raise RuntimeError("Missing event name")
+                elif cmd in ws_commands.COMMAND_REGISTRY:
+                    reg = ws_commands.COMMAND_REGISTRY[cmd]
+                    kwargs = {}
+                    for arg_name, arg_type in reg["args"]:
+                        val = data.get(arg_name)
+                        if val is None:
+                            continue
+                        if arg_type == "int":
+                            kwargs[arg_name] = int(val)
+                        elif arg_type == "json":
+                            kwargs[arg_name] = val if isinstance(val, (dict, list)) else json.loads(str(val))
+                        else:
+                            kwargs[arg_name] = str(val)
+                    event, payload = reg["fn"](**kwargs)
                 else:
                     raise RuntimeError(f"Unknown command: {cmd}")
                 _WS_CLIENT.emit(event, payload)

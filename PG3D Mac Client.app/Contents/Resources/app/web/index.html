@@ -1275,48 +1275,26 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
 
       <div class="crCard" id="wsCmdCard">
-        <div class="crCardHead"><div><h3>Commands</h3></div></div>
+        <div class="crCardHead"><div><h3>Commands</h3><p class="xNote" style="margin-top:4px">Select a command, fill in its parameters, and send.</p></div></div>
         <div class="xStack">
-          <details class="xDetails" open style="border:0;padding:0">
-            <summary>get_progress</summary>
-            <div class="xStack" style="margin-top:10px">
-              <div><div class="xLabel">Player ID</div><input class="xInput" id="cmdPlayerId" placeholder="Player ID (number)"></div>
-              <div class="xRow"><button class="btn primary" id="cmdGetProgress">Send</button></div>
-            </div>
-          </details>
-          <details class="xDetails">
-            <summary>add_currency</summary>
-            <div class="xStack" style="margin-top:10px">
-              <div class="xCols">
-                <div><div class="xLabel">Currency</div><select class="select" id="cmdCurrency"><option value="coins">Coins</option><option value="gems">Gems</option><option value="keys">Keys</option></select></div>
-                <div><div class="xLabel">Amount</div><input class="xInput" id="cmdCurrAmt" type="number" value="99999"></div>
-              </div>
-              <div class="xRow"><button class="btn primary" id="cmdAddCurrency">Send</button></div>
-            </div>
-          </details>
-          <details class="xDetails">
-            <summary>add_weapon</summary>
-            <div class="xStack" style="margin-top:10px">
-              <div class="xCols">
-                <div><div class="xLabel">Weapon index</div><input class="xInput" id="cmdWpnIdx" type="number" placeholder="e.g. 1"></div>
-                <div><div class="xLabel">Level</div><input class="xInput" id="cmdWpnLvl" type="number" value="65"></div>
-              </div>
-              <div class="xCols">
-                <div><div class="xLabel">Rarity</div><input class="xInput" id="cmdWpnRar" type="number" value="5" min="1" max="5"></div>
-                <div></div>
-              </div>
-              <div class="xRow"><button class="btn primary" id="cmdAddWeapon">Send</button></div>
-            </div>
-          </details>
-          <details class="xDetails">
-            <summary>Raw emit</summary>
-            <div class="xStack" style="margin-top:10px">
-              <div><div class="xLabel">Event name</div><input class="xInput" id="cmdRawEvt" placeholder="e.g. get_progress"></div>
-              <div><div class="xLabel">Payload (JSON)</div><textarea class="xInput" id="cmdRawJson" rows="3" placeholder='{"player_id":123}'></textarea></div>
-              <div class="xRow"><button class="btn primary" id="cmdRawSend">Send</button></div>
-            </div>
-          </details>
+          <div>
+            <div class="xLabel">Command</div>
+            <select class="select" id="cmdSelect" style="width:100%"><option value="">Loading…</option></select>
+          </div>
+          <div id="cmdArgs" class="xStack" style="gap:8px"></div>
+          <div class="xRow">
+            <button class="btn primary" id="cmdSend">Send</button>
+            <span class="xNote" id="cmdNote"></span>
+          </div>
         </div>
+        <details class="xDetails" style="margin-top:14px">
+          <summary>Raw emit</summary>
+          <div class="xStack" style="margin-top:10px">
+            <div><div class="xLabel">Event name</div><input class="xInput" id="cmdRawEvt" placeholder="e.g. get_progress"></div>
+            <div><div class="xLabel">Payload (JSON)</div><textarea class="xInput" id="cmdRawJson" rows="3" placeholder='{"player_id":123}'></textarea></div>
+            <div class="xRow"><button class="btn primary" id="cmdRawSend">Send</button></div>
+          </div>
+        </details>
       </div>
 
       <div class="crCard">
@@ -2410,8 +2388,8 @@ function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',pick
 const TX=makeFinder('tx',['cursor']);
 
 /* ── Socket ── */
-let _wsPoll=null,_wsAfter=0;
-function wsStartPoll(){if(_wsPoll)return;wsRefresh();_wsPoll=setInterval(wsRefresh,1500)}
+let _wsPoll=null,_wsAfter=0,_wsCmds=null;
+function wsStartPoll(){if(_wsPoll)return;wsRefresh();wsLoadCmds();_wsPoll=setInterval(wsRefresh,1500)}
 function wsStopPoll(){clearInterval(_wsPoll);_wsPoll=null}
 async function wsRefresh(){
   try{
@@ -2451,6 +2429,35 @@ async function wsRefresh(){
 }
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
+async function wsLoadCmds(){
+  if(_wsCmds)return;
+  try{
+    const d=await api('/api/ws/commands');
+    _wsCmds=d.commands;
+    const sel=$('#cmdSelect');sel.innerHTML='';
+    const names=Object.keys(_wsCmds).sort();
+    for(const n of names){const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o)}
+    wsRenderArgs();
+  }catch{}
+}
+function wsRenderArgs(){
+  const box=$('#cmdArgs');box.innerHTML='';
+  const cmd=$('#cmdSelect').value;
+  if(!_wsCmds||!_wsCmds[cmd])return;
+  const args=_wsCmds[cmd];
+  if(!args.length){$('#cmdNote').textContent='No parameters needed.';return}
+  $('#cmdNote').textContent='';
+  for(const a of args){
+    const wrap=document.createElement('div');
+    wrap.innerHTML=`<div class="xLabel">${esc(a.name)} <span style="opacity:.4">(${a.type})</span></div>`
+      +(a.type==='json'
+        ?`<textarea class="xInput cmdArg" data-name="${esc(a.name)}" data-type="${a.type}" rows="2" placeholder="{}"></textarea>`
+        :`<input class="xInput cmdArg" data-name="${esc(a.name)}" data-type="${a.type}" placeholder="${a.type==='int'?'0':''}"${a.type==='int'?' type="number"':''}>`);
+    box.appendChild(wrap);
+  }
+}
+$('#cmdSelect').onchange=wsRenderArgs;
+
 $('#wsConnect').onclick=async()=>{
   const code=$('#wsCode').value.trim();
   if(!code)return toast('Paste a login code first.',true);
@@ -2460,16 +2467,19 @@ $('#wsConnect').onclick=async()=>{
 $('#wsDisconnect').onclick=async()=>{try{await post('/api/ws/disconnect',{});wsRefresh()}catch(e){toast(e.message,true)}};
 $('#wsLogClear').onclick=()=>{$('#wsLog').innerHTML='<div class="xEmpty">Log cleared.</div>'};
 
-$('#cmdGetProgress').onclick=async()=>{
-  const pid=$('#cmdPlayerId').value.trim();
-  if(!pid)return toast('Enter a player ID.',true);
-  try{await post('/api/ws/command',{command:'get_progress',player_id:Number(pid)});toast('Sent get_progress')}catch(e){toast(e.message,true)}
-};
-$('#cmdAddCurrency').onclick=async()=>{
-  try{await post('/api/ws/command',{command:'add_currency',currency:$('#cmdCurrency').value,amount:Number($('#cmdCurrAmt').value)});toast('Sent add_currency')}catch(e){toast(e.message,true)}
-};
-$('#cmdAddWeapon').onclick=async()=>{
-  try{await post('/api/ws/command',{command:'add_weapon',index:Number($('#cmdWpnIdx').value),level:Number($('#cmdWpnLvl').value),rarity:Number($('#cmdWpnRar').value)});toast('Sent add_weapon')}catch(e){toast(e.message,true)}
+$('#cmdSend').onclick=async()=>{
+  const cmd=$('#cmdSelect').value;
+  if(!cmd)return toast('Pick a command.',true);
+  const body={command:cmd};
+  for(const el of $$('#cmdArgs .cmdArg')){
+    const v=el.value.trim();
+    if(!v)continue;
+    const n=el.dataset.name,t=el.dataset.type;
+    if(t==='int')body[n]=Number(v);
+    else if(t==='json'){try{body[n]=JSON.parse(v)}catch{return toast(`Invalid JSON in ${n}.`,true)}}
+    else body[n]=v;
+  }
+  try{await post('/api/ws/command',body);toast('Sent '+cmd)}catch(e){toast(e.message,true)}
 };
 $('#cmdRawSend').onclick=async()=>{
   const evt=$('#cmdRawEvt').value.trim();
