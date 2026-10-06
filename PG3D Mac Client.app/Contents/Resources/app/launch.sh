@@ -206,6 +206,11 @@ if [[ $? -ne 0 ]]; then
     "$VPY" -m pip install --disable-pip-version-check -q "${FORCE[@]}" "UnityPy>=1.25,<2" "Pillow>=10,<13" >>"$LOG" 2>&1 ) &
 fi
 
+# WebSocket client for the Socket tab (background, non-blocking).
+if ! "$VPY" -c 'import websocket; import cryptography' >/dev/null 2>&1; then
+  ( "$VPY" -m pip install --disable-pip-version-check -q websocket-client cryptography >>"$LOG" 2>&1 ) &
+fi
+
 # Game sound in clips uses ScreenCaptureKit (macOS 13+); clips stay silent without it.
 if [[ "$(/usr/bin/sw_vers -productVersion | /usr/bin/cut -d. -f1)" -ge 13 ]] && ! "$VPY" -c 'import ScreenCaptureKit, CoreMedia, AVFoundation' >/dev/null 2>&1; then
   ( "$VPY" -m pip install --disable-pip-version-check -q pyobjc-framework-ScreenCaptureKit pyobjc-framework-CoreMedia pyobjc-framework-AVFoundation >>"$LOG" 2>&1 ) &
