@@ -2048,15 +2048,15 @@ let loadKeysSig=null,skyOnSig=null;async function loadSky(){clearTimeout(skyPoll
     if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=Math.round((act.yaw||0)/5)*5;setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip)}
     const sig=JSON.stringify((skyData.targets||[]).map(t=>[t.id,t.on]));if(sig!==skyOnSig){skyOnSig=sig;skyTargetsOff=new Set((skyData.targets||[]).filter(t=>!t.on).map(t=>t.id))}
     renderSky();renderSkyTest()}catch(e){console.error(e)}}
-function skyNumRow(){const row=el('div','xRow');const inp=document.createElement('input');inp.className='search';inp.type='number';inp.min=1;inp.placeholder='Number in the sky';inp.style.width='170px';
-  const ok=el('button','btn primary','That\'s my sky');ok.onclick=async()=>{const n=parseInt(inp.value,10);if(!n)return toast('Enter the number you saw in the sky.',true);try{await post('/api/sky/pick',{num:n})}catch(e){toast(e.message,true)}};
+function skyNumRow(){const row=el('div','xRow');const inp=document.createElement('input');inp.className='search';inp.type='text';inp.inputMode='numeric';inp.placeholder='Number(s), e.g. 190, 57';inp.title='Saw the sky in several maps during the test? Enter every number, separated by commas.';inp.style.width='210px';
+  const ok=el('button','btn primary','That\'s my sky');ok.onclick=async()=>{const v=inp.value.trim();if(!/\d/.test(v))return toast('Enter the number you saw in the sky.',true);try{await post('/api/sky/pick',{num:v})}catch(e){toast(e.message,true)}};
   row.append(inp,ok);return row}
 function renderSkyTest(){const box=$('#skTest');const d=skyData;if(!box||!d)return;box.innerHTML='';
-  if(d.test){box.append(el('b',null,'Sky test is on'),el('p','xNote','Every possible sky texture shows its own colour and number. Start a match, look at the sky, and enter the number you see. Every other row is mirrored: read the row whose digits face the right way. No number in the sky? Then the game doesn\'t use these textures: press End test and send the diagnostic report.'));
+  if(d.test){box.append(el('b',null,'Sky test is on'),el('p','xNote','Every possible sky texture shows its own colour and number. Start a match, look at the sky, and enter the number you see. Every other row is mirrored: read the row whose digits face the right way. Play a few different maps while the test is on and enter every number you saw (for example 190, 57), so each map gets your sky. No number in the sky? Then the game doesn\'t use these textures: press End test and send the diagnostic report.'));
     const row=skyNumRow();
     const end=el('button','btn','End test');end.onclick=async()=>{try{await post('/api/sky/reset')}catch(e){toast(e.message,true)}};
     row.append(end);box.append(row);return}
-  const p=d.pick;const hd=el('b',null,p?`Your sky: #${p.num} ${p.name||''}`:'Not sure the right texture is picked?');
+  const p=d.pick;const hd=el('b',null,p?`Your sky: ${(p.nums&&p.nums.length>1?p.nums:[p.num]).map(n=>'#'+n).join(', ')} ${p.name||''}`:'Not sure the right texture is picked?');
   if(p?.colour){const sw=el('span');sw.title=`#${p.num} had this colour in the sky test`;sw.style.cssText=`display:inline-block;width:14px;height:14px;border-radius:4px;margin-left:8px;vertical-align:-2px;background:${p.colour};border:1px solid rgba(255,255,255,.3)`;hd.append(sw)}
   box.append(hd);
   box.append(el('p','xNote',p?`Found with the sky test (${p.file||''}). `+(p.shape?`Its sky sphere (${p.shape.object||'mesh'}) was found too, so Apply sky lays your picture onto its real shape.`:p.shape===null?'Apply sky wraps your picture round it.':'Looking for its shape in PG3D\'s files…')+(p.family>0?` The same kind of sky was found in ${p.family} more places (other maps); Apply sky covers them too.`:p.family===0?' No other map uses the same kind of sky.':''):'The sky test paints every possible sky texture with its own number. In a match you read the number off the sky, and your picture then goes on exactly that texture.'));

@@ -366,6 +366,14 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.7
+Sky       1.73.6 matched other maps by the cloud layer's shader, which PG3D
+          also uses for scrolling menu patterns and bubble effects, so those
+          got the sky picture too. Only textures named like a sky or clouds
+          count now, and the wrong ones are put back by themselves.
+          Several numbers can be entered after one sky test ("190, 57"): play
+          a few maps while the test is on and enter every number you saw.
+
 New in 1.73.6
 Sky       Skies that no object in the map draws (a skybox material, like
           skybox_11_snow_clouds) are found in the other maps too: by their

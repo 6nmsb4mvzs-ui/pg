@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.6"
+APP_VERSION = "1.73.7"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5970,10 +5970,12 @@ def _sky_key(t):
     return f"{t['source_file']}|{int(t['path_id'])}"
 
 
-def _pick_keys(pick=None):
+def _pick_keys(pick=None, primary=False):
+    """Keys of the picked sky textures (primary: only the first number's, which the
+    found shape belongs to; otherwise also the other numbers entered with it)."""
     pick = read_json(SKY_PICK_JSON, {}) if pick is None else pick
     out = set()
-    for k in (pick or {}).get("keys") or []:
+    for k in ((pick or {}).get("keys") or []) + ([] if primary else ((pick or {}).get("extra_keys") or [])):
         if "|" not in k:  # 1.72 form "file:cab:id"
             parts = str(k).rsplit(":", 2)
             k = f"{parts[0]}|{parts[-1]}" if len(parts) == 3 else k
@@ -6015,7 +6017,7 @@ def sky_candidates():
     for i, t in enumerate(out, 1):
         t["num"] = i
     pick = read_json(SKY_PICK_JSON, {}) or {}
-    keys = _pick_keys(pick)
+    keys, primary = _pick_keys(pick), _pick_keys(pick, primary=True)
     if keys and "shape" in pick:
         shape = pick.get("shape")
         for t in out:
@@ -6025,7 +6027,7 @@ def sky_candidates():
                 # Without its shape: the sky test showed it wraps round like a panorama seen
                 # from inside (numbers mirrored), so the picture is wrapped and mirrored.
                 t.update(face="panorama", mirror=True)
-            if shape:  # the sphere/dome that draws it: the picture is laid onto its real shape
+            if shape and _sky_key(t) in primary:  # the sphere/dome that draws it: its real shape
                 t.update(kind="dome", **{k: shape.get(k) for k in ("mesh_id", "mesh_file", "mesh_cab", "matrix")})
     return out
 
@@ -6073,27 +6075,53 @@ def start_sky_test():
     return start_job("sky", job, label="Sky test")
 
 
+def _parse_sky_nums(raw):
+    nums = []
+    for part in re.split(r"[^0-9]+", str(raw if not isinstance(raw, list) else ",".join(map(str, raw)))):
+        if part and int(part) not in nums:
+            nums.append(int(part))
+    if not nums:
+        raise RuntimeError("Enter the number you saw in the sky.")
+    return nums[:40]
+
+
 def pick_sky(num):
-    """The number seen in the sky during the test -> that texture becomes the sky target
-    (plus the same texture where it's repeated in other files), then the test ends."""
-    num = int(num)
+    """The number(s) seen in the sky during the test -> those textures become the sky
+    targets (plus the same texture where it's repeated in other files), then the test
+    ends. Several numbers ("190, 57") cover several maps seen during one test."""
+    nums = _parse_sky_nums(num)
+    num = nums[0]
     # The numbers exactly as the last sky test painted them (a newer sky search may
     # number differently, and the test may already have ended).
     cands = _last_test_targets() or sky_candidates()
-    hit = next((t for t in cands if int(t.get("num") or 0) == num), None)
-    if not hit:
-        raise RuntimeError(f"There's no texture #{num} in the test. Check the number in the sky.")
-    if hit.get("type") != "Cubemap" and min(int(hit.get("width") or 0), int(hit.get("height") or 0)) < 64:
-        raise RuntimeError(f"#{num} is {hit.get('name')}, only {hit.get('width')}×{hit.get('height')} pixels: far too small "
-                           "to be the sky. Check the number again: in the sky, read the row where the digits face "
-                           "the right way (every other row is mirrored), and compare the colour.")
-    same = [t for t in cands if t is hit or (t.get("name") == hit.get("name") and
-                                             (t["width"], t["height"]) == (hit["width"], hit["height"]))]
-    write_json(SKY_PICK_JSON, {"keys": [_sky_key(t) for t in same], "num": int(num), "name": hit.get("name"),
+    hits = []
+    for n in nums:
+        h = next((t for t in cands if int(t.get("num") or 0) == n), None)
+        if not h:
+            raise RuntimeError(f"There's no texture #{n} in the test. Check the number in the sky.")
+        if h.get("type") != "Cubemap" and min(int(h.get("width") or 0), int(h.get("height") or 0)) < 64:
+            raise RuntimeError(f"#{n} is {h.get('name')}, only {h.get('width')}×{h.get('height')} pixels: far too small "
+                               "to be the sky. Check the number again: in the sky, read the row where the digits face "
+                               "the right way (every other row is mirrored), and compare the colour.")
+        hits.append(h)
+    hit = hits[0]
+
+    def copies(h):
+        return [t for t in cands if t is h or (t.get("name") == h.get("name") and
+                                               (t["width"], t["height"]) == (h["width"], h["height"]))]
+    same = copies(hit)
+    keys = [_sky_key(t) for t in same]
+    extra = []
+    for h in hits[1:]:
+        extra += [k for k in (_sky_key(t) for t in copies(h)) if k not in keys and k not in extra]
+    write_json(SKY_PICK_JSON, {"keys": keys, "extra_keys": extra, "num": int(num), "nums": nums,
+                               "name": ", ".join(h.get("name") or "" for h in hits),
                                "file": hit.get("relative_file"), "at": datetime.now().isoformat(timespec="seconds"),
                                "hit": {k: hit.get(k) for k in SKY_FIELDS}})
     SKY_FAMILY_JSON.unlink(missing_ok=True)
-    log(f"Sky picked from the test: #{num} {hit.get('name')} in {hit.get('relative_file')} (+{len(same) - 1} copies)")
+    also = "; ".join(f"#{n} {h.get('name')}" for n, h in zip(nums[1:], hits[1:]))
+    log(f"Sky picked from the test: #{num} {hit.get('name')} in {hit.get('relative_file')} (+{len(same) - 1} copies)"
+        + (f"; also {also}" if also else ""))
 
     def job(progress):
         if (load_mods().get("skybox") or {}).get("test"):
@@ -6114,7 +6142,8 @@ def pick_sky(num):
         log(f"Sky shape for #{num}: " + (f"{shape['object']} (mesh {shape['mesh_id']} '{shape.get('mesh_name')}' in "
                                           f"{Path(shape['mesh_file']).name}, shader '{shape.get('shader')}')"
                                           if shape else "not found, the picture is wrapped round"))
-        msg = f"Texture #{num} ({hit.get('name')}) is your sky now."
+        msg = (f"Texture #{num} ({hit.get('name')}) is your sky now." if len(nums) == 1 else
+               f"Textures {', '.join('#' + str(n) for n in nums)} are your sky now.")
         if hit.get("type") != "Cubemap":
             n = _run_sky_family(pick, _sub_progress(progress, 0.55, 1.0))
             msg += f" The same kind of sky was found in {n} more place{'s' if n != 1 else ''} (other maps)." if n else \
@@ -6226,7 +6255,8 @@ def _family_targets(pick=None):
     fam = read_json(SKY_FAMILY_JSON, None)
     if not pick or not fam or fam.get("num") != pick.get("num"):
         return []
-    return [t for t in fam.get("targets") or [] if Path(t["source_file"]).exists()]
+    return [t for t in fam.get("targets") or [] if Path(t["source_file"]).exists() and
+            (not str(t.get("where") or "").startswith("same sky shader") or customize.SKY_NAME_RX.search(t.get("name") or ""))]
 
 
 def clear_sky_pick():
@@ -6820,6 +6850,35 @@ def repair_texture_targets():
                 return
         except Exception as e:
             log(f"Texture target repair failed, retrying: {e}")
+        time.sleep(30)
+
+
+def repair_sky_targets():
+    """1.73.6 also put the sky on menu patterns and bubble effects that share the cloud
+    layer's scrolling shader. Take every sky target that isn't named like a sky (and
+    wasn't picked in the sky test) back out, once, as soon as PG3D is closed."""
+    while True:
+        try:
+            sky = load_mods().get("skybox") or {}
+            if not sky or sky.get("test"):
+                return
+            keep = _pick_keys()
+            bad = [t for t in sky.get("targets") or []
+                   if not customize.SKY_NAME_RX.search(t.get("name") or "") and _sky_key(t) not in keep]
+            if not bad:
+                return
+            if not _game_running_uncached() and not launch_busy() and not jobs_pending():
+                def change(state):
+                    sk = state.get("skybox") or {}
+                    sk["targets"] = [t for t in sk.get("targets") or []
+                                     if customize.SKY_NAME_RX.search(t.get("name") or "") or _sky_key(t) in keep]
+                    if not sk["targets"]:
+                        state["skybox"] = None
+                mutate_state(change, "Put back textures the sky was put on by mistake")
+                log("Put back textures the sky was put on by mistake: " + ", ".join(sorted({t.get("name") or "?" for t in bad})))
+                return
+        except Exception as e:
+            log(f"Sky target repair failed, retrying: {e}")
         time.sleep(30)
 
 
@@ -7765,7 +7824,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/sky/test":
                 return self.send_json(start_sky_test())
             if path == "/api/sky/pick":
-                return self.send_json(pick_sky(int(data.get("num", 0))))
+                return self.send_json(pick_sky(data.get("num", "")))
             if path == "/api/sky/family":
                 return self.send_json(start_sky_family())
             if path == "/api/sky/unpick":
@@ -8050,6 +8109,7 @@ def main():
     threading.Thread(target=playtime_watch, daemon=True).start()
     threading.Thread(target=ember_sync_watch, daemon=True).start()
     threading.Thread(target=mods_reapply_watch, daemon=True).start()
+    threading.Thread(target=repair_sky_targets, daemon=True).start()
     threading.Thread(target=retire_removed_mods, daemon=True).start()
     threading.Thread(target=cleanup_old_app_copies, daemon=True).start()
     def _auto_hud():

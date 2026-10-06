@@ -1536,6 +1536,8 @@ def find_sky_family(files, ref, app, progress=None, log=print):
         same_shader = shader.lower() not in _GENERIC_SHADERS and info["shader"] == shader
         if not (same_mesh or same_obj or same_shader):
             return
+        if not (same_mesh or same_obj) and not SKY_NAME_RX.search(_name(info["tex"]) or ""):
+            return  # matched by shader only: must at least be named like a sky
         tex = info["tex"]
         key = (info["tex_file"], info["tex_cab"], int(tex.path_id))
         if key in out:
@@ -1561,6 +1563,9 @@ def find_sky_family(files, ref, app, progress=None, log=print):
                     "where": f"{info['object']} · {info['material']}"}
     _scan_renderers(files, want, found, progress, "Looking for the same sky in the other maps", log)
     return list(out.values())
+
+
+SKY_NAME_RX = re.compile(r"sky|cloud", re.I)  # shaders are shared with menus: names must look like a sky
 
 
 def find_material_family(files, tex_file, path_id, cab, app, progress=None, log=print):
@@ -1646,6 +1651,8 @@ def find_material_family(files, tex_file, path_id, cab, app, progress=None, log=
             f, c = home(tex)
             if f is None or (f, c, int(tex.path_id)) in out:
                 continue
+            if not SKY_NAME_RX.search(_name(tex) or ""):
+                continue  # the same scrolling shader also draws menu patterns and bubbles
             try:
                 data = tex.parse_as_object()
                 w, h = int(data.m_Width), int(data.m_Height)
