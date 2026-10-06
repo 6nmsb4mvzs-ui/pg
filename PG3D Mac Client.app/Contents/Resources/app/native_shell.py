@@ -52,6 +52,7 @@ class Shell(NSObject):
     web = objc.ivar()
     handler = objc.ivar()
     pending_activate = objc.ivar()
+    ticks = objc.ivar()
 
     def initWithURL_(self, url):
         self = objc.super(Shell, self).init()
@@ -105,6 +106,12 @@ class Shell(NSObject):
         if self.pending_activate:
             self.pending_activate = False
             self.activate()
+        # A newer copy (after an update) removes this window's pid file when it takes
+        # over. If this process is still here then (its quit signal got lost), close it,
+        # so the Dock doesn't keep the old copy's icon next to the new one.
+        self.ticks = (self.ticks or 0) + 1
+        if self.ticks % 7 == 0 and PIDFILE is not None and not PIDFILE.exists():
+            os._exit(0)
 
     # ----- WKUIDelegate
     def webView_runOpenPanelWithParameters_initiatedByFrame_completionHandler_(self, web, params, frame, done):
@@ -135,6 +142,9 @@ class Shell(NSObject):
         NSApplication.sharedApplication().terminate_(None)
 
 
+PIDFILE = None
+
+
 def brand_process():
     """The window runs in Python, which macOS would show as "Python" with Python's
     rocket icon. Present it as the client instead: its name and its own icon."""
@@ -163,9 +173,11 @@ def set_app_icon(app):
 def main():
     if len(sys.argv) < 2:
         raise SystemExit(2)
+    global PIDFILE
     pidfile = Path(sys.argv[2]) if len(sys.argv) > 2 else SUPPORT / "shell.pid"
     SUPPORT.mkdir(parents=True, exist_ok=True)
     pidfile.write_text(str(os.getpid()))
+    PIDFILE = pidfile
     for k in ("PYTHONHOME", "PYTHONPATH", "PG3D_EMBEDDED"):
         os.environ.pop(k, None)  # set by the app's launcher for this process only
     brand_process()

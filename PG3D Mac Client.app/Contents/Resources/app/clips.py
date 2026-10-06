@@ -55,9 +55,12 @@ QUALITIES = {
     "native120": (None, 120, "30M"),
 }
 # Ways to run the encoder, fastest first. If ffmpeg dies right away in one, the next
-# is tried: "gpu" scales on the GPU (VideoToolbox), "vt" scales on the CPU but still
+# is tried: "sck" records with ScreenCaptureKit (clip_capture.py: up to 120 FPS, scaled
+# and encoded in hardware; ffmpeg's own screen input topped out around 30 FPS),
+# "gpu" scales on the GPU (VideoToolbox), "vt" scales on the CPU but still
 # encodes in hardware, "x264" is the software fallback.
-ENCODE_MODES = ("gpu", "vt", "x264")
+ENCODE_MODES = ("sck", "gpu", "vt", "x264")
+CAPTURE_HELPER = Path(__file__).resolve().parent / "clip_capture.py"
 CLIP_NAME_RE = re.compile(r"[^/\\\x00]{1,120}\.mp4")
 
 # DOM KeyboardEvent.code -> macOS virtual key code (same table as overlay.py).
@@ -248,7 +251,7 @@ class Recorder:
         self.lock = threading.RLock()
         self.proc = None
         self.proc_started = 0.0
-        self.mode = "gpu"
+        self.mode = ENCODE_MODES[0]
         self.phase = "starting"
         self._rate_sample = None
         self.capture_fps = None
@@ -321,12 +324,21 @@ class Recorder:
         try:
             subprocess.run(["/usr/bin/pkill", "-f", str(BUFFER_DIR / "seg%03d.ts")],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+            subprocess.run(["/usr/bin/pkill", "-f", str(CAPTURE_HELPER)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
         except Exception:
             pass
 
     @property
     def encoder(self):
-        return "libx264" if self.mode == "x264" else "h264_videotoolbox"
+        return ("screencapturekit" if self.mode == "sck" else "libx264" if self.mode == "x264"
+                else "h264_videotoolbox")
+
+    def capture_args(self, cfg):
+        """The ScreenCaptureKit recorder (clip_capture.py) for this quality."""
+        height, fps, bitrate = QUALITIES[cfg["quality"]]
+        wrap = math.ceil(max(LENGTHS) / SEGMENT_SECONDS) + 3
+        return [sys.executable, str(CAPTURE_HELPER), str(BUFFER_DIR), str(fps), str(height or 0), bitrate, str(wrap)]
 
     def _measure_rate(self):
         """Frames really captured per second (the fps filter's duplicates don't count),
@@ -358,7 +370,7 @@ class Recorder:
         self.kill_orphans()
         shutil.rmtree(BUFFER_DIR, ignore_errors=True)
         BUFFER_DIR.mkdir(parents=True, exist_ok=True)
-        args = self.ffmpeg_args(ffmpeg, cfg)
+        args = self.capture_args(cfg) if self.mode == "sck" else self.ffmpeg_args(ffmpeg, cfg)
         log_f = open(FFMPEG_LOG, "a", encoding="utf-8")
         log_f.write(f"\n[{datetime.now().isoformat(timespec='seconds')}] start encoder={self.encoder} mode={self.mode}\n")
         log_f.flush()
@@ -478,7 +490,7 @@ class Recorder:
                 lived = time.time() - self.proc_started
                 tail = self._ffmpeg_tail()
                 self.proc = None
-                if self.mode != ENCODE_MODES[-1] and lived < 5:
+                if self.mode != ENCODE_MODES[-1] and lived < (15 if self.mode == "sck" else 5):
                     old = self.mode
                     self.mode = ENCODE_MODES[ENCODE_MODES.index(old) + 1]
                     _log(f"Clips: encoder mode '{old}' failed ({tail}); retrying with '{self.mode}'.")
@@ -521,12 +533,12 @@ class Recorder:
         """Apply new quality/screen settings."""
         self.stop("restarting for new settings")
         with self.lock:
-            self.mode = "gpu"
+            self.mode = ENCODE_MODES[0]
             self.retry_at = 0
 
     # ----- saving
     def buffered_seconds(self):
-        segs = [p for p in BUFFER_DIR.glob("seg*.ts") if p.stat().st_size > 0] if BUFFER_DIR.exists() else []
+        segs = self._segments()
         if not segs or not self.proc:
             return 0
         return min(len(segs) * SEGMENT_SECONDS, int(time.time() - self.proc_started))
@@ -535,7 +547,8 @@ class Recorder:
         if not BUFFER_DIR.exists():
             return []
         segs = []
-        for p in BUFFER_DIR.glob("seg*.ts"):
+        files = list(BUFFER_DIR.glob("seg*.ts")) + [p for p in BUFFER_DIR.glob("seg*.mp4") if ".part" not in p.name]
+        for p in files:
             try:
                 st = p.stat()
             except FileNotFoundError:
@@ -570,7 +583,10 @@ class Recorder:
                 if now and now[-1] != in_progress:
                     break
                 time.sleep(0.1)
-            complete = self._segments()[:-1]  # newest one is still being written
+            # ffmpeg's newest .ts chunk is still being written; ScreenCaptureKit chunks
+            # only show up once they're complete.
+            now = self._segments()
+            complete = now if now and now[-1].suffix == ".mp4" else now[:-1]
             # Keyframes are forced on every chunk boundary, so joining exactly
             # ceil(length / 2) chunks gives the requested length with no re-encode.
             chosen = complete[-math.ceil(length / SEGMENT_SECONDS):]
@@ -579,7 +595,7 @@ class Recorder:
             job.mkdir(parents=True, exist_ok=True)
             staged = []
             for i, seg in enumerate(chosen):
-                dst = job / f"{i:03d}.ts"
+                dst = job / f"{i:03d}{seg.suffix}"
                 shutil.copyfile(seg, dst)
                 staged.append(dst)
 
@@ -592,8 +608,13 @@ class Recorder:
             name = datetime.now().strftime("PG3D %Y-%m-%d %H-%M-%S.mp4")
             out = CLIPS_DIR / name
             video = job / "video.mp4"
-            subprocess.run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
-                            "-i", "concat:" + "|".join(str(p) for p in staged),
+            if staged[0].suffix == ".mp4":  # MP4 chunks: the concat demuxer (the protocol is for .ts)
+                listing = job / "list.txt"
+                listing.write_text("".join(f"file '{p.name}'\n" for p in staged))
+                src = ["-f", "concat", "-safe", "0", "-i", str(listing)]
+            else:
+                src = ["-i", "concat:" + "|".join(str(p) for p in staged)]
+            subprocess.run([ffmpeg, "-hide_banner", "-loglevel", "error", "-y", *src,
                             "-c", "copy", "-avoid_negative_ts", "make_zero",
                             "-movflags", "+faststart", str(video)],
                            check=True, capture_output=True, timeout=180)

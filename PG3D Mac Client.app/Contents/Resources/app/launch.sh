@@ -5,7 +5,7 @@
 set -u
 setopt NULL_GLOB
 
-VERSION="1.73.12"
+VERSION="1.74.0"
 PORT=38513
 APP_ID="pg3d-mac-client-v$VERSION"
 SOURCE_BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -40,13 +40,32 @@ fail() {
   exit 1
 }
 stop_running() {
+  local STOPPED=()
   for PF in "$SUPPORT"/server-v*.pid "$SUPPORT"/shell-v*.pid "$SUPPORT"/overlay*.pid; do
     [[ -f "$PF" ]] || continue
     OPID="$(cat "$PF" 2>/dev/null || true)"
-    if [[ -n "$OPID" ]] && /bin/kill -0 "$OPID" 2>/dev/null; then /bin/kill "$OPID" 2>/dev/null || true; fi
+    if [[ -n "$OPID" && "$OPID" != "$PPID" ]] && /bin/kill -0 "$OPID" 2>/dev/null; then
+      /bin/kill "$OPID" 2>/dev/null || true
+      STOPPED+=("$OPID")
+    fi
     /bin/rm -f "$PF"
   done
+  # Old windows of this app that are still open (e.g. the copy that was just updated):
+  # every client process except the one starting now ($PPID is this copy's launcher).
+  for OPID in $(/usr/bin/pgrep -f "PG3D Mac Client.app/Contents/MacOS/" 2>/dev/null); do
+    [[ "$OPID" == "$PPID" || "$OPID" == "$$" ]] && continue
+    /bin/kill "$OPID" 2>/dev/null && STOPPED+=("$OPID")
+  done
   /bin/sleep 0.4
+  # Anything that ignored the polite quit within 3 s is stopped for good (an old copy
+  # left running kept its icon in the Dock next to the new one).
+  for i in {1..15}; do
+    local LEFT=0
+    for OPID in "${STOPPED[@]}"; do /bin/kill -0 "$OPID" 2>/dev/null && LEFT=1; done
+    (( LEFT )) || break
+    /bin/sleep 0.2
+  done
+  for OPID in "${STOPPED[@]}"; do /bin/kill -9 "$OPID" 2>/dev/null || true; done
 }
 
 POST_INSTALL=""
@@ -188,8 +207,8 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Game sound in clips uses ScreenCaptureKit (macOS 13+); clips stay silent without it.
-if [[ "$(/usr/bin/sw_vers -productVersion | /usr/bin/cut -d. -f1)" -ge 13 ]] && ! "$VPY" -c 'import ScreenCaptureKit, CoreMedia' >/dev/null 2>&1; then
-  ( "$VPY" -m pip install --disable-pip-version-check -q pyobjc-framework-ScreenCaptureKit pyobjc-framework-CoreMedia >>"$LOG" 2>&1 ) &
+if [[ "$(/usr/bin/sw_vers -productVersion | /usr/bin/cut -d. -f1)" -ge 13 ]] && ! "$VPY" -c 'import ScreenCaptureKit, CoreMedia, AVFoundation' >/dev/null 2>&1; then
+  ( "$VPY" -m pip install --disable-pip-version-check -q pyobjc-framework-ScreenCaptureKit pyobjc-framework-CoreMedia pyobjc-framework-AVFoundation >>"$LOG" 2>&1 ) &
 fi
 
 # ---------------------------------------------------------------- start

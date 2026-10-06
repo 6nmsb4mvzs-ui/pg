@@ -141,6 +141,7 @@ def _merge_config(raw):
             if isinstance(src.get("clock"),dict):c.update(src["clock"])
             if bool(c.get("format24"))==bool(c.get("format12")):c["format24"],c["format12"]=True,False
             item["clock"]=c
+        if item["id"]=="rank":item["enabled"]=False  # ranks are hidden in the client for now (code kept)
         out.append(item)
     out.sort(key=lambda x:int(x.get("order",0)))
     for i,x in enumerate(out):x["order"]=i

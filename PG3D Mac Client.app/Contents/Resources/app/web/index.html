@@ -143,6 +143,10 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .lkPick b{font-weight:700}.lkPick small{color:var(--muted);font-size:11px}
 .lkPick.on{border-color:#1f5b3c}.lkPick.on b:before{content:'●';color:#7fe0a8;font-size:9px;margin-right:5px;vertical-align:1px}
 .lkPick:hover:not(:disabled){border-color:var(--border2)}.lkPick:disabled{opacity:.45;cursor:default}
+.lkPicks.accs{align-items:flex-start}.lkPicks.accs .lkPickLabel{padding-top:9px}
+.lkAccGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;flex:1;min-width:0}
+.lkAccGrid .lkPick{flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;height:auto;min-height:46px;padding:7px 11px;white-space:normal;text-align:left;min-width:0}
+.lkAccGrid .lkPick b,.lkAccGrid .lkPick small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lkCard{padding:16px!important}
 .lkHead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .lkAvatar{width:44px;height:44px;border-radius:10px;background:hsl(var(--nh) var(--ns) 4.1%);border:1px solid var(--border);image-rendering:pixelated;flex:none}
@@ -356,6 +360,9 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .curSeg{display:inline-grid;grid-auto-flow:column;gap:4px;background:hsl(var(--nh) var(--ns) 3.1%);border:1px solid var(--line);border-radius:9px;padding:4px}
 .curSeg button{border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:6px;font-weight:800;font-size:12px;cursor:pointer}
 .fnRow{display:flex;gap:8px;flex-wrap:wrap}
+.fnRow.grouped{display:block}.fnGroup{margin-top:14px}.fnGroup:first-child{margin-top:0}
+.fnGroupT{font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.fnGroupRow{display:flex;gap:8px;flex-wrap:wrap}
 .hdList{display:grid;gap:8px;margin-top:6px}.hdRow{display:grid;grid-template-columns:minmax(0,1fr) 220px auto;gap:14px;align-items:center;padding:11px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface2)}
 .hdRow b{display:block;font-size:13px}.hdRow small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdRow.changed{border-color:rgba(var(--accent-rgb),.45)}.hdRow.hidden{opacity:.6}.hdBtns{display:flex;gap:6px}.hdBtns .btn{padding:6px 10px;font-size:12px}
 .fnChip{border:1px solid var(--border);background:hsl(var(--nh) var(--ns) 6%);color:var(--text);border-radius:10px;padding:10px 14px;cursor:pointer;font-size:15px;min-width:96px;text-align:center;position:relative}
@@ -898,7 +905,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <div class="brand"><div class="logo"><img src="/crimson_logo_256.png" alt=""></div><b>PG3D Client</b></div>
     <nav class="nav">
       <button class="active" data-tab="play"><span class="ico">▶</span><span class="label">Play</span></button>
-      <button data-tab="rank"><span class="ico">♛</span><span class="label">Rank</span></button>
+      <button data-tab="rank" hidden><span class="ico">♛</span><span class="label">Rank</span></button>
       <button data-tab="lookup"><span class="ico">⌕</span><span class="label">Lookup</span></button>
       <button data-tab="clips"><span class="ico">◉</span><span class="label">Clips</span></button>
       <div class="navLabel">Customize</div>
@@ -943,7 +950,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="playtime" id="playtime"></div>
           <div class="pStat"><b id="steamPlayerCount">—</b><span>Players online (Steam)</span></div>
         </div>
-        <div class="rkChip" id="rankChip" onclick="setTab('rank')" title="Open Rank"><img src="/ranks/iron.png" alt=""><div style="flex:1;min-width:0"><b>—</b><small></small><div class="mini"><i style="width:0"></i></div></div><span class="rkChipGo">View rank ›</span></div>
+        <div class="rkChip" id="rankChip" hidden onclick="setTab('rank')" title="Open Rank"><img src="/ranks/iron.png" alt=""><div style="flex:1;min-width:0"><b>—</b><small></small><div class="mini"><i style="width:0"></i></div></div><span class="rkChipGo">View rank ›</span></div>
         <div class="lastSess" id="lastSession" hidden></div>
       </div>
     </section>
@@ -1088,14 +1095,14 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
       <div class="xPage" id="setSounds" hidden>
         <div class="crCard sndCard">
-          <div class="crCardHead"><div><h3>Sounds</h3><p class="xNote" style="margin-top:4px">Short click sounds for buttons, switches and sliders, the rank-up sound, and the sound when a clip is saved.</p></div></div>
+          <div class="crCardHead"><div><h3>Sounds</h3><p class="xNote" style="margin-top:4px">Short click sounds for buttons, switches and sliders, and the sound when a clip is saved.</p></div></div>
           <div class="xStack">
             <button class="xSwitch" id="sndAll" role="switch"><div><b>Sounds</b><small>Turn off to mute everything in the client.</small></div><span class="pillToggle"></span></button>
-            <button class="xSwitch" id="sndRank" role="switch"><div><b>Rank-up sound</b><small>Plays with the rank-up animation.</small></div><span class="pillToggle"></span></button>
+            <button class="xSwitch" id="sndRank" role="switch" hidden><div><b>Rank-up sound</b><small>Plays with the rank-up animation.</small></div><span class="pillToggle"></span></button>
             <div><div class="xLabel">Volume</div><div class="xRange"><input type="range" id="sndVol" min="1" max="100" value="70"><b id="sndVolVal">70%</b></div></div>
             <div class="sndPick" id="sndPick"></div>
             <div class="sndCustom" id="sndCustom"></div>
-            <div class="xRow"><button class="btn" id="sndTest">Play test sound</button><button class="btn" id="sndTestRank">Play rank-up sound</button></div>
+            <div class="xRow"><button class="btn" id="sndTest">Play test sound</button><button class="btn" id="sndTestRank" hidden>Play rank-up sound</button></div>
             <input type="file" id="sndFile" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg" hidden>
             <input type="file" id="sndLibFile" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" hidden>
           </div>
@@ -1318,7 +1325,8 @@ async function api(path,opts={}){let r;try{r=await fetch(path,{cache:'no-store',
   netFails=0;let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Math.round(sec/60)} min`}
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
-function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load()}
+const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -1337,7 +1345,7 @@ function renderBuildBadge(){renderQuickExit();const b=$('#buildBadge');if(!b||!s
 function renderPlaytime(){const el=$('#playtime'),p=statusData?.playtime;if(!el||!p)return;const cells=[];if(p.live)cells.push(['live','This session',p.live]);cells.push(['','Today',p.today],['','Last 7 days',p.week],['','All time',p.total]);const sig=JSON.stringify(cells);if(sig===el.__sig)return;el.__sig=sig;el.innerHTML='';for(const[c,l,v]of cells){const d=document.createElement('div');d.className=c;const b=document.createElement('b');b.textContent=v;d.append(b,document.createTextNode(l));el.appendChild(d)}}
 function renderLastSession(){const box=$('#lastSession'),r=statusData?.last_session;if(!box)return;const show=!!r&&!statusData.game_running&&(Date.now()/1000-r.start<4*86400);box.hidden=!show;if(!show)return;
   const sig=JSON.stringify(r);if(box.__sig===sig)return;box.__sig=sig;const n=v=>Number(v||0).toLocaleString();
-  let up='';if(r.promoted&&r.before&&r.after)up=`<div class="lsUp"><img src="/ranks/${r.before.tier}.png" alt="">›<img src="/ranks/${r.after.tier}.png" alt=""><span style="color:${r.after.color}">${esc(r.after.name)}</span></div>`;
+  let up='';if(r.promoted&&r.before&&r.after&&!RANKS_HIDDEN)up=`<div class="lsUp"><img src="/ranks/${r.before.tier}.png" alt="">›<img src="/ranks/${r.after.tier}.png" alt=""><span style="color:${r.after.color}">${esc(r.after.name)}</span></div>`;
   box.innerHTML=`<div class="xLabel">Last session</div><div class="lsVals"><span><b>${esc(r.duration)}</b>played</span><span><b>+${n(r.xp)}</b>XP</span><span><b>${n(r.wins)}</b>${r.wins===1?'win':'wins'}</span>${r.clips?`<span><b>${n(r.clips)}</b>${r.clips===1?'clip':'clips'}</span>`:''}</div>${up}`}
 function renderGameUpdate(){const box=$('#gameUpd'),s=statusData;if(!box||!s)return;const u=s.game_update||{},j=s.job||{};
   const reapplying=j.kind==='reapply'&&j.phase==='running',launching=LAUNCH_BUSY.includes(s.launch_phase);
@@ -1529,7 +1537,7 @@ function elementCard(id){
   card.onclick=()=>{it.enabled=!it.enabled;markOverlayDirty();renderOverlayEditor()};
   return card;
 }
-function renderElements(){const box=$('#guiElements');box.innerHTML='';for(const id of ['fps','ping','clock','music','rank'])if(overlayItem(id))box.appendChild(elementCard(id))}
+function renderElements(){const box=$('#guiElements');box.innerHTML='';for(const id of (RANKS_HIDDEN?['fps','ping','clock','music']:['fps','ping','clock','music','rank']))if(overlayItem(id))box.appendChild(elementCard(id))}
 function styleCard(it){
   const card=document.createElement('div');card.className='guiStyleCard';
   card.innerHTML=`<div class="gsHead"><h4>${widgetNames[it.id]}</h4><div class="gsPreview">${previewHtml(it,true)}</div></div>
@@ -1856,7 +1864,7 @@ function renderRankChip(){const r=statusData?.rank;const host=$('#rankChip');if(
 // Rank-up animation: waits until the client is actually in front (visible and focused)
 let ruPlaying=false,ruDoneAt=0;
 function clientInFront(){return document.visibilityState==='visible'&&document.hasFocus()}
-function maybePlayRankUp(){const p=statusData?.rank?.pending;if(!p||ruPlaying||p.at<=ruDoneAt||!clientInFront())return;playRankUp(p)}
+function maybePlayRankUp(){if(RANKS_HIDDEN)return;const p=statusData?.rank?.pending;if(!p||ruPlaying||p.at<=ruDoneAt||!clientInFront())return;playRankUp(p)}
 window.addEventListener('focus',()=>setTimeout(maybePlayRankUp,400));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(maybePlayRankUp,400)});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -2027,9 +2035,16 @@ function renderFonts(){const f=themeData?.font;const row=$('#fnRow');if(!f||!row
   const busy=statusData?.game_running||statusData?.job?.phase==='running';
   const mk=(id,name,family)=>{const b=el('button','fnChip'+((f.active||'')===id?' sel':'')+(id==='pixel'?' pixel':''),name);b.type='button';if(family)b.style.fontFamily=family;b.disabled=busy;
     b.onclick=async()=>{if((f.active||'')===id)return;try{await post('/api/font/apply',{id});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};return b};
-  row.append(mk('','Original',''));
-  for(const x of f.fonts){const fam='pgf_'+x.id;if(!FONT_LOADED.has(fam)){FONT_LOADED.add(fam);try{const ff=new FontFace(fam,`url(/api/font-file/${x.id})`);ff.load().then(v=>document.fonts.add(v)).catch(()=>{})}catch{}}row.append(mk(x.id,x.name,fam))}
-  const add=el('button','fnChip add','＋ Import');add.type='button';add.title='Use your own .ttf or .otf';add.disabled=busy;add.onclick=()=>$('#fnFile').click();row.append(add);
+  // Grouped by style, A to Z inside each group, so the right look is quick to find.
+  row.classList.add('grouped');
+  const groups=[['base','Game'],['bold','Bold & chunky'],['pixel','Pixel'],['tech','Tech & military'],['tall','Tall & condensed'],['fun','Fun'],['yours','Your fonts']];
+  const rows={};for(const [k,t] of groups){const g=el('div','fnGroup');g.append(el('div','fnGroupT',t));const r=el('div','fnGroupRow');g.append(r);rows[k]={g,r}}
+  rows.base.r.append(mk('','Original',''));
+  const sorted=[...f.fonts].sort((a,b)=>a.name.localeCompare(b.name));
+  for(const x of sorted){const fam='pgf_'+x.id;if(!FONT_LOADED.has(fam)){FONT_LOADED.add(fam);try{const ff=new FontFace(fam,`url(/api/font-file/${x.id})`);ff.load().then(v=>document.fonts.add(v)).catch(()=>{})}catch{}}
+    const k=x.builtin===false?'yours':(rows[x.cat]?x.cat:'bold');rows[k].r.append(mk(x.id,x.name,fam))}
+  const add=el('button','fnChip add','＋ Import');add.type='button';add.title='Use your own .ttf or .otf';add.disabled=busy;add.onclick=()=>$('#fnFile').click();rows.yours.r.append(add);
+  for(const [k] of groups)row.append(rows[k].g);
   const cur=f.fonts.find(x=>x.id===f.active);const pa=$('#fnActive');pa.textContent=cur?`${cur.name} in game`:'Original font';pa.className='xPill'+(cur?' on':'')}
 $('#fnFile').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});
   try{await post('/api/font/upload',{data,name:file.name});await loadTheme();toast('Font added. Click it to use it in game.')}catch(err){toast(err.message,true)}};
@@ -2120,10 +2135,10 @@ function lkRecent(){try{return JSON.parse(localStorage.pg3dLookupRecent||'[]')}c
 function lkRemember(p){const r=lkRecent().filter(x=>x.id!==p.player_id);r.unshift({id:p.player_id,name:p.name||p.player_id});try{localStorage.pg3dLookupRecent=JSON.stringify(r.slice(0,6))}catch{}}
 async function loadLookup(){try{lookupSuggest=await api('/api/lookup/suggest');renderLookupSuggest()}catch(e){console.error(e)}}
 function renderLookupSuggest(){const box=$('#lkAccounts');box.innerHTML='';const accs=lookupSuggest?.accounts||[];
-  box.append(el('span','lkPickLabel','Steam'));const list=el('span','lkPickList');box.append(list);
+  box.classList.add('accs');box.append(el('span','lkPickLabel','Steam'));const list=el('div','lkAccGrid');box.append(list);
   if(!accs.length)list.append(el('span','sub','No Steam accounts found.'));
   for(const a of accs){const b=el('button','lkPick'+(a.active?' on':''));b.type='button';b.append(el('b',null,a.steam_name||`Steam …${a.steamid64.slice(-4)}`));
-    b.append(el('small',null,a.player_id?(a.name||a.player_id):'no ID yet'));b.title=a.player_id?`PG3D ID ${a.player_id}${a.active?' · active Steam account':''}`:'Play PG3D once on this account to pick up its ID.';
+    b.append(el('small',null,a.player_id?(a.name?`${a.name} · ${a.player_id}`:a.player_id):'no ID yet'));b.title=a.player_id?`PG3D ID ${a.player_id}${a.active?' · active Steam account':''}`:'Play PG3D once on this account to pick up its ID.';
     b.disabled=!a.player_id;if(a.player_id)b.onclick=()=>runLookup(a.player_id);list.append(b)}
   const rec=lkRecent(),rw=$('#lkRecent');rw.innerHTML='';$('#lkRecentWrap').hidden=!rec.length;
   for(const r of rec){const c=el('button','lkPick');c.type='button';c.append(el('b',null,r.name));c.title=`ID ${r.id}`;c.onclick=()=>runLookup(r.id);rw.append(c)}}

@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.12"
+APP_VERSION = "1.74.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -151,17 +151,48 @@ SKY_DIR = SUPPORT / "skies"
 SKY_PREVIEWS = RUNTIME / "sky_previews"
 GAME_FONTS_DIR = BASE / "fonts_game"
 USER_FONTS_DIR = SUPPORT / "fonts"
-GAME_FONTS = [  # bundled; SIL Open Font License (Luckiest Guy: Apache 2.0)
-    {"id": "russo", "name": "Russo One", "file": "RussoOne-Regular.ttf"},
-    {"id": "lilita", "name": "Lilita One", "file": "LilitaOne-Regular.ttf"},
-    {"id": "luckiest", "name": "Luckiest Guy", "file": "LuckiestGuy-Regular.ttf"},
-    {"id": "bangers", "name": "Bangers", "file": "Bangers-Regular.ttf"},
-    {"id": "bebas", "name": "Bebas Neue", "file": "BebasNeue-Regular.ttf"},
-    {"id": "anton", "name": "Anton", "file": "Anton-Regular.ttf"},
-    {"id": "blackops", "name": "Black Ops One", "file": "BlackOpsOne-Regular.ttf"},
-    {"id": "chakra", "name": "Chakra Petch", "file": "ChakraPetch-Bold.ttf"},
-    {"id": "silkscreen", "name": "Silkscreen", "file": "Silkscreen-Regular.ttf"},
-    {"id": "pixel", "name": "Press Start", "file": "PressStart2P-Regular.ttf"},
+GAME_FONTS = [  # bundled; SIL Open Font License (Luckiest Guy, Permanent Marker: Apache 2.0)
+    {"id": "russo", "name": "Russo One", "file": "RussoOne-Regular.ttf", "cat": "bold"},
+    {"id": "lilita", "name": "Lilita One", "file": "LilitaOne-Regular.ttf", "cat": "bold"},
+    {"id": "luckiest", "name": "Luckiest Guy", "file": "LuckiestGuy-Regular.ttf", "cat": "bold"},
+    {"id": "bangers", "name": "Bangers", "file": "Bangers-Regular.ttf", "cat": "fun"},
+    {"id": "bebas", "name": "Bebas Neue", "file": "BebasNeue-Regular.ttf", "cat": "tall"},
+    {"id": "anton", "name": "Anton", "file": "Anton-Regular.ttf", "cat": "tall"},
+    {"id": "blackops", "name": "Black Ops One", "file": "BlackOpsOne-Regular.ttf", "cat": "tech"},
+    {"id": "chakra", "name": "Chakra Petch", "file": "ChakraPetch-Bold.ttf", "cat": "tech"},
+    {"id": "silkscreen", "name": "Silkscreen", "file": "Silkscreen-Regular.ttf", "cat": "pixel"},
+    {"id": "pixel", "name": "Press Start", "file": "PressStart2P-Regular.ttf", "cat": "pixel"},
+    {"id": "titan", "name": "Titan One", "file": "TitanOne-Regular.ttf", "cat": "bold"},
+    {"id": "bungee", "name": "Bungee", "file": "Bungee-Regular.ttf", "cat": "bold"},
+    {"id": "rubikmono", "name": "Rubik Mono One", "file": "RubikMonoOne-Regular.ttf", "cat": "bold"},
+    {"id": "passion", "name": "Passion One", "file": "PassionOne-Bold.ttf", "cat": "bold"},
+    {"id": "changa", "name": "Changa One", "file": "ChangaOne-Regular.ttf", "cat": "bold"},
+    {"id": "bowlby", "name": "Bowlby One SC", "file": "BowlbyOneSC-Regular.ttf", "cat": "bold"},
+    {"id": "racing", "name": "Racing Sans One", "file": "RacingSansOne-Regular.ttf", "cat": "bold"},
+    {"id": "squada", "name": "Squada One", "file": "SquadaOne-Regular.ttf", "cat": "bold"},
+    {"id": "archivo", "name": "Archivo Black", "file": "ArchivoBlack-Regular.ttf", "cat": "bold"},
+    {"id": "sigmar", "name": "Sigmar One", "file": "SigmarOne-Regular.ttf", "cat": "bold"},
+    {"id": "fredoka", "name": "Fredoka", "file": "Fredoka-Bold.ttf", "cat": "bold"},
+    {"id": "vt323", "name": "VT323", "file": "VT323-Regular.ttf", "cat": "pixel"},
+    {"id": "pixelify", "name": "Pixelify Sans", "file": "PixelifySans-Bold.ttf", "cat": "pixel"},
+    {"id": "jersey", "name": "Jersey 10", "file": "Jersey10-Regular.ttf", "cat": "pixel"},
+    {"id": "tiny5", "name": "Tiny5", "file": "Tiny5-Regular.ttf", "cat": "pixel"},
+    {"id": "orbitron", "name": "Orbitron", "file": "Orbitron-Regular.ttf", "cat": "tech"},
+    {"id": "audiowide", "name": "Audiowide", "file": "Audiowide-Regular.ttf", "cat": "tech"},
+    {"id": "oxanium", "name": "Oxanium", "file": "Oxanium-Bold.ttf", "cat": "tech"},
+    {"id": "exo2", "name": "Exo 2", "file": "Exo2-Regular.ttf", "cat": "tech"},
+    {"id": "rajdhani", "name": "Rajdhani", "file": "Rajdhani-Bold.ttf", "cat": "tech"},
+    {"id": "michroma", "name": "Michroma", "file": "Michroma-Regular.ttf", "cat": "tech"},
+    {"id": "saira", "name": "Saira Stencil One", "file": "SairaStencilOne-Regular.ttf", "cat": "tech"},
+    {"id": "teko", "name": "Teko", "file": "Teko-Regular.ttf", "cat": "tall"},
+    {"id": "oswald", "name": "Oswald", "file": "Oswald-Bold.ttf", "cat": "tall"},
+    {"id": "barlow", "name": "Barlow Condensed", "file": "BarlowCondensed-Regular.ttf", "cat": "tall"},
+    {"id": "kanit", "name": "Kanit", "file": "Kanit-Regular.ttf", "cat": "tall"},
+    {"id": "bungeeinline", "name": "Bungee Inline", "file": "BungeeInline-Regular.ttf", "cat": "fun"},
+    {"id": "creepster", "name": "Creepster", "file": "Creepster-Regular.ttf", "cat": "fun"},
+    {"id": "knewave", "name": "Knewave", "file": "Knewave-Regular.ttf", "cat": "fun"},
+    {"id": "marker", "name": "Permanent Marker", "file": "PermanentMarker-Regular.ttf", "cat": "fun"},
+    {"id": "monoton", "name": "Monoton", "file": "Monoton-Regular.ttf", "cat": "fun"},
 ]
 KEYCHAIN_SERVICE = "PG3D Mac Client Steam"
 # Build the bundled FPS unlocker was written against (see fps_unlocker/src/pg3d_fps_unlock.c).
@@ -6432,7 +6463,7 @@ def upload_font(data_url, name):
 def font_payload():
     cat = customize_catalog()
     cfg = load_mods().get("font")
-    return {"fonts": [{k: f[k] for k in ("id", "name", "builtin")} for f in font_list()],
+    return {"fonts": [{**{k: f[k] for k in ("id", "name", "builtin")}, "cat": f.get("cat", "")} for f in font_list()],
             "targets": len(cat.get("fonts", [])) if "fonts" in cat else None,
             "active": cfg.get("id") if cfg else None}
 

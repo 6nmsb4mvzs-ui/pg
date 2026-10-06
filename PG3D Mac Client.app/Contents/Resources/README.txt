@@ -366,6 +366,26 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.74
+Updates   After an update the old copy of the client is closed for sure (it
+          used to stay open next to the new one, so the Dock showed two
+          identical icons): the new copy stops it, forcefully if it doesn't
+          quit within 3 seconds, and an old window also closes by itself once
+          a newer copy has taken over.
+Lookup    Your Steam accounts are shown as a grid of cards (Steam name, PG3D
+          name and ID) instead of one long scrolling row.
+Font      31 more fonts that suit the game (41 in all), grouped by style (Bold
+          & chunky, Pixel, Tech & military, Tall & condensed, Fun, Your fonts)
+          and sorted A to Z. All are free fonts from Google Fonts (licences in
+          fonts_game/).
+Clips     Recorded with ScreenCaptureKit now: up to 120 FPS (60 or 120 by the
+          quality you pick), scaled and encoded in hardware. ffmpeg's old
+          screen input topped out around 30 FPS. If ScreenCaptureKit can't
+          record, the client falls back to the old way by itself.
+Rank      Taken out of the client for now: no Rank tab, no rank card on the
+          Play page, no rank overlay widget or rank-up animation. The code is
+          still there.
+
 New in 1.73.12
 Report    The diagnostic report shows how each picked sky is drawn: its
           material and shader, every texture slot with its tiling, the
