@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.3"
+APP_VERSION = "1.73.4"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5997,6 +5997,15 @@ def sky_candidates():
                 continue  # a 16x16 leaf of "sky_islands" is not a sky
             seen.add(k)
             out.append({**t, "id": f"c{t['id']}", "kind": "name", "where": "named like a sky", "origin": "name"})
+    by_key = {(t["source_file"], int(t["path_id"])): t for t in out}
+    for i, fam in enumerate(_family_targets()):
+        k = (fam["source_file"], int(fam["path_id"]))
+        if k in by_key:  # already listed (by name / sky search): it now carries its sky shape
+            by_key[k].update({f: fam.get(f) for f in ("kind", "face", "mesh_id", "mesh_file", "mesh_cab", "matrix",
+                                                       "mirror")}, origin="family")
+        else:
+            seen.add(k)
+            out.append({**fam, "id": f"f{i}", "origin": "family"})
     for i, t in enumerate(out, 1):
         t["num"] = i
     pick = read_json(SKY_PICK_JSON, {}) or {}
@@ -6011,7 +6020,7 @@ def sky_candidates():
                 # from inside (numbers mirrored), so the picture is wrapped and mirrored.
                 t.update(face="panorama", mirror=True)
             if shape:  # the sphere/dome that draws it: the picture is laid onto its real shape
-                t.update(kind="dome", **{k: shape[k] for k in ("mesh_id", "mesh_file", "mesh_cab", "matrix")})
+                t.update(kind="dome", **{k: shape.get(k) for k in ("mesh_id", "mesh_file", "mesh_cab", "matrix")})
     return out
 
 
@@ -6075,28 +6084,36 @@ def pick_sky(num):
     same = [t for t in cands if t is hit or (t.get("name") == hit.get("name") and
                                              (t["width"], t["height"]) == (hit["width"], hit["height"]))]
     write_json(SKY_PICK_JSON, {"keys": [_sky_key(t) for t in same], "num": int(num), "name": hit.get("name"),
-                               "file": hit.get("relative_file"), "at": datetime.now().isoformat(timespec="seconds")})
+                               "file": hit.get("relative_file"), "at": datetime.now().isoformat(timespec="seconds"),
+                               "hit": {k: hit.get(k) for k in SKY_FIELDS}})
+    SKY_FAMILY_JSON.unlink(missing_ok=True)
     log(f"Sky picked from the test: #{num} {hit.get('name')} in {hit.get('relative_file')} (+{len(same) - 1} copies)")
 
     def job(progress):
         if (load_mods().get("skybox") or {}).get("test"):
             def change(state):
                 state["skybox"] = None
-            mutate_state(change, "End sky test", _sub_progress(progress, 0, 0.4))
+            mutate_state(change, "End sky test", _sub_progress(progress, 0, 0.2))
         shape = None
         if hit.get("type") != "Cubemap":
             try:
-                shape = find_sky_shape(hit, _sub_progress(progress, 0.4, 1.0))
+                shape = find_sky_shape(hit, _sub_progress(progress, 0.2, 0.55))
             except Exception as e:
                 log(f"Sky shape lookup failed: {type(e).__name__}: {e}")
         pick = read_json(SKY_PICK_JSON, {}) or {}
-        if pick.get("num") == int(num):
-            pick["shape"] = ({k: shape[k] for k in ("mesh_id", "mesh_file", "mesh_cab", "matrix", "object")}
-                             if shape else None)
-            write_json(SKY_PICK_JSON, pick)
-        log(f"Sky shape for #{num}: " + (f"{shape['object']} (mesh {shape['mesh_id']} in {Path(shape['mesh_file']).name})"
+        if pick.get("num") != int(num):
+            return "A newer sky pick replaced this one."
+        pick["shape"] = {k: shape.get(k) for k in SHAPE_FIELDS} if shape else None
+        write_json(SKY_PICK_JSON, pick)
+        log(f"Sky shape for #{num}: " + (f"{shape['object']} (mesh {shape['mesh_id']} '{shape.get('mesh_name')}' in "
+                                          f"{Path(shape['mesh_file']).name}, shader '{shape.get('shader')}')"
                                           if shape else "not found, the picture is wrapped round"))
-        return f"Texture #{num} ({hit.get('name')}) is your sky now. Pick a picture and press Apply sky."
+        msg = f"Texture #{num} ({hit.get('name')}) is your sky now."
+        if shape:
+            n = _run_sky_family(pick, _sub_progress(progress, 0.55, 1.0))
+            msg += f" The same kind of sky was found in {n} more places (other maps)." if n else \
+                " No other map seems to use the same kind of sky."
+        return msg + " Pick a picture and press Apply sky."
     return start_job("sky", job, label="Ending the sky test")
 
 
@@ -6115,7 +6132,64 @@ def _last_test_targets():
     return None
 
 
+SKY_FAMILY_JSON = STATE_DIR / "sky_family.json"  # the same kind of sky in the other maps
+SHAPE_FIELDS = ("mesh_id", "mesh_file", "mesh_cab", "matrix", "object", "mesh_name", "shader", "slot", "extent")
+
+
+def _run_sky_family(pick, progress):
+    """Look through every map for skies drawn like the picked one; saves and returns how many."""
+    shape = pick.get("shape") or {}
+    app = find_app()
+    if not shape or not app:
+        return 0
+    files = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files()
+    fam = customize.find_sky_family(files, shape, app, progress, log)
+    keys = _pick_keys(pick)
+    fam = [t for t in fam if _sky_key(t) not in keys]
+    write_json(SKY_FAMILY_JSON, {"num": pick.get("num"), "at": datetime.now().isoformat(timespec="seconds"),
+                                 "targets": fam})
+    log(f"Same sky in other maps: {len(fam)} " + ", ".join(f"{t['name']} ({Path(t['source_file']).name})" for t in fam[:12]))
+    return len(fam)
+
+
+def start_sky_family():
+    """For a pick made before 1.73.4: find its shape again (with what's needed to compare)
+    and then the same kind of sky in the other maps."""
+    pick = read_json(SKY_PICK_JSON, None)
+    if not pick:
+        raise RuntimeError("Pick your sky with the sky test first.")
+
+    def job(progress):
+        p = read_json(SKY_PICK_JSON, {}) or {}
+        hit = p.get("hit")
+        if not hit:
+            keys = _pick_keys(p)
+            hit = next((t for t in sky_candidates() if _sky_key(t) in keys), None)
+        if not hit:
+            raise RuntimeError("Your picked sky texture wasn't found any more. Run the sky test again.")
+        shape = p.get("shape") or {}
+        if not shape.get("mesh_name") and "extent" not in shape:
+            shape = find_sky_shape(hit, _sub_progress(progress, 0, 0.45))
+            if not shape:
+                raise RuntimeError("The object that draws your sky wasn't found, so other maps can't be matched to it.")
+            p["shape"] = {k: shape.get(k) for k in SHAPE_FIELDS}
+            write_json(SKY_PICK_JSON, p)
+        n = _run_sky_family(p, _sub_progress(progress, 0.45, 1.0))
+        return (f"Found the same kind of sky in {n} more places (other maps). Press Apply sky to put your picture "
+                "on all of them." if n else "No other map seems to use the same kind of sky.")
+    return start_job("sky", job, label="Looking for your sky in the other maps")
+
+
+def _family_targets(pick=None):
+    pick = read_json(SKY_PICK_JSON, None) if pick is None else pick
+    fam = read_json(SKY_FAMILY_JSON, None)
+    if not pick or not fam or fam.get("num") != pick.get("num"):
+        return []
+    return [t for t in fam.get("targets") or [] if Path(t["source_file"]).exists()]
+
+
 def clear_sky_pick():
+    SKY_FAMILY_JSON.unlink(missing_ok=True)
     SKY_PICK_JSON.unlink(missing_ok=True)
     return {"ok": True}
 
@@ -6141,9 +6215,16 @@ def _sky_targets_payload(sky):
     cands = sky_candidates()
     pick = _pick_keys()
     active = None if not sky or sky.get("test") else {_sky_key(t) for t in sky.get("targets", [])}
+    if active is not None and pick:
+        # A pick (or other maps found for it) newer than the applied sky decides the ticks.
+        newest = max(str((read_json(SKY_PICK_JSON, {}) or {}).get("at") or ""),
+                     str((read_json(SKY_FAMILY_JSON, {}) or {}).get("at") or ""))
+        if newest > str(sky.get("at") or ""):
+            active = None
     for t in cands:
         k = _sky_key(t)
-        t["on"] = (k in active) if active is not None else (k in pick) if pick else t["origin"] == "search"
+        t["on"] = ((k in active) if active is not None else (k in pick or t["origin"] == "family") if pick
+                   else t["origin"] == "search")
     return cands
 
 
@@ -6158,8 +6239,10 @@ def sky_payload():
         "targets": _sky_targets_payload(sky),
         "test": bool(sky and sky.get("test")),
         "tested": bool(_last_test_targets()),
-        "pick": (lambda p: {**p, "colour": customize.sky_test_colour(int(p.get("num") or 0))} if p else p)(
-            read_json(SKY_PICK_JSON, None)),
+        "pick": (lambda p: {**{k: v for k, v in p.items() if k != "hit"},
+                            "colour": customize.sky_test_colour(int(p.get("num") or 0)),
+                            "family": len(_family_targets(p)) if read_json(SKY_FAMILY_JSON, None) else None}
+                 if p else p)(read_json(SKY_PICK_JSON, None)),
         "scan": {"generated": fresh, "fresh": fresh, "reading": bool(reading)},
         "active": ({k: sky.get(k) for k in ("id", "name", "yaw", "swap_lr", "flip", "test")} |
                    {"count": len(sky.get("targets", [])),
@@ -6331,7 +6414,8 @@ def apply_sky(sky_id, target_ids=None, yaw=0, swap_lr=False, flip=False):
             picked = [t for t in all_targets if t["id"] in set(map(str, target_ids))]
         else:
             pick = _pick_keys()
-            picked = [t for t in all_targets if (_sky_key(t) in pick if pick else t["origin"] == "search")]
+            picked = [t for t in all_targets if ((_sky_key(t) in pick or t["origin"] == "family") if pick
+                                                 else t["origin"] == "search")]
         picked = [{k: t.get(k) for k in SKY_FIELDS} for t in picked if Path(t["source_file"]).exists()]
         if not picked:
             raise RuntimeError("None of the selected sky textures exist anymore. Scan again.")
@@ -6341,12 +6425,13 @@ def apply_sky(sky_id, target_ids=None, yaw=0, swap_lr=False, flip=False):
         def change(state):
             state["skybox"] = {"id": sky["id"], "image": sky["file"], "name": sky["name"], "yaw": yaw,
                                "swap_lr": bool(swap_lr), "flip": bool(flip), "targets": picked,
-                               "targets_v": CUSTOMIZE_SCAN_V, "custom": custom}
+                               "targets_v": CUSTOMIZE_SCAN_V, "custom": custom,
+                               "at": datetime.now().isoformat(timespec="seconds")}
         mutate_state(change, f"Sky: {sky['name']}", _sub_progress(progress, 0.4, 0.9))
         msg = f"“{sky['name']}” applied to {len(picked)} sky textures."
-        if len(picked) <= 8:
+        if picked:
             progress(0.95, "Checking the sky in the game files…")
-            checks = verify_sky_targets(picked)
+            checks = verify_sky_targets(picked[:5])
             same = [c for c in checks if c.get("changed") is False]
             if same:
                 msg += (f" But {', '.join(c['name'] for c in same[:3])} still looks like the original in the game file. "
@@ -7334,6 +7419,20 @@ class Handler(BaseHTTPRequestHandler):
         return json.loads(body.decode("utf-8")) if body else {}
 
     def do_GET(self):
+        # An error while building a page's data used to drop the connection, which the
+        # window shows as "Load failed" on every tab that asks for it.
+        try:
+            return self._do_get()
+        except (BrokenPipeError, ConnectionResetError):
+            return None
+        except Exception as e:
+            log(traceback.format_exc())
+            try:
+                return self.send_json({"error": f"{type(e).__name__}: {e}"}, 500)
+            except Exception:
+                return None
+
+    def _do_get(self):
         global LAST_REQUEST
         LAST_REQUEST = time.time()
         parsed = urlparse(self.path)
@@ -7609,6 +7708,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(start_sky_test())
             if path == "/api/sky/pick":
                 return self.send_json(pick_sky(int(data.get("num", 0))))
+            if path == "/api/sky/family":
+                return self.send_json(start_sky_family())
             if path == "/api/sky/unpick":
                 return self.send_json(clear_sky_pick())
             if path == "/api/loading/apply":

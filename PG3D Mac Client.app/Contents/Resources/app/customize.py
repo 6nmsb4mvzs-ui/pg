@@ -1363,18 +1363,33 @@ def _transform_matrix(tr_reader):
     return m
 
 
-def find_texture_mesh(files, tex_file, path_id, cab=None, progress=None, log=print):
-    """The mesh that draws one texture in the game (the sky sphere behind a sky texture
-    found by the sky test): {mesh_id, mesh_file, mesh_cab, matrix, object, extent} or None.
-    The biggest one wins when several objects use the texture."""
+_GENERIC_MESHES = {"", "sphere", "cube", "quad", "plane", "cylinder", "capsule", "default"}
+_GENERIC_SHADERS = {"", "standard", "unlit/texture", "mobile/diffuse", "diffuse", "legacy shaders/diffuse",
+                    "mobile/unlit (supports lightmap)", "unlit/transparent", "sprites/default", "ui/default"}
+
+
+def _shader_name(sh):
+    name = _name(sh)
+    if name:
+        return name
+    try:
+        return str(sh.parse_as_object().m_ParsedForm.m_Name or "")
+    except Exception:
+        return ""
+
+
+def _scan_renderers(files, want, found, progress=None, label="", log=print):
+    """Walk every MeshRenderer in these files. want(mat) -> slot or None decides by
+    material ({"shader", "name", "texs": [(slot, tex reader, file, cab)]}); for wanted
+    ones found(info) gets {tex, tex_file, tex_cab, slot, shader, material, object,
+    mesh, mesh_file, mesh_cab, mesh_name, matrix, extent}."""
     import UnityPy
     import numpy as np
 
-    best = None
     total = max(1, len(files))
     for idx, p in enumerate(files, 1):
         if progress:
-            progress(idx / total, f"Looking for the shape of your sky ({idx}/{total})…")
+            progress(idx / total, f"{label} ({idx}/{total})…")
         try:
             env = UnityPy.load(str(p))
         except Exception:
@@ -1393,31 +1408,53 @@ def find_texture_mesh(files, tex_file, path_id, cab=None, progress=None, log=pri
             cand = Path(p).parent / name
             return (str(cand), name) if name and cand.is_file() else (None, name)
 
-        uses = {}  # material (file, id) -> uses the texture
+        mats, shaders = {}, {}
 
-        def material_uses(m):
+        def shader_of(mi):
+            """Shader names are read only for wanted materials (shaders are big)."""
+            if "shader_done" not in mi:
+                mi["shader_done"] = True
+                sh = _deref(mi.get("shader_ref"))
+                if sh is not None:
+                    sk = (id(sh.assets_file), int(sh.path_id))
+                    if sk not in shaders:
+                        shaders[sk] = _shader_name(sh)
+                    mi["shader"] = shaders[sk]
+            return mi["shader"]
+
+        def mat_info(m):
             key = (id(m.assets_file), int(m.path_id))
-            if key not in uses:
-                uses[key] = False
+            if key not in mats:
+                info = {"shader": "", "name": "", "texs": []}
                 try:
-                    for _, tenv in _tex_env_items(m.parse_as_object()):
+                    mat = m.parse_as_object()
+                    info["name"] = str(getattr(mat, "m_Name", "") or "")
+                    info["shader_ref"] = getattr(mat, "m_Shader", None)
+                    for slot, tenv in _tex_env_items(mat):
                         tex = _deref(getattr(tenv, "m_Texture", None))
-                        if tex is not None and int(tex.path_id) == int(path_id):
+                        if tex is not None:
                             f, c = home(tex)
-                            if f == str(tex_file) and (not cab or c == cab):
-                                uses[key] = True
-                                break
+                            info["texs"].append((slot, tex, f, c))
                 except Exception:
                     pass
-            return uses[key]
+                mats[key] = info
+            return mats[key]
 
         for o in objs:
             if o.type.name != "MeshRenderer":
                 continue
             try:
                 rend = o.parse_as_object()
-                mats = [_deref(m) for m in (getattr(rend, "m_Materials", None) or [])]
-                if not any(m is not None and material_uses(m) for m in mats):
+                hits = []
+                for m in (getattr(rend, "m_Materials", None) or []):
+                    m = _deref(m)
+                    if m is None:
+                        continue
+                    mi = mat_info(m)
+                    slot = want(mi)
+                    if slot:
+                        hits.append((mi, slot))
+                if not hits:
                     continue
                 go_r = _deref(getattr(rend, "m_GameObject", None))
                 if go_r is None:
@@ -1439,14 +1476,91 @@ def find_texture_mesh(files, tex_file, path_id, cab=None, progress=None, log=pri
                     continue
                 matrix = _transform_matrix(tr) if tr is not None else np.eye(3)
                 extent = _mesh_extent(mesh) * float(np.abs(matrix).sum(axis=0).max())
-                if best is None or extent > best["extent"]:
-                    best = {"mesh_id": int(mesh.path_id), "mesh_file": mesh_file, "mesh_cab": mesh_cab,
-                            "matrix": [[float(v) for v in row] for row in matrix],
-                            "object": str(getattr(go, "m_Name", "") or ""), "extent": extent}
+                for mi, slot in hits:
+                    shader_of(mi)
+                    for tslot, tex, tf, tc in mi["texs"]:
+                        if tslot != slot:
+                            continue
+                        found({"tex": tex, "tex_file": tf, "tex_cab": tc, "slot": slot, "shader": mi["shader"],
+                               "material": mi["name"], "object": str(getattr(go, "m_Name", "") or ""),
+                               "mesh": mesh, "mesh_file": mesh_file, "mesh_cab": mesh_cab,
+                               "mesh_name": _name(mesh), "matrix": matrix, "extent": extent, "file": str(p)})
             except Exception as e:
-                log(f"SKY SHAPE skip {p} {o.path_id}: {e}")
+                log(f"SKY RENDERER skip {p} {o.path_id}: {e}")
         del env
-    return best
+
+
+def find_texture_mesh(files, tex_file, path_id, cab=None, progress=None, log=print):
+    """The mesh that draws one texture in the game (the sky sphere behind a sky texture
+    found by the sky test): {mesh_id, mesh_file, mesh_cab, matrix, object, extent,
+    mesh_name, shader, slot} or None. The biggest one wins when several objects use it."""
+    best = {}
+
+    def want(mi):
+        for slot, tex, f, c in mi["texs"]:
+            if int(tex.path_id) == int(path_id) and f == str(tex_file) and (not cab or c == cab):
+                return slot
+        return None
+
+    def found(info):
+        if int(info["tex"].path_id) != int(path_id):
+            return
+        if not best or info["extent"] > best["extent"]:
+            best.update({"mesh_id": int(info["mesh"].path_id), "mesh_file": info["mesh_file"],
+                         "mesh_cab": info["mesh_cab"], "matrix": [[float(v) for v in row] for row in info["matrix"]],
+                         "object": info["object"], "extent": info["extent"], "mesh_name": info["mesh_name"],
+                         "shader": info["shader"], "slot": info["slot"]})
+    _scan_renderers(files, want, found, progress, "Looking for the shape of your sky", log)
+    return best or None
+
+
+def find_sky_family(files, ref, app, progress=None, log=print):
+    """The same kind of sky in every other map: objects drawn like the picked one (same
+    sky mesh, or same object name, or same sky shader) and about as big. Returns sky
+    targets (each with its own mesh and Transform)."""
+    mesh_name = str(ref.get("mesh_name") or "")
+    obj = str(ref.get("object") or "")
+    shader = str(ref.get("shader") or "")
+    slot = ref.get("slot") or "_MainTex"
+    min_extent = 0.3 * float(ref.get("extent") or 0)
+    out = {}
+
+    def want(mi):
+        return slot if any(s == slot for s, *_ in mi["texs"]) else None
+
+    def found(info):
+        if info["tex_file"] is None or info["extent"] < min_extent:
+            return
+        same_mesh = mesh_name.lower() not in _GENERIC_MESHES and info["mesh_name"] == mesh_name
+        same_obj = bool(obj) and info["object"] == obj
+        same_shader = shader.lower() not in _GENERIC_SHADERS and info["shader"] == shader
+        if not (same_mesh or same_obj or same_shader):
+            return
+        tex = info["tex"]
+        key = (info["tex_file"], info["tex_cab"], int(tex.path_id))
+        if key in out:
+            return
+        try:
+            if tex.type.name != "Texture2D":
+                return
+            data = tex.parse_as_object()
+            w, h = int(data.m_Width), int(data.m_Height)
+        except Exception:
+            return
+        if min(w, h) < 64:
+            return
+        try:
+            rel = str(Path(info["tex_file"]).relative_to(app))
+        except ValueError:
+            rel = Path(info["tex_file"]).name
+        out[key] = {"source_file": info["tex_file"], "relative_file": rel, "path_id": int(tex.path_id),
+                    "name": _name(tex), "type": "Texture2D", "face": "panorama", "width": w, "height": h,
+                    "kind": "dome", "cab": info["tex_cab"], "mesh_id": int(info["mesh"].path_id),
+                    "mesh_file": info["mesh_file"], "mesh_cab": info["mesh_cab"],
+                    "matrix": [[float(v) for v in row] for row in info["matrix"]], "mirror": True,
+                    "where": f"{info['object']} · {info['material']}"}
+    _scan_renderers(files, want, found, progress, "Looking for the same sky in the other maps", log)
+    return list(out.values())
 
 
 def _mesh_arrays(mesh_reader):
@@ -1522,12 +1636,37 @@ def project_on_mesh(pano: Image.Image, pos, uv, tris, size, yaw=0.0, mirror=Fals
         yy, xx = gy[inside], gx[inside]
         out[yy, xx] = src[sy, sx]
         filled[yy, xx] = True
-    img = Image.fromarray(out, "RGB")
-    if not filled.all():  # texels no triangle covers: bleed neighbours in (no black seams on filtering)
-        mask = Image.fromarray((filled * 255).astype(np.uint8), "L")
-        blur = img.filter(ImageFilter.BoxBlur(4))
-        img = Image.composite(img, blur, mask)
-    return img.convert("RGBA")
+    if not filled.all():
+        out = _dilate_fill(out, filled)
+    return Image.fromarray(out, "RGB").convert("RGBA")
+
+
+def _dilate_fill(out, filled, rounds=64):
+    """Texels no triangle covers (between the thin triangles at the top of a sky
+    sphere, and around the UV islands) take the colour of their covered neighbours.
+    The game's texture filtering reads them, and left black (or blurred with black)
+    they showed as dark wedges around the top of the sky."""
+    import numpy as np
+
+    img = out.astype(np.float32)
+    f = filled.copy()
+    if not f.any():
+        return out
+    for _ in range(rounds):
+        if f.all():
+            break
+        acc = np.zeros_like(img)
+        cnt = np.zeros(f.shape, np.float32)
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            sf = np.roll(f, (dy, dx), (0, 1))
+            acc += np.roll(img, (dy, dx), (0, 1)) * sf[..., None]
+            cnt += sf
+        new = (~f) & (cnt > 0)
+        img[new] = acc[new] / cnt[new][:, None]
+        f |= new
+    if not f.all():
+        img[~f] = img[f].mean(axis=0)
+    return np.clip(img + 0.5, 0, 255).astype(np.uint8)
 
 
 def equirect_from(img: Image.Image, yaw=0.0) -> Image.Image:

@@ -366,6 +366,17 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.4
+Sky       Most maps have their own sky. After you pick yours with the sky test,
+          the client looks through every map for skies drawn the same way
+          (same sky mesh, object or sky shader, about as big) and Apply sky
+          puts your picture on all of them. For a pick made earlier, press
+          "Find it in the other maps".
+          The dark wedges around the top of the sky are gone: texture pixels
+          between the sky sphere's triangles were filled with black.
+Fixes     An error while building a tab's data dropped the connection, which
+          showed as "Load failed"; it now shows the error and logs it.
+
 New in 1.73.3
 Sky       The sky test draws every other row of numbers mirrored, so one row
           always reads the right way round in the sky (a mirrored 228 looks
