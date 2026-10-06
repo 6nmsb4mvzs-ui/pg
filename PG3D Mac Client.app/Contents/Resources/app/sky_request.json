@@ -1,1 +1,7 @@
-{"id": "", "nums": []}
+{
+  "id": "skies-2026-10-06-a",
+  "nums": [188, 178, 186],
+  "labels": {"188": "Nuclear City", "178": "Heaven Garden", "186": "Paradise Resort"},
+  "exact": true,
+  "picture": "2638e43090f337d8"
+}

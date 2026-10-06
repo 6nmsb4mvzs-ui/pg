@@ -1514,6 +1514,39 @@ def find_texture_mesh(files, tex_file, path_id, cab=None, progress=None, log=pri
     return best or None
 
 
+def find_texture_meshes(files, wanted, progress=None, log=print):
+    """find_texture_mesh for several textures in one pass over the files.
+    wanted: {key: (tex_file, path_id, cab)} -> {key: shape} (keys without an object left out)."""
+    best = {}
+    by_pid = {}
+    for key, (f, pid, cab) in wanted.items():
+        by_pid.setdefault(int(pid), []).append((key, str(f), cab))
+
+    def match(tex, f, c):
+        for key, wf, wc in by_pid.get(int(tex.path_id), []):
+            if f == wf and (not wc or c == wc):
+                return key
+        return None
+
+    def want(mi):
+        for slot, tex, f, c in mi["texs"]:
+            if match(tex, f, c):
+                return slot
+        return None
+
+    def found(info):
+        key = match(info["tex"], info["tex_file"], info["tex_cab"])
+        if key is None:
+            return
+        if key not in best or info["extent"] > best[key]["extent"]:
+            best[key] = {"mesh_id": int(info["mesh"].path_id), "mesh_file": info["mesh_file"],
+                         "mesh_cab": info["mesh_cab"], "matrix": [[float(v) for v in row] for row in info["matrix"]],
+                         "object": info["object"], "extent": info["extent"], "mesh_name": info["mesh_name"],
+                         "shader": info["shader"], "slot": info["slot"]}
+    _scan_renderers(files, want, found, progress, "Looking for the shape of your skies", log)
+    return best
+
+
 def find_sky_family(files, ref, app, progress=None, log=print):
     """The same kind of sky in every other map: objects drawn like the picked one (same
     sky mesh, or same object name, or same sky shader) and about as big. Returns sky

@@ -366,6 +366,15 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.9
+Sky       Your sky test numbers come with this update: 188 (Nuclear City),
+          178 (Heaven Garden) and 186 (Paradise Resort). As soon as PG3D is
+          closed the client puts your sky picture on exactly those three skies
+          (and the same textures where PG3D keeps a copy) and nothing else:
+          every other texture the sky was put on before goes back to original,
+          and no other maps are searched. Each sky is laid onto the object that
+          draws it when there is one.
+
 New in 1.73.8
 Sky       The number field of the sky test no longer empties itself while you
           type (the tab refreshed every few seconds and rebuilt it).

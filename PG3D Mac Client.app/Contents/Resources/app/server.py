@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.8"
+APP_VERSION = "1.73.9"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -6028,8 +6028,10 @@ def sky_candidates():
                 # Without its shape: the sky test showed it wraps round like a panorama seen
                 # from inside (numbers mirrored), so the picture is wrapped and mirrored.
                 t.update(face="panorama", mirror=True)
-            if shape and _sky_key(t) in primary:  # the sphere/dome that draws it: its real shape
-                t.update(kind="dome", **{k: shape.get(k) for k in ("mesh_id", "mesh_file", "mesh_cab", "matrix")})
+            own = (pick.get("shapes") or {}).get(_sky_key(t)) if "shapes" in pick else \
+                (shape if _sky_key(t) in primary else None)
+            if own:  # the sphere/dome that draws it: its real shape
+                t.update(kind="dome", **{k: own.get(k) for k in ("mesh_id", "mesh_file", "mesh_cab", "matrix")})
     return out
 
 
@@ -6086,10 +6088,12 @@ def _parse_sky_nums(raw):
     return nums[:40]
 
 
-def pick_sky(num):
+def pick_sky(num, exact=False, labels=None):
     """The number(s) seen in the sky during the test -> those textures become the sky
     targets (plus the same texture where it's repeated in other files), then the test
-    ends. Several numbers ("190, 57") cover several maps seen during one test."""
+    ends. Several numbers ("190, 57") cover several maps seen during one test.
+    exact: only these textures, each laid onto its own sky object, and no search for
+    the same sky in other maps."""
     nums = _parse_sky_nums(num)
     num = nums[0]
     # The numbers exactly as the last sky test painted them (a newer sky search may
@@ -6118,9 +6122,16 @@ def pick_sky(num):
     write_json(SKY_PICK_JSON, {"keys": keys, "extra_keys": extra, "num": int(num), "nums": nums,
                                "name": ", ".join(h.get("name") or "" for h in hits),
                                "file": hit.get("relative_file"), "at": datetime.now().isoformat(timespec="seconds"),
-                               "hit": {k: hit.get(k) for k in SKY_FIELDS}})
-    SKY_FAMILY_JSON.unlink(missing_ok=True)
+                               "hit": {k: hit.get(k) for k in SKY_FIELDS}, "exact": bool(exact),
+                               **({"labels": labels} if labels else {})})
+    if exact:  # "these skies and none other": no other-maps search, now or later
+        write_json(SKY_FAMILY_JSON, {"num": int(num), "at": datetime.now().isoformat(timespec="seconds"),
+                                     "how": {"by": "exact numbers"}, "targets": []})
+    else:
+        SKY_FAMILY_JSON.unlink(missing_ok=True)
     also = "; ".join(f"#{n} {h.get('name')}" for n, h in zip(nums[1:], hits[1:]))
+    picked_at = read_json(SKY_PICK_JSON, {}).get("at")
+    all_copies = {n: copies(h) for n, h in zip(nums, hits)}
     log(f"Sky picked from the test: #{num} {hit.get('name')} in {hit.get('relative_file')} (+{len(same) - 1} copies)"
         + (f"; also {also}" if also else ""))
 
@@ -6129,6 +6140,28 @@ def pick_sky(num):
             def change(state):
                 state["skybox"] = None
             mutate_state(change, "End sky test", _sub_progress(progress, 0, 0.2))
+        if exact:
+            wanted = {_sky_key(t): (t["source_file"], int(t["path_id"]), t.get("cab"))
+                      for cs in all_copies.values() for t in cs if t.get("type") != "Cubemap"}
+            app = find_app()
+            files = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files() if app else []
+            try:
+                found = customize.find_texture_meshes(files, wanted, _sub_progress(progress, 0.2, 1.0), log)
+            except Exception as e:
+                log(f"Sky shape lookup failed: {type(e).__name__}: {e}")
+                found = {}
+            pick = read_json(SKY_PICK_JSON, {}) or {}
+            if pick.get("at") != picked_at:
+                return "A newer sky pick replaced this one."
+            pick["shapes"] = {k: {f: v.get(f) for f in SHAPE_FIELDS} for k, v in found.items()}
+            pick["shape"] = pick["shapes"].get(keys[0])
+            write_json(SKY_PICK_JSON, pick)
+            for n, cs in all_copies.items():
+                got = [found[_sky_key(t)]["object"] for t in cs if _sky_key(t) in found]
+                log(f"Sky shape for #{n} {cs[0].get('name')}: " + (", ".join(got) if got else
+                                                                   "no object draws it, the picture is wrapped round"))
+            return (f"Textures {', '.join('#' + str(n) for n in nums)} are your sky now, and only those."
+                    " Pick a picture and press Apply sky.")
         shape = None
         if hit.get("type") != "Cubemap":
             try:
@@ -6307,7 +6340,7 @@ def _auto_sky_family():
     """A pick without the other-maps search yet (made before 1.73.4, or the search was
     cut off): run it by itself once, no button needed."""
     pick = read_json(SKY_PICK_JSON, None)
-    if not pick or SKY_FAMILY_JSON.exists() or _FAMILY_AUTO["num"] == pick.get("at") or jobs_pending():
+    if not pick or pick.get("exact") or SKY_FAMILY_JSON.exists() or _FAMILY_AUTO["num"] == pick.get("at") or jobs_pending():
         return
     _FAMILY_AUTO["num"] = pick.get("at")
     try:
@@ -6874,7 +6907,7 @@ def run_sky_request():
             pass
         time.sleep(15)
     try:
-        pick_sky(nums)
+        pick_sky(nums, exact=bool(req.get("exact")), labels=req.get("labels"))
         while jobs_pending():
             time.sleep(1)
         if STATUS.get("job_phase") == "error":
