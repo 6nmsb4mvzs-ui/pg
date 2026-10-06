@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.11"
+APP_VERSION = "1.73.12"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -4884,6 +4884,7 @@ def diagnostics_report():
                                                                      "mirror", "mesh_id", "width", "height")}
                                               for t in (load_mods().get("skybox") or {}).get("targets", [])[:8]]),
         "Sky check after the last apply: " + json.dumps(read_json(SKY_CHECK_JSON, None)),
+        "How the picked skies are drawn: " + _sky_draw_report(),
         "Sky in other maps: " + (lambda f: json.dumps({"how": f.get("how"), "count": len(f.get("targets") or []),
                                                        "names": [f"{t.get('name')} ({Path(t['source_file']).name})"
                                                                  for t in (f.get("targets") or [])[:40]]})
@@ -6896,6 +6897,26 @@ def repair_texture_targets():
 
 SKY_REQUEST = Path(__file__).with_name("sky_request.json")  # numbers sent with an update
 SKY_REQUEST_DONE = STATE_DIR / "sky_request_done.json"
+
+
+def _sky_draw_report():
+    sky = load_mods().get("skybox") or {}
+    if not sky or sky.get("test"):
+        return "no sky applied"
+    by_file = {}
+    for t in sky.get("targets") or []:
+        by_file.setdefault(t["source_file"], []).append(int(t["path_id"]))
+    out = []
+    for f, pids in list(by_file.items())[:4]:
+        m = load_manifest(Path(f)) or {}
+        src = m.get("original") if m.get("original") and Path(m["original"]).exists() else f
+        try:
+            rep = customize.sky_file_report(src, pids, log)
+            rep["file"] = Path(f).name
+            out.append(rep)
+        except Exception as e:
+            out.append({"file": Path(f).name, "error": f"{type(e).__name__}: {e}"})
+    return json.dumps(out)
 
 
 def run_sky_request():

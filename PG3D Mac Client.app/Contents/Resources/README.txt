@@ -366,6 +366,12 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.12
+Report    The diagnostic report shows how each picked sky is drawn: its
+          material and shader, every texture slot with its tiling, the
+          shader's numbers and colours, which object draws it, and the other
+          sky textures in the same map file.
+
 New in 1.73.11
 Sky       PG3D's sky domes only cover the top half of a sphere (the texture's
           bottom edge is the horizon). The whole panorama used to go onto them,

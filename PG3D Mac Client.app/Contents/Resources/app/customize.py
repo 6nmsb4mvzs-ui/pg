@@ -1761,6 +1761,84 @@ def sky_dome_image(source: Image.Image, size, yaw=0.0, below=5.0) -> Image.Image
     return Image.fromarray(np.clip(out + 0.5, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 
 
+def sky_file_report(source_file, path_ids, log=print):
+    """For the diagnostic report: how one game file draws its sky. Every material that
+    uses one of the picked textures or a texture named like a sky (shader, each texture
+    slot with tiling/offset, its numbers and colours) and the objects drawing them."""
+    import UnityPy
+
+    path_ids = {int(x) for x in path_ids}
+    env = UnityPy.load(str(source_file))
+    objs = list(env.objects)
+    own = {id(o.assets_file) for o in objs}
+    mats = {}
+    for o in objs:
+        if o.type.name != "Material" or id(o.assets_file) not in own:
+            continue
+        try:
+            m = o.parse_as_object()
+            texs, hit = [], False
+            for slot, tenv in _tex_env_items(m):
+                tex = _deref(getattr(tenv, "m_Texture", None))
+                name = _name(tex) if tex is not None else ""
+                if tex is not None and (int(tex.path_id) in path_ids or SKY_NAME_RX.search(name or "")):
+                    hit = True
+                sc, of = getattr(tenv, "m_Scale", None), getattr(tenv, "m_Offset", None)
+                texs.append({"slot": slot, "tex": name, "id": int(tex.path_id) if tex is not None else None,
+                             "picked": tex is not None and int(tex.path_id) in path_ids,
+                             "scale": [round(float(sc.x), 3), round(float(sc.y), 3)] if sc is not None else None,
+                             "offset": [round(float(of.x), 3), round(float(of.y), 3)] if of is not None else None})
+            if not hit:
+                continue
+            props = getattr(m, "m_SavedProperties", None)
+
+            def pairs(lst):
+                out = {}
+                for e in lst or []:
+                    k, v = (e[0], e[1]) if isinstance(e, (tuple, list)) else (getattr(e, "first", ""), getattr(e, "second", None))
+                    k = str(getattr(k, "name", k))
+                    if hasattr(v, "r"):
+                        v = [round(float(v.r), 3), round(float(v.g), 3), round(float(v.b), 3), round(float(v.a), 3)]
+                    else:
+                        try:
+                            v = round(float(v), 4)
+                        except Exception:
+                            v = str(v)
+                    out[k] = v
+                return out
+            sh = _deref(getattr(m, "m_Shader", None))
+            mats[(id(o.assets_file), int(o.path_id))] = {
+                "material": str(getattr(m, "m_Name", "") or ""), "shader": _shader_name(sh) if sh is not None else "",
+                "textures": texs, "floats": pairs(getattr(props, "m_Floats", None)),
+                "colors": pairs(getattr(props, "m_Colors", None)), "drawn_by": []}
+        except Exception as e:
+            log(f"SKY REPORT material {o.path_id}: {e}")
+    for o in objs:
+        if o.type.name not in ("MeshRenderer", "SkinnedMeshRenderer", "ParticleSystemRenderer"):
+            continue
+        try:
+            r = o.parse_as_object()
+            for mp in getattr(r, "m_Materials", None) or []:
+                mr = _deref(mp)
+                if mr is None or (id(mr.assets_file), int(mr.path_id)) not in mats:
+                    continue
+                go = _deref(getattr(r, "m_GameObject", None))
+                go_name = getattr(go.parse_as_object(), "m_Name", "") if go is not None else ""
+                mats[(id(mr.assets_file), int(mr.path_id))]["drawn_by"].append(f"{o.type.name}:{go_name}")
+        except Exception:
+            pass
+    rs = []
+    for o in objs:
+        if o.type.name == "RenderSettings":
+            try:
+                sm = _deref(getattr(o.parse_as_object(), "m_SkyboxMaterial", None))
+                rs.append(_name(sm) if sm is not None else None)
+            except Exception:
+                pass
+    del env
+    return {"file": Path(source_file).name, "skybox_material": rs, "materials": list(mats.values())[:12]}
+
+
 def _mesh_arrays(mesh_reader):
     """Vertex positions (N,3), UVs (N,2) and triangles (M,3) of a Unity mesh."""
     import numpy as np
