@@ -366,6 +366,12 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.10
+Sky       With your skies picked, the Sky tab no longer shows the sky test's
+          number field ("Pick other skies" starts a new test if you want one).
+          Finding the shape of picked skies only looks in their own files and
+          the map scenes instead of all ~2400 game files, so it's much faster.
+
 New in 1.73.9
 Sky       Your sky test numbers come with this update: 188 (Nuclear City),
           178 (Heaven Garden) and 186 (Paradise Resort). As soon as PG3D is

@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.9"
+APP_VERSION = "1.73.10"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -6144,7 +6144,11 @@ def pick_sky(num, exact=False, labels=None):
             wanted = {_sky_key(t): (t["source_file"], int(t["path_id"]), t.get("cab"))
                       for cs in all_copies.values() for t in cs if t.get("type") != "Cubemap"}
             app = find_app()
-            files = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files() if app else []
+            every = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files() if app else []
+            # Only where a sky's object can be: the textures' own files and the map scenes
+            # (a full sweep of all ~2400 files took minutes for 3 textures).
+            own = {str(v[0]) for v in wanted.values()}
+            files = [f for f in every if str(f) in own or Path(f).name.startswith("level") or "scene" in str(f).lower()]
             try:
                 found = customize.find_texture_meshes(files, wanted, _sub_progress(progress, 0.2, 1.0), log)
             except Exception as e:
