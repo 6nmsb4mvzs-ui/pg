@@ -898,16 +898,24 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .fdGui{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
 .fdItem.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}.fdItem.sel::after{content:"✓";position:absolute;top:8px;right:10px;color:var(--accent);font-weight:900}
 
-/* socket */
-.wsState{font-size:12px;font-weight:700;color:var(--muted)}.wsState.on{color:#9be7bd}.wsState.err{color:#ff8e9c}.wsState.wait{color:#ffd866}
-.wsAccInfo{font-size:12px;color:var(--muted);line-height:1.6;word-break:break-all}
-.wsAccInfo b{color:var(--text);font-weight:700}
-.wsLog{max-height:420px;overflow-y:auto;display:grid;gap:4px;font:11.5px/1.45 ui-monospace,Menlo,monospace}
-.wsEv{padding:6px 8px;border-radius:8px;background:hsl(var(--nh) var(--ns) 4.8%);border:1px solid var(--border);word-break:break-all;white-space:pre-wrap}
-.wsEv .evDir{font-weight:800;margin-right:4px}.wsEv .evDir.out{color:#36c5ff}.wsEv .evDir.in{color:#9be7bd}
-.wsEv .evName{font-weight:700;color:var(--text)}.wsEv .evTs{color:var(--muted);font-size:10px;float:right}
-.wsEv .evBody{display:block;margin-top:4px;color:var(--muted);max-height:120px;overflow:auto}
-#wsCmdCard{display:none}#wsCmdCard.show{display:block}
+/* mods */
+.emState{font-size:12px;font-weight:700;color:var(--muted)}.emState.on{color:#9be7bd}.emState.err{color:#ff8e9c}.emState.wait{color:#ffd866}
+.emAccGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:10px}
+.emAcc{padding:12px;border-radius:10px;background:hsl(var(--nh) var(--ns) 5.5%);border:2px solid var(--border);cursor:pointer;transition:border-color .15s}
+.emAcc:hover{border-color:var(--accent)}.emAcc.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.emAcc b{display:block;font-size:13px;margin-bottom:2px}.emAcc small{color:var(--muted);font-size:11px}
+.emCmdGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:10px}
+.emCmd{padding:10px 14px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:600;text-align:center;transition:all .15s}
+.emCmd:hover{background:hsl(var(--nh) var(--ns) 8%);border-color:var(--accent)}
+.emCmdSection{margin-top:18px}.emCmdSection h4{font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600}
+.emMaxGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:10px}
+.emMaxOpt{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);font-size:12px;cursor:pointer}
+.emMaxOpt input{accent-color:var(--accent)}
+/* cheats */
+.chToggle{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:10px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);margin-bottom:10px}
+.chToggle .chInfo{flex:1}.chToggle .chInfo b{font-size:14px;display:block;margin-bottom:2px}.chToggle .chInfo small{color:var(--muted);font-size:11px}
+.chKeybind{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 14px;border-radius:8px;background:hsl(var(--nh) var(--ns) 4.8%);border:1px solid var(--border)}
+.chKeybind .xLabel{margin:0;font-size:12px;white-space:nowrap}.chKeybind select{flex:1}
 </style>
 </head>
 <body>
@@ -925,8 +933,9 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="theme"><span class="ico">Aa</span><span class="label">Font</span></button>
       <button data-tab="hud"><span class="ico">⊞</span><span class="label">HUD</span></button>
       <button data-tab="sky" hidden><span class="ico">☁</span><span class="label">Sky</span></button>
-      <div class="navLabel">Tools</div>
-      <button data-tab="socket"><span class="ico">⚡</span><span class="label">Socket</span></button>
+      <div class="navLabel">Modding</div>
+      <button data-tab="mods"><span class="ico">⚙</span><span class="label">Mods</span></button>
+      <button data-tab="cheats"><span class="ico">⊘</span><span class="label">Cheating</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1253,53 +1262,186 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <section class="page" id="page-socket">
-      <div class="crCard">
-        <div class="crCardHead"><div><h3>Server Connection</h3><p class="xNote" style="margin-top:4px">Connect to the PG3D game server over WebSocket.</p></div></div>
+    <section class="page" id="page-mods">
+      <div class="crCard" id="emLoginCard">
+        <div class="crCardHead"><div><h3>Ember Login</h3><p class="xNote" style="margin-top:4px">Sign in with your Ember PG3D account to access modding features.</p></div></div>
         <div class="xStack">
-          <div>
-            <div class="xLabel">Login code</div>
-            <input class="xInput" id="wsCode" placeholder="Paste your login code (base64)" spellcheck="false" autocomplete="off">
+          <div><div class="xLabel">Username</div><input class="xInput" id="emUser" placeholder="Username" autocomplete="username"></div>
+          <div><div class="xLabel">Password</div><input class="xInput" id="emPass" type="password" placeholder="Password" autocomplete="current-password"></div>
+          <div class="xRow" style="gap:8px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="emRemember" checked> Remember me</label>
           </div>
           <div class="xRow">
-            <button class="btn primary" id="wsConnect">Connect</button>
-            <button class="btn danger" id="wsDisconnect" disabled>Disconnect</button>
-            <span class="wsState" id="wsState">disconnected</span>
-          </div>
-          <p class="xNote" id="wsError"></p>
-          <div id="wsAccount" hidden>
-            <div class="xLabel" style="margin-top:4px">Account</div>
-            <div class="wsAccInfo" id="wsAccInfo"></div>
+            <button class="btn primary" id="emLogin">Sign in</button>
+            <span class="emState" id="emLoginState"></span>
           </div>
         </div>
       </div>
 
-      <div class="crCard" id="wsCmdCard">
-        <div class="crCardHead"><div><h3>Commands</h3><p class="xNote" style="margin-top:4px">Select a command, fill in its parameters, and send.</p></div></div>
-        <div class="xStack">
-          <div>
-            <div class="xLabel">Command</div>
-            <select class="select" id="cmdSelect" style="width:100%"><option value="">Loading…</option></select>
-          </div>
-          <div id="cmdArgs" class="xStack" style="gap:8px"></div>
-          <div class="xRow">
-            <button class="btn primary" id="cmdSend">Send</button>
-            <span class="xNote" id="cmdNote"></span>
+      <div class="crCard" id="emUserCard" hidden>
+        <div class="crCardHead"><div><h3 id="emUserName">Ember Account</h3><p class="xNote" id="emUserTier" style="margin-top:4px"></p></div><button class="btn ghost danger" id="emLogout" style="font-size:11px">Sign out</button></div>
+      </div>
+
+      <div class="crCard" id="emAccountCard" hidden>
+        <div class="crCardHead"><div><h3>Game Accounts</h3><p class="xNote" style="margin-top:4px">Select a game account to mod.</p></div></div>
+        <div class="emAccGrid" id="emAccGrid"></div>
+      </div>
+
+      <div class="crCard" id="emSessionCard" hidden>
+        <div class="crCardHead"><div><h3>Connected</h3><p class="xNote" id="emSessionInfo" style="margin-top:4px"></p></div><button class="btn danger" id="emDisconnect" style="font-size:11px">Disconnect</button></div>
+      </div>
+
+      <div class="crCard" id="emMaxCard" hidden>
+        <div class="crCardHead"><div><h3>Max Account</h3><p class="xNote" style="margin-top:4px">One click to max out your account.</p></div></div>
+        <div class="emMaxGrid" id="emMaxGrid"></div>
+        <div class="xRow" style="margin-top:14px"><button class="btn primary" id="emMaxGo">Max Selected</button></div>
+      </div>
+
+      <div class="crCard" id="emCmdCard" hidden>
+        <div class="crCardHead"><div><h3>Commands</h3><p class="xNote" style="margin-top:4px">Send individual mod commands to the connected account.</p></div></div>
+
+        <div class="emCmdSection"><h4>Currency</h4>
+          <div class="xStack" style="gap:8px">
+            <div style="display:flex;gap:8px;align-items:end">
+              <div style="flex:1"><div class="xLabel">Currency</div><select class="select" id="emCurType" style="width:100%"><option value="Coins">Coins</option><option value="GemsCurrency">Gems</option><option value="CupsCurrency">Cups</option></select></div>
+              <div style="flex:1"><div class="xLabel">Amount</div><input class="xInput" id="emCurAmt" type="number" value="999999"></div>
+              <button class="btn primary" id="emCurAdd">Add</button>
+            </div>
           </div>
         </div>
-        <details class="xDetails" style="margin-top:14px">
-          <summary>Raw emit</summary>
+
+        <div class="emCmdSection"><h4>Weapons</h4>
+          <div class="emCmdGrid" id="emWeaponCmds">
+            <div class="emCmd" data-cmd="add_all_weapons">All weapons</div>
+            <div class="emCmd" data-cmd="add_primary">All primary</div>
+            <div class="emCmd" data-cmd="add_backup">All backup</div>
+            <div class="emCmd" data-cmd="add_melee">All melee</div>
+            <div class="emCmd" data-cmd="add_special">All special</div>
+            <div class="emCmd" data-cmd="add_sniper">All sniper</div>
+            <div class="emCmd" data-cmd="add_heavy">All heavy</div>
+            <div class="emCmd" data-cmd="add_all_weapon_skins">All skins</div>
+            <div class="emCmd" data-cmd="add_all_weapon_parts">All parts</div>
+          </div>
+        </div>
+
+        <div class="emCmdSection"><h4>Equipment</h4>
+          <div class="emCmdGrid" id="emEquipCmds">
+            <div class="emCmd" data-cmd="add_all_armor">All armor</div>
+            <div class="emCmd" data-cmd="add_all_armor_skins">Armor skins</div>
+            <div class="emCmd" data-cmd="add_all_hats">All hats</div>
+            <div class="emCmd" data-cmd="add_all_masks">All masks</div>
+            <div class="emCmd" data-cmd="add_all_capes">All capes</div>
+            <div class="emCmd" data-cmd="add_all_boots">All boots</div>
+            <div class="emCmd" data-cmd="add_all_wear">All wear</div>
+          </div>
+        </div>
+
+        <div class="emCmdSection"><h4>Gadgets &amp; Pets</h4>
+          <div class="emCmdGrid">
+            <div class="emCmd" data-cmd="add_all_gadgets">All gadgets</div>
+            <div class="emCmd" data-cmd="add_all_pets">All pets</div>
+            <div class="emCmd" data-cmd="add_all_modules">All modules</div>
+          </div>
+        </div>
+
+        <div class="emCmdSection"><h4>Cosmetics &amp; Royale</h4>
+          <div class="emCmdGrid">
+            <div class="emCmd" data-cmd="add_all_graffiti">All graffiti</div>
+            <div class="emCmd" data-cmd="add_all_lobby_items">All lobby items</div>
+            <div class="emCmd" data-cmd="add_all_vehicles">All vehicles</div>
+            <div class="emCmd" data-cmd="add_all_gliders">All gliders</div>
+            <div class="emCmd" data-cmd="add_all_trails">All trails</div>
+            <div class="emCmd" data-cmd="add_all_avatars">All avatars</div>
+            <div class="emCmd" data-cmd="add_all_shovels">All shovels</div>
+          </div>
+        </div>
+
+        <div class="emCmdSection"><h4>Account</h4>
+          <div class="emCmdGrid">
+            <div class="emCmd" data-cmd="set_paying_user">Paying user</div>
+            <div class="emCmd" data-cmd="skip_tutorial">Skip tutorial</div>
+            <div class="emCmd" data-cmd="complete_campaign">Complete campaign</div>
+            <div class="emCmd" data-cmd="unlock_pixel_pass">Pixel Pass</div>
+            <div class="emCmd" data-cmd="veteran_badge">Veteran badge</div>
+            <div class="emCmd" data-cmd="fix_loadout">Fix loadout</div>
+          </div>
+        </div>
+
+        <details class="xDetails" style="margin-top:18px">
+          <summary>Custom command</summary>
           <div class="xStack" style="margin-top:10px">
-            <div><div class="xLabel">Event name</div><input class="xInput" id="cmdRawEvt" placeholder="e.g. get_progress"></div>
-            <div><div class="xLabel">Payload (JSON)</div><textarea class="xInput" id="cmdRawJson" rows="3" placeholder='{"player_id":123}'></textarea></div>
-            <div class="xRow"><button class="btn primary" id="cmdRawSend">Send</button></div>
+            <div><div class="xLabel">Command name</div><input class="xInput" id="emCustomCmd" placeholder="e.g. add_currency"></div>
+            <div><div class="xLabel">Params (JSON)</div><textarea class="xInput" id="emCustomParams" rows="3" placeholder='{"currency":"Coins","amount":999999}'></textarea></div>
+            <div class="xRow"><button class="btn primary" id="emCustomSend">Send</button></div>
           </div>
         </details>
+
+        <div class="emCmdSection"><h4>Level</h4>
+          <div style="display:flex;gap:8px;align-items:end">
+            <div style="flex:1"><div class="xLabel">Level</div><input class="xInput" id="emLevel" type="number" value="65" min="1" max="65"></div>
+            <button class="btn primary" id="emLevelSet">Set level</button>
+            <div style="flex:1"><div class="xLabel">XP</div><input class="xInput" id="emXP" type="number" value="999999"></div>
+            <button class="btn primary" id="emXPAdd">Add XP</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-cheats">
+      <div class="crCard">
+        <div class="crCardHead"><div><h3>Game Cheats</h3><p class="xNote" style="margin-top:4px">Toggle cheats on or off. Active cheats are injected into the game upon next launch.</p></div></div>
+
+        <div class="chToggle" id="chAimbot">
+          <div class="chInfo"><b>Aimbot</b><small>Automatically locks aim onto the nearest enemy when the keybind is held.</small></div>
+          <button class="xSwitch" id="chAimbotToggle" role="switch" aria-checked="false"><span></span></button>
+        </div>
+        <div class="chKeybind" id="chAimbotKey">
+          <div class="xLabel">Keybind</div>
+          <select class="select" id="chAimbotBind" style="flex:1">
+            <option value="mouse4">Mouse 4 (side)</option>
+            <option value="mouse5">Mouse 5 (side)</option>
+            <option value="shift">Left Shift</option>
+            <option value="ctrl">Left Control</option>
+            <option value="alt">Left Alt</option>
+            <option value="capslock">Caps Lock</option>
+            <option value="q">Q</option>
+            <option value="e">E</option>
+            <option value="x">X</option>
+            <option value="v">V</option>
+          </select>
+        </div>
+
+        <div style="height:14px"></div>
+
+        <div class="chToggle" id="chTriggerbot">
+          <div class="chInfo"><b>Triggerbot</b><small>Automatically fires when your crosshair is over an enemy while the keybind is held.</small></div>
+          <button class="xSwitch" id="chTriggerbotToggle" role="switch" aria-checked="false"><span></span></button>
+        </div>
+        <div class="chKeybind" id="chTriggerbotKey">
+          <div class="xLabel">Keybind</div>
+          <select class="select" id="chTriggerbotBind" style="flex:1">
+            <option value="mouse5">Mouse 5 (side)</option>
+            <option value="mouse4">Mouse 4 (side)</option>
+            <option value="shift">Left Shift</option>
+            <option value="ctrl">Left Control</option>
+            <option value="alt">Left Alt</option>
+            <option value="capslock">Caps Lock</option>
+            <option value="q">Q</option>
+            <option value="e">E</option>
+            <option value="x">X</option>
+            <option value="v">V</option>
+          </select>
+        </div>
       </div>
 
       <div class="crCard">
-        <div class="crCardHead"><div><h3>Event Log</h3></div><button class="btn ghost" id="wsLogClear" style="font-size:11px">Clear</button></div>
-        <div class="wsLog" id="wsLog"><div class="xEmpty">No events yet. Connect to the server to see traffic.</div></div>
+        <div class="crCardHead"><div><h3>Safe Account</h3><p class="xNote" style="margin-top:4px">This Steam account will never launch with cheats enabled, even if toggled on above.</p></div></div>
+        <div><div class="xLabel">Protected account</div><select class="select" id="chSafeAccount" style="width:100%"><option value="">None (cheats apply to all)</option></select></div>
+      </div>
+
+      <div class="crCard">
+        <div class="crCardHead"><div><h3>Sky Reset</h3><p class="xNote" style="margin-top:4px">Restore the original PG3D sky textures.</p></div></div>
+        <div class="xRow"><button class="btn primary" id="chSkyReset">Reset sky to original</button></div>
       </div>
     </section>
 
@@ -1376,7 +1518,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',hud:'HUD',sky:'Sky',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings',socket:'Socket'};
+const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',hud:'HUD',sky:'Sky',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings',mods:'Mods',cheats:'Cheating'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 let netFails=0;
 async function netLost(){// "Load failed" is WebKit's word for "no answer": find out whose fault it is
@@ -1391,7 +1533,7 @@ function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Mat
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
 const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already applied stay); its code stays
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='socket')wsStartPoll();else wsStopPoll()}
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='mods')emInit();if(tab==='cheats')chInit()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -2387,106 +2529,154 @@ function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',pick
   return F}
 const TX=makeFinder('tx',['cursor']);
 
-/* ── Socket ── */
-let _wsPoll=null,_wsAfter=0,_wsCmds=null;
-function wsStartPoll(){if(_wsPoll)return;wsRefresh();wsLoadCmds();_wsPoll=setInterval(wsRefresh,1500)}
-function wsStopPoll(){clearInterval(_wsPoll);_wsPoll=null}
-async function wsRefresh(){
+/* ── Mods (Ember) ── */
+let _emInited=false,_emConnected=false;
+async function emInit(){
+  if(_emInited)return;
+  _emInited=true;
   try{
-    const d=await api('/api/ws/status?after='+_wsAfter);
-    const st=$('#wsState'),cn=$('#wsConnect'),dc=$('#wsDisconnect'),cmd=$('#wsCmdCard');
-    st.textContent=d.state;
-    st.className='wsState'+(d.state==='connected'?' on':d.state==='connecting'?' wait':'');
-    cn.disabled=d.state!=='disconnected';dc.disabled=d.state==='disconnected';
-    cmd.classList.toggle('show',d.state==='connected');
-    $('#wsError').textContent=d.error||'';
-    if(d.account&&d.state==='connected'){
-      $('#wsAccount').hidden=false;
-      const a=d.account;
-      let info='<b>ID:</b> '+(a.player_id||d.creds?.uniq_id||'–');
-      if(a.nickname)info+=' &nbsp; <b>Nick:</b> '+a.nickname;
-      if(a.level!==undefined)info+=' &nbsp; <b>Lvl:</b> '+a.level;
-      $('#wsAccInfo').innerHTML=info;
-    }else{$('#wsAccount').hidden=true}
-    if(d.events&&d.events.length){
-      const log=$('#wsLog');
-      if(log.querySelector('.xEmpty'))log.innerHTML='';
-      for(const ev of d.events){
-        _wsAfter=ev.id;
-        const el=document.createElement('div');el.className='wsEv';
-        const dir=ev.dir==='>>'?'out':'in';
-        const ts=new Date(ev.ts*1000).toLocaleTimeString();
-        let body='';
-        if(ev.data&&typeof ev.data==='object')body=JSON.stringify(ev.data,null,2);
-        else if(ev.data)body=String(ev.data);
-        el.innerHTML=`<span class="evDir ${dir}">${ev.dir}</span><span class="evName">${esc(ev.event)}</span><span class="evTs">${ts}</span>`
-          +(body?`<code class="evBody">${esc(body)}</code>`:'');
-        log.appendChild(el);
-        log.scrollTop=log.scrollHeight;
-      }
+    const creds=await api('/api/ember/load-creds');
+    if(creds.ok&&creds.username){$('#emUser').value=creds.username;$('#emPass').value=creds.password;$('#emRemember').checked=true}
+  }catch{}
+}
+function emShowConnected(show){
+  _emConnected=show;
+  $('#emCmdCard').hidden=!show;$('#emMaxCard').hidden=!show;$('#emSessionCard').hidden=!show;
+}
+$('#emLogin').onclick=async()=>{
+  const u=$('#emUser').value.trim(),p=$('#emPass').value.trim();
+  if(!u||!p)return toast('Enter username and password.',true);
+  try{
+    $('#emLoginState').textContent='signing in…';$('#emLoginState').className='emState wait';$('#emLogin').disabled=true;
+    await post('/api/ember/login',{username:u,password:p});
+    if($('#emRemember').checked)await post('/api/ember/save-creds',{username:u,password:p});
+    $('#emLoginState').textContent='signed in';$('#emLoginState').className='emState on';
+    await emLoadUser();await emLoadAccounts();
+  }catch(e){$('#emLoginState').textContent=e.message;$('#emLoginState').className='emState err';toast(e.message,true)}
+  finally{$('#emLogin').disabled=false}
+};
+$('#emLogout').onclick=async()=>{
+  try{await post('/api/ember/logout');$('#emUserCard').hidden=true;$('#emAccountCard').hidden=true;emShowConnected(false);
+    $('#emLoginState').textContent='';$('#emLoginState').className='emState';$('#emLoginCard').hidden=false;toast('Signed out.')}catch(e){toast(e.message,true)}
+};
+async function emLoadUser(){
+  try{
+    const u=await api('/api/ember/me');
+    $('#emUserName').textContent=u.username||'Ember Account';
+    $('#emUserTier').textContent=u.tier?`Plan: ${u.tier}`:'';
+    $('#emUserCard').hidden=false;$('#emLoginCard').hidden=true;
+  }catch{}
+}
+async function emLoadAccounts(){
+  try{
+    const d=await api('/api/ember/accounts');
+    const grid=$('#emAccGrid'),accs=Array.isArray(d)?d:(d.accounts||d.data||[]);
+    grid.innerHTML='';
+    if(!accs.length){grid.innerHTML='<div class="xEmpty">No game accounts linked to this Ember account.</div>';$('#emAccountCard').hidden=false;return}
+    for(const a of accs){
+      const el=document.createElement('div');el.className='emAcc';el.dataset.id=a.id||a._id||'';
+      el.innerHTML=`<b>${esc(a.nickname||a.name||a.player_id||'Account')}</b><small>ID: ${esc(a.player_id||a.id||'–')}</small>`;
+      el.onclick=async()=>{
+        $$('.emAcc').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');
+        try{const r=await post('/api/ember/connect',{account_id:a.id||a._id});
+          $('#emSessionInfo').textContent=`Connected to ${a.nickname||a.player_id||'account'}`;
+          emShowConnected(true);toast('Connected to game account.')}catch(e){toast(e.message,true)}
+      };
+      grid.appendChild(el);
     }
-  }catch{}
+    $('#emAccountCard').hidden=false;
+  }catch(e){toast(e.message,true)}
 }
-function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+$('#emDisconnect').onclick=async()=>{
+  try{await post('/api/ember/disconnect');emShowConnected(false);$$('.emAcc').forEach(x=>x.classList.remove('sel'));toast('Disconnected.')}catch(e){toast(e.message,true)}
+};
+$$('.emCmd').forEach(el=>{el.onclick=async()=>{
+  if(!_emConnected)return toast('Connect to a game account first.',true);
+  try{await post('/api/ember/command',{command:el.dataset.cmd});toast('Sent: '+el.dataset.cmd)}catch(e){toast(e.message,true)}
+}});
+$('#emCurAdd').onclick=async()=>{
+  if(!_emConnected)return toast('Connect first.',true);
+  try{await post('/api/ember/command',{command:'add_currency',params:{currency:$('#emCurType').value,amount:Number($('#emCurAmt').value)}});toast('Currency added.')}catch(e){toast(e.message,true)}
+};
+$('#emLevelSet').onclick=async()=>{
+  if(!_emConnected)return toast('Connect first.',true);
+  try{await post('/api/ember/command',{command:'set_level',params:{level:Number($('#emLevel').value)}});toast('Level set.')}catch(e){toast(e.message,true)}
+};
+$('#emXPAdd').onclick=async()=>{
+  if(!_emConnected)return toast('Connect first.',true);
+  try{await post('/api/ember/command',{command:'add_experience',params:{amount:Number($('#emXP').value)}});toast('XP added.')}catch(e){toast(e.message,true)}
+};
+const MAX_OPTS=['level','weapons','weapon_parts','weapon_skins','profile','wear','armor','wear_skins','royale','gadgets','pets','modules','lobby','dlc','skip_tutorial','skip_br_tutorial','veteran'];
+(function renderMaxOpts(){
+  const g=$('#emMaxGrid');g.innerHTML='';
+  for(const k of MAX_OPTS){
+    const el=document.createElement('label');el.className='emMaxOpt';
+    el.innerHTML=`<input type="checkbox" value="${k}" checked> ${k.replace(/_/g,' ')}`;
+    g.appendChild(el);
+  }
+})();
+$('#emMaxGo').onclick=async()=>{
+  if(!_emConnected)return toast('Connect first.',true);
+  const opts={};for(const cb of $$('#emMaxGrid input'))opts[cb.value]=cb.checked;
+  try{await post('/api/ember/max-progress',{options:opts});toast('Max progress applied.')}catch(e){toast(e.message,true)}
+};
+$('#emCustomSend').onclick=async()=>{
+  if(!_emConnected)return toast('Connect first.',true);
+  const cmd=$('#emCustomCmd').value.trim();if(!cmd)return toast('Enter a command name.',true);
+  let params={};try{const j=$('#emCustomParams').value.trim();if(j)params=JSON.parse(j)}catch{return toast('Invalid JSON.',true)}
+  try{await post('/api/ember/command',{command:cmd,params});toast('Sent: '+cmd)}catch(e){toast(e.message,true)}
+};
 
-async function wsLoadCmds(){
-  if(_wsCmds)return;
+/* ── Cheats ── */
+let _chInited=false;
+async function chInit(){
+  if(_chInited)return;_chInited=true;
   try{
-    const d=await api('/api/ws/commands');
-    _wsCmds=d.commands;
-    const sel=$('#cmdSelect');sel.innerHTML='';
-    const names=Object.keys(_wsCmds).sort();
-    for(const n of names){const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o)}
-    wsRenderArgs();
+    const d=await api('/api/cheats/config');
+    if(d.aimbot){$('#chAimbotToggle').classList.add('on');$('#chAimbotToggle').setAttribute('aria-checked','true')}
+    if(d.triggerbot){$('#chTriggerbotToggle').classList.add('on');$('#chTriggerbotToggle').setAttribute('aria-checked','true')}
+    if(d.aimbot_key)$('#chAimbotBind').value=d.aimbot_key;
+    if(d.triggerbot_key)$('#chTriggerbotBind').value=d.triggerbot_key;
+    if(d.safe_account)$('#chSafeAccount').value=d.safe_account;
+  }catch{}
+  chLoadAccounts();
+}
+async function chLoadAccounts(){
+  try{
+    if(!statusData?.accounts)return;
+    const sel=$('#chSafeAccount');
+    const cur=sel.value;
+    sel.innerHTML='<option value="">None (cheats apply to all)</option>';
+    for(const a of statusData.accounts){
+      const o=document.createElement('option');o.value=a.account_name||a.id;
+      o.textContent=a.display_name||a.persona_name||a.account_name||'Account';
+      sel.appendChild(o);
+    }
+    if(cur)sel.value=cur;
   }catch{}
 }
-function wsRenderArgs(){
-  const box=$('#cmdArgs');box.innerHTML='';
-  const cmd=$('#cmdSelect').value;
-  if(!_wsCmds||!_wsCmds[cmd])return;
-  const args=_wsCmds[cmd];
-  if(!args.length){$('#cmdNote').textContent='No parameters needed.';return}
-  $('#cmdNote').textContent='';
-  for(const a of args){
-    const wrap=document.createElement('div');
-    wrap.innerHTML=`<div class="xLabel">${esc(a.name)} <span style="opacity:.4">(${a.type})</span></div>`
-      +(a.type==='json'
-        ?`<textarea class="xInput cmdArg" data-name="${esc(a.name)}" data-type="${a.type}" rows="2" placeholder="{}"></textarea>`
-        :`<input class="xInput cmdArg" data-name="${esc(a.name)}" data-type="${a.type}" placeholder="${a.type==='int'?'0':''}"${a.type==='int'?' type="number"':''}>`);
-    box.appendChild(wrap);
-  }
+function chToggle(id){
+  const btn=$(`#${id}`);
+  const on=btn.classList.toggle('on');
+  btn.setAttribute('aria-checked',on?'true':'false');
+  chSave();
 }
-$('#cmdSelect').onchange=wsRenderArgs;
-
-$('#wsConnect').onclick=async()=>{
-  const code=$('#wsCode').value.trim();
-  if(!code)return toast('Paste a login code first.',true);
-  try{$('#wsConnect').disabled=true;await post('/api/ws/connect',{login_code:code});_wsAfter=0;$('#wsLog').innerHTML='';wsRefresh()}
-  catch(e){toast(e.message,true);$('#wsConnect').disabled=false}
-};
-$('#wsDisconnect').onclick=async()=>{try{await post('/api/ws/disconnect',{});wsRefresh()}catch(e){toast(e.message,true)}};
-$('#wsLogClear').onclick=()=>{$('#wsLog').innerHTML='<div class="xEmpty">Log cleared.</div>'};
-
-$('#cmdSend').onclick=async()=>{
-  const cmd=$('#cmdSelect').value;
-  if(!cmd)return toast('Pick a command.',true);
-  const body={command:cmd};
-  for(const el of $$('#cmdArgs .cmdArg')){
-    const v=el.value.trim();
-    if(!v)continue;
-    const n=el.dataset.name,t=el.dataset.type;
-    if(t==='int')body[n]=Number(v);
-    else if(t==='json'){try{body[n]=JSON.parse(v)}catch{return toast(`Invalid JSON in ${n}.`,true)}}
-    else body[n]=v;
-  }
-  try{await post('/api/ws/command',body);toast('Sent '+cmd)}catch(e){toast(e.message,true)}
-};
-$('#cmdRawSend').onclick=async()=>{
-  const evt=$('#cmdRawEvt').value.trim();
-  if(!evt)return toast('Enter an event name.',true);
-  let payload={};
-  try{const j=$('#cmdRawJson').value.trim();if(j)payload=JSON.parse(j)}catch{return toast('Invalid JSON.',true)}
-  try{await post('/api/ws/command',{command:'raw',event:evt,payload});toast('Sent '+evt)}catch(e){toast(e.message,true)}
+$('#chAimbotToggle').onclick=()=>chToggle('chAimbotToggle');
+$('#chTriggerbotToggle').onclick=()=>chToggle('chTriggerbotToggle');
+$('#chAimbotBind').onchange=chSave;
+$('#chTriggerbotBind').onchange=chSave;
+$('#chSafeAccount').onchange=chSave;
+async function chSave(){
+  try{await post('/api/cheats/save',{
+    aimbot:$('#chAimbotToggle').classList.contains('on'),
+    triggerbot:$('#chTriggerbotToggle').classList.contains('on'),
+    aimbot_key:$('#chAimbotBind').value,
+    triggerbot_key:$('#chTriggerbotBind').value,
+    safe_account:$('#chSafeAccount').value
+  })}catch{}
+}
+$('#chSkyReset').onclick=async()=>{
+  try{await post('/api/cheats/reset-sky');toast('Sky reset to original. It takes effect next time PG3D starts.')}catch(e){toast(e.message,true)}
 };
 </script>
 </body>

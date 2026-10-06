@@ -92,12 +92,9 @@ except Exception:
 import clips
 import ranks
 import updater
-from pg3d_ws.client import PG3DWebSocket
-from pg3d_ws import auth as ws_auth, commands as ws_commands
+import ember_client
 
-_WS_CLIENT = PG3DWebSocket()
-
-APP_VERSION = "1.74.1"
+APP_VERSION = "1.75.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -7759,14 +7756,17 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"ok": True, "app": APP_ID, "version": APP_VERSION, "base": str(BASE), "pid": os.getpid(), "fps_bundle_present": fps_bundle_present()})
         if path == "/api/status":
             return self.send_json(status_payload())
-        if path == "/api/ws/status":
-            after = int(query.get("after", [0])[0])
-            return self.send_json({**_WS_CLIENT.status(), "events": _WS_CLIENT.events(after)})
-        if path == "/api/ws/commands":
-            cmds = {}
-            for name, info in ws_commands.COMMAND_REGISTRY.items():
-                cmds[name] = [{"name": a[0], "type": a[1]} for a in info["args"]]
-            return self.send_json({"commands": cmds})
+        if path == "/api/ember/me":
+            return self.send_json(ember_client.me())
+        if path == "/api/ember/accounts":
+            return self.send_json(ember_client.accounts())
+        if path == "/api/ember/session":
+            return self.send_json(ember_client.session())
+        if path == "/api/ember/items":
+            cat = query.get("cat", ["weapons"])[0]
+            return self.send_json(ember_client.items(cat))
+        if path == "/api/cheats/config":
+            return self.send_json(ember_client.cheats_config())
         if path == "/api/overlay/config":
             return self.send_json({"ok": True, "config": overlay_config(), "runtime": overlay_runtime()})
         if path == "/api/clips":
@@ -8174,44 +8174,40 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(start_launch("normal"))
             if path == "/api/launch/fps":
                 return self.send_json(start_launch("fps", data.get("fps", prefs_payload().get("fps_target", "uncapped"))))
-            if path == "/api/ws/connect":
-                code = str(data.get("login_code", "")).strip()
-                creds = ws_auth.decode_login_code(code)
-                if not creds:
-                    raise RuntimeError("Invalid login code. Paste the base64 string from your account.")
-                result = ws_auth.authenticate(creds)
-                if not result:
-                    raise RuntimeError("Authentication failed after all retries.")
-                _WS_CLIENT.connect(creds, result["token"], result["ws_base_url"])
-                return self.send_json({"ok": True, "uniq_id": creds["uniq_id"]})
-            if path == "/api/ws/disconnect":
-                _WS_CLIENT.disconnect()
-                return self.send_json({"ok": True})
-            if path == "/api/ws/command":
-                cmd = str(data.get("command", data.get("cmd", "")))
-                if cmd == "raw":
-                    event = str(data.get("event", ""))
-                    payload = data.get("payload", {})
-                    if not event:
-                        raise RuntimeError("Missing event name")
-                elif cmd in ws_commands.COMMAND_REGISTRY:
-                    reg = ws_commands.COMMAND_REGISTRY[cmd]
-                    kwargs = {}
-                    for arg_name, arg_type in reg["args"]:
-                        val = data.get(arg_name)
-                        if val is None:
-                            continue
-                        if arg_type == "int":
-                            kwargs[arg_name] = int(val)
-                        elif arg_type == "json":
-                            kwargs[arg_name] = val if isinstance(val, (dict, list)) else json.loads(str(val))
-                        else:
-                            kwargs[arg_name] = str(val)
-                    event, payload = reg["fn"](**kwargs)
-                else:
-                    raise RuntimeError(f"Unknown command: {cmd}")
-                _WS_CLIENT.emit(event, payload)
-                return self.send_json({"ok": True, "event": event})
+            if path == "/api/ember/login":
+                username = str(data.get("username", "")).strip()
+                password = str(data.get("password", "")).strip()
+                if not username or not password:
+                    raise RuntimeError("Username and password are required.")
+                return self.send_json(ember_client.login(username, password))
+            if path == "/api/ember/logout":
+                return self.send_json(ember_client.logout())
+            if path == "/api/ember/connect":
+                account_id = data.get("account_id")
+                if not account_id:
+                    raise RuntimeError("account_id is required.")
+                return self.send_json(ember_client.connect(account_id))
+            if path == "/api/ember/disconnect":
+                return self.send_json(ember_client.disconnect())
+            if path == "/api/ember/command":
+                cmd = str(data.get("command", ""))
+                params = data.get("params", {})
+                if not cmd:
+                    raise RuntimeError("command is required.")
+                return self.send_json(ember_client.command(cmd, params))
+            if path == "/api/ember/max-progress":
+                options = data.get("options", {})
+                return self.send_json(ember_client.max_progress(options))
+            if path == "/api/ember/save-creds":
+                username = str(data.get("username", "")).strip()
+                password = str(data.get("password", "")).strip()
+                return self.send_json(ember_client.save_credentials(username, password))
+            if path == "/api/ember/load-creds":
+                return self.send_json(ember_client.load_credentials())
+            if path == "/api/cheats/save":
+                return self.send_json(ember_client.save_cheats(data))
+            if path == "/api/cheats/reset-sky":
+                return self.send_json(reset_sky())
             return self.send_json({"error": "Unknown endpoint"}, 404)
         except Exception as e:
             log(traceback.format_exc())
