@@ -148,12 +148,13 @@ def session() -> dict:
     return _ember_request("GET", "/game/session")
 
 
-def connect(account_id) -> dict:
-    return _ember_request("POST", "/game/connect", {"accountId": account_id})
+def connect(account_id, method="saved") -> dict:
+    body = {"method": method, "account_id": account_id} if method == "saved" else {"method": method}
+    return _ember_request("POST", "/game/connect", body)
 
 
 def disconnect() -> dict:
-    return _ember_request("POST", "/game/disconnect")
+    return _ember_request("DELETE", "/game/disconnect")
 
 
 # ── commands ──

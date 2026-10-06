@@ -8206,8 +8206,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(ember_client.load_credentials())
             if path == "/api/cheats/save":
                 return self.send_json(ember_client.save_cheats(data))
-            if path == "/api/cheats/reset-sky":
-                return self.send_json(reset_sky())
             return self.send_json({"error": "Unknown endpoint"}, 404)
         except Exception as e:
             log(traceback.format_exc())

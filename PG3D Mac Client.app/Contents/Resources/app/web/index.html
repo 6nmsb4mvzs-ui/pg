@@ -912,10 +912,12 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .emMaxOpt{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);font-size:12px;cursor:pointer}
 .emMaxOpt input{accent-color:var(--accent)}
 /* cheats */
-.chToggle{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:10px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);margin-bottom:10px}
-.chToggle .chInfo{flex:1}.chToggle .chInfo b{font-size:14px;display:block;margin-bottom:2px}.chToggle .chInfo small{color:var(--muted);font-size:11px}
-.chKeybind{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 14px;border-radius:8px;background:hsl(var(--nh) var(--ns) 4.8%);border:1px solid var(--border)}
-.chKeybind .xLabel{margin:0;font-size:12px;white-space:nowrap}.chKeybind select{flex:1}
+.chRow{display:flex;align-items:center;gap:10px;margin-top:10px}
+.chRow .xLabel{margin:0;font-size:12px;white-space:nowrap}
+.chKeyBtn{flex:1;padding:8px 14px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);color:var(--fg);font:inherit;font-size:13px;cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.chKeyBtn:hover{border-color:var(--accent)}
+.chKeyBtn.listening{border-color:var(--accent);background:hsl(var(--nh) var(--ns) 8%);animation:chPulse 1.2s ease-in-out infinite}
+@keyframes chPulse{0%,100%{opacity:1}50%{opacity:.6}}
 </style>
 </head>
 <body>
@@ -1389,59 +1391,26 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 
     <section class="page" id="page-cheats">
       <div class="crCard">
-        <div class="crCardHead"><div><h3>Game Cheats</h3><p class="xNote" style="margin-top:4px">Toggle cheats on or off. Active cheats are injected into the game upon next launch.</p></div></div>
-
-        <div class="chToggle" id="chAimbot">
-          <div class="chInfo"><b>Aimbot</b><small>Automatically locks aim onto the nearest enemy when the keybind is held.</small></div>
-          <button class="xSwitch" id="chAimbotToggle" role="switch" aria-checked="false"><span></span></button>
-        </div>
-        <div class="chKeybind" id="chAimbotKey">
+        <div class="crCardHead"><div><h3>Aimbot</h3><p class="xNote" style="margin-top:4px">Locks aim onto the nearest enemy while the keybind is held.</p></div>
+        <button class="xSwitch" id="chAimbotToggle" role="switch" aria-checked="false"><span></span></button></div>
+        <div class="chRow">
           <div class="xLabel">Keybind</div>
-          <select class="select" id="chAimbotBind" style="flex:1">
-            <option value="mouse4">Mouse 4 (side)</option>
-            <option value="mouse5">Mouse 5 (side)</option>
-            <option value="shift">Left Shift</option>
-            <option value="ctrl">Left Control</option>
-            <option value="alt">Left Alt</option>
-            <option value="capslock">Caps Lock</option>
-            <option value="q">Q</option>
-            <option value="e">E</option>
-            <option value="x">X</option>
-            <option value="v">V</option>
-          </select>
-        </div>
-
-        <div style="height:14px"></div>
-
-        <div class="chToggle" id="chTriggerbot">
-          <div class="chInfo"><b>Triggerbot</b><small>Automatically fires when your crosshair is over an enemy while the keybind is held.</small></div>
-          <button class="xSwitch" id="chTriggerbotToggle" role="switch" aria-checked="false"><span></span></button>
-        </div>
-        <div class="chKeybind" id="chTriggerbotKey">
-          <div class="xLabel">Keybind</div>
-          <select class="select" id="chTriggerbotBind" style="flex:1">
-            <option value="mouse5">Mouse 5 (side)</option>
-            <option value="mouse4">Mouse 4 (side)</option>
-            <option value="shift">Left Shift</option>
-            <option value="ctrl">Left Control</option>
-            <option value="alt">Left Alt</option>
-            <option value="capslock">Caps Lock</option>
-            <option value="q">Q</option>
-            <option value="e">E</option>
-            <option value="x">X</option>
-            <option value="v">V</option>
-          </select>
+          <button class="chKeyBtn" id="chAimbotBind" type="button" data-key="mouse4">Mouse 4</button>
         </div>
       </div>
 
       <div class="crCard">
-        <div class="crCardHead"><div><h3>Safe Account</h3><p class="xNote" style="margin-top:4px">This Steam account will never launch with cheats enabled, even if toggled on above.</p></div></div>
+        <div class="crCardHead"><div><h3>Triggerbot</h3><p class="xNote" style="margin-top:4px">Auto-fires when your crosshair is over an enemy while the keybind is held.</p></div>
+        <button class="xSwitch" id="chTriggerbotToggle" role="switch" aria-checked="false"><span></span></button></div>
+        <div class="chRow">
+          <div class="xLabel">Keybind</div>
+          <button class="chKeyBtn" id="chTriggerbotBind" type="button" data-key="mouse5">Mouse 5</button>
+        </div>
+      </div>
+
+      <div class="crCard">
+        <div class="crCardHead"><div><h3>Safe Account</h3><p class="xNote" style="margin-top:4px">This Steam account will never launch with cheats enabled.</p></div></div>
         <div><div class="xLabel">Protected account</div><select class="select" id="chSafeAccount" style="width:100%"><option value="">None (cheats apply to all)</option></select></div>
-      </div>
-
-      <div class="crCard">
-        <div class="crCardHead"><div><h3>Sky Reset</h3><p class="xNote" style="margin-top:4px">Restore the original PG3D sky textures.</p></div></div>
-        <div class="xRow"><button class="btn primary" id="chSkyReset">Reset sky to original</button></div>
       </div>
     </section>
 
@@ -2629,14 +2598,18 @@ $('#emCustomSend').onclick=async()=>{
 
 /* ── Cheats ── */
 let _chInited=false;
+const CH_KEY_NAMES={mouse4:'Mouse 4',mouse5:'Mouse 5',shift:'Shift',ctrl:'Ctrl',alt:'Alt',capslock:'Caps Lock',
+  tab:'Tab',space:'Space',enter:'Enter',backspace:'Backspace',escape:'Esc',
+  arrowup:'Up',arrowdown:'Down',arrowleft:'Left',arrowright:'Right'};
+function chKeyLabel(k){return CH_KEY_NAMES[k]||k.replace(/^key/i,'').toUpperCase()||k}
 async function chInit(){
   if(_chInited)return;_chInited=true;
   try{
     const d=await api('/api/cheats/config');
     if(d.aimbot){$('#chAimbotToggle').classList.add('on');$('#chAimbotToggle').setAttribute('aria-checked','true')}
     if(d.triggerbot){$('#chTriggerbotToggle').classList.add('on');$('#chTriggerbotToggle').setAttribute('aria-checked','true')}
-    if(d.aimbot_key)$('#chAimbotBind').value=d.aimbot_key;
-    if(d.triggerbot_key)$('#chTriggerbotBind').value=d.triggerbot_key;
+    if(d.aimbot_key){$('#chAimbotBind').dataset.key=d.aimbot_key;$('#chAimbotBind').textContent=chKeyLabel(d.aimbot_key)}
+    if(d.triggerbot_key){$('#chTriggerbotBind').dataset.key=d.triggerbot_key;$('#chTriggerbotBind').textContent=chKeyLabel(d.triggerbot_key)}
     if(d.safe_account)$('#chSafeAccount').value=d.safe_account;
   }catch{}
   chLoadAccounts();
@@ -2661,23 +2634,51 @@ function chToggle(id){
   btn.setAttribute('aria-checked',on?'true':'false');
   chSave();
 }
+let _chListening=null;
+function chStartCapture(btnId){
+  if(_chListening){_chStopCapture(_chListening)}
+  const btn=$('#'+btnId);
+  _chListening=btnId;
+  btn.classList.add('listening');
+  btn.textContent='Press a key…';
+  btn._prevKey=btn.dataset.key;
+}
+function _chStopCapture(btnId,newKey){
+  const btn=$('#'+btnId);
+  btn.classList.remove('listening');
+  if(newKey){btn.dataset.key=newKey;btn.textContent=chKeyLabel(newKey)}
+  else{btn.textContent=chKeyLabel(btn.dataset.key)}
+  _chListening=null;
+}
+document.addEventListener('keydown',e=>{
+  if(!_chListening)return;
+  e.preventDefault();e.stopPropagation();
+  const key=e.key.toLowerCase()===' '?'space':e.key.length===1?e.key.toLowerCase():e.key.toLowerCase().replace('arrow','arrow');
+  _chStopCapture(_chListening,key);
+  chSave();
+},{capture:true});
+document.addEventListener('mousedown',e=>{
+  if(!_chListening)return;
+  if(e.button>=3){e.preventDefault();e.stopPropagation();
+    const key='mouse'+(e.button===3?'4':e.button===4?'5':String(e.button+1));
+    _chStopCapture(_chListening,key);chSave();return}
+  const btn=$('#'+_chListening);
+  if(!btn.contains(e.target)){_chStopCapture(_chListening);return}
+},{capture:true});
 $('#chAimbotToggle').onclick=()=>chToggle('chAimbotToggle');
 $('#chTriggerbotToggle').onclick=()=>chToggle('chTriggerbotToggle');
-$('#chAimbotBind').onchange=chSave;
-$('#chTriggerbotBind').onchange=chSave;
+$('#chAimbotBind').onclick=()=>chStartCapture('chAimbotBind');
+$('#chTriggerbotBind').onclick=()=>chStartCapture('chTriggerbotBind');
 $('#chSafeAccount').onchange=chSave;
 async function chSave(){
   try{await post('/api/cheats/save',{
     aimbot:$('#chAimbotToggle').classList.contains('on'),
     triggerbot:$('#chTriggerbotToggle').classList.contains('on'),
-    aimbot_key:$('#chAimbotBind').value,
-    triggerbot_key:$('#chTriggerbotBind').value,
+    aimbot_key:$('#chAimbotBind').dataset.key,
+    triggerbot_key:$('#chTriggerbotBind').dataset.key,
     safe_account:$('#chSafeAccount').value
   })}catch{}
 }
-$('#chSkyReset').onclick=async()=>{
-  try{await post('/api/cheats/reset-sky');toast('Sky reset to original. It takes effect next time PG3D starts.')}catch(e){toast(e.message,true)}
-};
 </script>
 </body>
 </html>
