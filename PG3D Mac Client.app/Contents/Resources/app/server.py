@@ -92,6 +92,10 @@ except Exception:
 import clips
 import ranks
 import updater
+from pg3d_ws.client import PG3DWebSocket
+from pg3d_ws import auth as ws_auth, commands as ws_commands
+
+_WS_CLIENT = PG3DWebSocket()
 
 APP_VERSION = "1.74.1"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
@@ -7755,6 +7759,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"ok": True, "app": APP_ID, "version": APP_VERSION, "base": str(BASE), "pid": os.getpid(), "fps_bundle_present": fps_bundle_present()})
         if path == "/api/status":
             return self.send_json(status_payload())
+        if path == "/api/ws/status":
+            after = int(query.get("after", [0])[0])
+            return self.send_json({**_WS_CLIENT.status(), "events": _WS_CLIENT.events(after)})
         if path == "/api/overlay/config":
             return self.send_json({"ok": True, "config": overlay_config(), "runtime": overlay_runtime()})
         if path == "/api/clips":
@@ -8162,6 +8169,38 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(start_launch("normal"))
             if path == "/api/launch/fps":
                 return self.send_json(start_launch("fps", data.get("fps", prefs_payload().get("fps_target", "uncapped"))))
+            if path == "/api/ws/connect":
+                code = str(data.get("login_code", "")).strip()
+                creds = ws_auth.decode_login_code(code)
+                if not creds:
+                    raise RuntimeError("Invalid login code. Paste the base64 string from your account.")
+                result = ws_auth.authenticate(creds)
+                if not result:
+                    raise RuntimeError("Authentication failed after all retries.")
+                _WS_CLIENT.connect(creds, result["token"], result["ws_base_url"])
+                return self.send_json({"ok": True, "uniq_id": creds["uniq_id"]})
+            if path == "/api/ws/disconnect":
+                _WS_CLIENT.disconnect()
+                return self.send_json({"ok": True})
+            if path == "/api/ws/command":
+                cmd = str(data.get("cmd", ""))
+                if cmd == "get_progress":
+                    pid = int(data.get("player_id") or _WS_CLIENT._creds.get("uniq_id", 0))
+                    slots = data.get("slots") or [1, 3, 4]
+                    event, payload = ws_commands.get_progress(pid, slots)
+                elif cmd == "add_currency":
+                    event, payload = ws_commands.add_currency(str(data.get("currency", "Coins")), int(data.get("amount", 0)))
+                elif cmd == "add_weapon":
+                    event, payload = ws_commands.add_weapon(int(data.get("index", 0)), int(data.get("level", 65)), int(data.get("rarity", 5)))
+                elif cmd == "raw":
+                    event = str(data.get("event", ""))
+                    payload = data.get("payload", {})
+                    if not event:
+                        raise RuntimeError("Missing event name")
+                else:
+                    raise RuntimeError(f"Unknown command: {cmd}")
+                _WS_CLIENT.emit(event, payload)
+                return self.send_json({"ok": True, "event": event})
             return self.send_json({"error": "Unknown endpoint"}, 404)
         except Exception as e:
             log(traceback.format_exc())
