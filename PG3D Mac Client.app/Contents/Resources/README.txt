@@ -366,6 +366,13 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.74.1
+Sky       The Sky tab is put away for now (skies you applied stay in game).
+FPS       "The FPS unlocker couldn't attach" no longer shows when PG3D still
+          runs above 60 FPS: the frame rate the game measures decides now.
+Dock      Leftover client icons in the Dock are cleaned up at every start,
+          a few seconds after the client opens.
+
 New in 1.74
 Updates   After an update the old copy of the client is closed for sure (it
           used to stay open next to the new one, so the Dock showed two

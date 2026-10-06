@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.74.0"
+APP_VERSION = "1.74.1"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3939,7 +3939,40 @@ def fps_launch(game: Path, fps: str):
         threading.Thread(target=_finish_fps_check, args=(log_path, pid), daemon=True).start()
     else:
         _record_fps_build_result(state == "ok" if state != "exited" else None)
+        if state == "fail":
+            threading.Thread(target=_confirm_fps_by_measurement, args=(log_path, pid), daemon=True).start()
     return {"pid": pid, "verified": state == "ok", "log": str(log_path), "message": _FPS_MESSAGES[state]}
+
+
+def _measured_fps(log_path):
+    """Highest frame rate the game itself reported (the mouse fix measures it every 5 s)."""
+    try:
+        txt = Path(log_path).read_text(errors="ignore")
+    except Exception:
+        return None
+    vals = [float(v) for v in re.findall(r"engine measurement: rendered=([0-9.]+) FPS", txt)]
+    return max(vals) if vals else None
+
+
+def _confirm_fps_by_measurement(log_path, pid, timeout=120):
+    """The unlocker's frame-rate hook may not attach on a newer PG3D build while the game
+    still runs above 60 FPS (its other parts work). What counts is the frame rate:
+    above 65 FPS measured in game = working, and the warning goes away."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        fps = _measured_fps(log_path)
+        if fps is not None and fps > 65:
+            _record_fps_build_result(True)
+            log(f"FPS unlocker: the hook didn't attach, but PG3D runs at {fps:.0f} FPS, so it counts as working.")
+            if STATUS.get("launch_phase") == "idle":
+                set_status(launch_message=f"PG3D is running at {fps:.0f} FPS.")
+            return
+        if pid is not None:
+            try:
+                os.kill(pid, 0)
+            except Exception:
+                return
+        time.sleep(3)
 
 
 _FPS_MESSAGES = {
@@ -3976,6 +4009,8 @@ def _fps_log_state(log_path, pid, timeout):
 def _finish_fps_check(log_path, pid):
     state = _fps_log_state(log_path, pid, 120)
     _record_fps_build_result(state == "ok" if state in ("ok", "fail") else None)
+    if state == "fail":
+        _confirm_fps_by_measurement(log_path, pid)
     if state in ("ok", "fail") and STATUS.get("launch_phase") == "idle":
         set_status(launch_message=_FPS_MESSAGES[state])
 
@@ -3997,12 +4032,36 @@ def _record_fps_build_result(ok):
     write_json(PREFS_JSON, prefs)
 
 
+_FAST_RUN = {"at": 0.0, "v": False}
+
+
+def _recent_run_fast():
+    """The newest game run (on the PG3D build installed now) measured above 65 FPS."""
+    if time.time() - _FAST_RUN["at"] < 30:
+        return _FAST_RUN["v"]
+    v = False
+    try:
+        newest = max(FPS_LOG_DIR.glob("run-*.log"), key=lambda p: p.stat().st_mtime, default=None)
+        app = find_app()
+        if newest is not None and app is not None and \
+                newest.stat().st_mtime > (app / "Contents/Info.plist").stat().st_mtime:
+            fps = _measured_fps(newest)
+            v = fps is not None and fps > 65
+    except Exception:
+        v = False
+    _FAST_RUN.update(at=time.time(), v=v)
+    return v
+
+
 def fps_build_match(build):
     """True: works on this build, False: failed on it, None: not tried yet."""
     if build in (None, "unknown"):
         return None
     known = prefs_payload().get("fps_builds_v3") or {}
     if str(build) in known:
+        if not known[str(build)] and _recent_run_fast():
+            _record_fps_build_result(True)  # marked failed before 1.74.1, but it measured >65 FPS
+            return True
         return bool(known[str(build)])
     return True if build in FPS_SUPPORTED_BUILDS else None
 
@@ -8190,12 +8249,13 @@ def _clean_dock_recents(current):
 
 
 def cleanup_old_app_copies():
-    """Once per version: unregister stale client copies from macOS and tidy the Dock."""
+    """At every start: unregister stale client copies from macOS and tidy the Dock (an
+    update left a second, identical client icon in the Dock's recent apps)."""
     current = os.environ.get("PG3D_APP_BUNDLE") or ""
     marker = STATE_DIR / f"copies-cleaned-{APP_VERSION}"
-    if not current.endswith(".app") or marker.exists() or not Path(LSREGISTER).exists():
+    if not current.endswith(".app") or not Path(LSREGISTER).exists():
         return
-    time.sleep(20)
+    time.sleep(6)
     try:
         dump = subprocess.run([LSREGISTER, "-dump"], capture_output=True, text=True, errors="ignore",
                               timeout=120).stdout
