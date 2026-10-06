@@ -2048,14 +2048,17 @@ let loadKeysSig=null,skyOnSig=null;async function loadSky(){clearTimeout(skyPoll
     if(act&&!$('#skYaw').dataset.touched){$('#skYaw').value=Math.round((act.yaw||0)/5)*5;setSwitch('#skSwap',act.swap_lr);setSwitch('#skFlip',act.flip)}
     const sig=JSON.stringify((skyData.targets||[]).map(t=>[t.id,t.on]));if(sig!==skyOnSig){skyOnSig=sig;skyTargetsOff=new Set((skyData.targets||[]).filter(t=>!t.on).map(t=>t.id))}
     renderSky();renderSkyTest()}catch(e){console.error(e)}}
+function skyNumRow(){const row=el('div','xRow');const inp=document.createElement('input');inp.className='search';inp.type='number';inp.min=1;inp.placeholder='Number in the sky';inp.style.width='170px';
+  const ok=el('button','btn primary','That\'s my sky');ok.onclick=async()=>{const n=parseInt(inp.value,10);if(!n)return toast('Enter the number you saw in the sky.',true);try{await post('/api/sky/pick',{num:n})}catch(e){toast(e.message,true)}};
+  row.append(inp,ok);return row}
 function renderSkyTest(){const box=$('#skTest');const d=skyData;if(!box||!d)return;box.innerHTML='';
   if(d.test){box.append(el('b',null,'Sky test is on'),el('p','xNote','Every possible sky texture shows its own colour and number. Start a match, look at the sky, and enter the number you see. No number in the sky? Then the game doesn\'t use these textures: press End test and send the diagnostic report.'));
-    const row=el('div','xRow');const inp=document.createElement('input');inp.className='search';inp.type='number';inp.min=1;inp.placeholder='Number in the sky';inp.style.width='170px';
-    const ok=el('button','btn primary','That\'s my sky');ok.onclick=async()=>{const n=parseInt(inp.value,10);if(!n)return toast('Enter the number you saw in the sky.',true);try{await post('/api/sky/pick',{num:n})}catch(e){toast(e.message,true)}};
+    const row=skyNumRow();
     const end=el('button','btn','End test');end.onclick=async()=>{try{await post('/api/sky/reset')}catch(e){toast(e.message,true)}};
-    row.append(inp,ok,end);box.append(row);return}
+    row.append(end);box.append(row);return}
   const p=d.pick;box.append(el('b',null,p?`Your sky: #${p.num} ${p.name||''}`:'Not sure the right texture is picked?'));
   box.append(el('p','xNote',p?`Found with the sky test (${p.file||''}). `+(p.shape?`Its sky sphere (${p.shape.object||'mesh'}) was found too, so Apply sky lays your picture onto its real shape.`:p.shape===null?'Apply sky wraps your picture round it.':'Looking for its shape in PG3D\'s files…'):'The sky test paints every possible sky texture with its own number. In a match you read the number off the sky, and your picture then goes on exactly that texture.'));
+  if(d.tested){box.append(el('p','xNote','Already saw the number from your last sky test? Enter it here.'));box.append(skyNumRow())}
   const row=el('div','xRow');const go=el('button','btn','Start sky test');go.onclick=async()=>{try{await post('/api/sky/test');toast('Preparing the sky test… Start a match when it\'s done.')}catch(e){toast(e.message,true)}};row.append(go);
   if(p){const c=el('button','btn ghost','Forget this pick');c.onclick=async()=>{try{await post('/api/sky/unpick');skyOnSig=null;await loadSky()}catch(e){toast(e.message,true)}};row.append(c)}
   box.append(row)}

@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.1"
+APP_VERSION = "1.73.2"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -4875,6 +4875,11 @@ def diagnostics_report():
         "Sky applied: " + json.dumps({k: v for k, v in (load_mods().get("skybox") or {}).items() if k != "targets"})
         + f" on {len((load_mods().get('skybox') or {}).get('targets') or [])} textures",
         "Sky picked in the test: " + json.dumps(read_json(SKY_PICK_JSON, None)),
+        "Sky targets applied: " + json.dumps([{k: t.get(k) for k in ("name", "relative_file", "path_id", "kind", "face",
+                                                                     "mirror", "mesh_id", "width", "height")}
+                                              for t in (load_mods().get("skybox") or {}).get("targets", [])[:8]]),
+        "Sky check after the last apply: " + json.dumps(read_json(SKY_CHECK_JSON, None)),
+        "Sky test numbers: " + json.dumps({k: v for k, v in (read_json(SKY_TEST_JSON, {}) or {}).items() if k != "targets"}),
         "Files put back to original (by PG3D/Steam): " + ("; ".join(
             f"{Path(k).name} x{v.get('count')} (last {v.get('last')})"
             for k, v in sorted(read_json(GAME_RESTORES_JSON, {}).items(), key=lambda kv: -kv[1].get("count", 0))[:15])
@@ -4885,6 +4890,8 @@ def diagnostics_report():
         f"Clips: {json.dumps(clips.RECORDER.status(), default=str)}",
         f"Update: {json.dumps(updater.UPDATER.state() if updater.UPDATER else None, default=str)}",
         "", "--- launcher.log ---", tail(SUPPORT / "launcher.log", 25),
+        "", "--- sky lines in client.log ---",
+        "\n".join([l for l in tail(LOG, 4000).splitlines() if "Sky" in l or "sky" in l][-40:]) or "(none)",
         "", "--- client.log ---", tail(LOG, 80),
         "", "--- ffmpeg.log ---", tail(SUPPORT / "ffmpeg.log", 20),
         "", "--- focus.log (front app while PG3D runs) ---", tail(SUPPORT / "focus.log", 40),
@@ -5946,6 +5953,7 @@ def run_sky_scan(progress):
 
 
 SKY_PICK_JSON = STATE_DIR / "sky_pick.json"
+SKY_TEST_JSON = STATE_DIR / "sky_test.json"  # the numbers the last sky test painted
 SKY_FIELDS = ("source_file", "relative_file", "path_id", "name", "type", "face", "width", "height", "kind", "mesh_id",
               "cab", "mesh_file", "mesh_cab", "matrix", "mirror")
 
@@ -6036,6 +6044,9 @@ def start_sky_test():
             raise RuntimeError("No possible sky textures were found in this PG3D build.")
         targets = [{**{k: t.get(k) for k in SKY_FIELDS}, "num": t["num"]} for t in cands]
 
+        write_json(SKY_TEST_JSON, {"at": datetime.now().isoformat(timespec="seconds"), "count": len(targets),
+                                   "targets": targets})
+
         def change(state):
             state["skybox"] = {"test": True, "id": "test", "image": "", "name": "Sky test", "yaw": 0,
                                "swap_lr": False, "flip": False, "targets": targets, "targets_v": CUSTOMIZE_SCAN_V}
@@ -6049,9 +6060,9 @@ def pick_sky(num):
     """The number seen in the sky during the test -> that texture becomes the sky target
     (plus the same texture where it's repeated in other files), then the test ends."""
     num = int(num)
-    test = load_mods().get("skybox") or {}
-    # The numbers as painted by the running test (a newer sky search may number differently).
-    cands = test.get("targets") if test.get("test") and test.get("targets") else sky_candidates()
+    # The numbers exactly as the last sky test painted them (a newer sky search may
+    # number differently, and the test may already have ended).
+    cands = _last_test_targets() or sky_candidates()
     hit = next((t for t in cands if int(t.get("num") or 0) == num), None)
     if not hit:
         raise RuntimeError(f"There's no texture #{num} in the test. Check the number in the sky.")
@@ -6081,6 +6092,21 @@ def pick_sky(num):
                                           if shape else "not found, the picture is wrapped round"))
         return f"Texture #{num} ({hit.get('name')}) is your sky now. Pick a picture and press Apply sky."
     return start_job("sky", job, label="Ending the sky test")
+
+
+def _last_test_targets():
+    test = load_mods().get("skybox") or {}
+    if test.get("test") and test.get("targets"):
+        return test["targets"]
+    saved = (read_json(SKY_TEST_JSON, {}) or {}).get("targets")
+    if saved:
+        return saved
+    # Tests from before 1.73.2 are only in the undo history.
+    for entry in reversed((read_json(HISTORY_JSON, default_history()) or {}).get("undo") or []):
+        sky = (entry.get("state") or {}).get("skybox") or {}
+        if sky.get("test") and sky.get("targets"):
+            return sky["targets"]
+    return None
 
 
 def clear_sky_pick():
@@ -6125,6 +6151,7 @@ def sky_payload():
         "library": [{**s, "thumb": f"/api/sky/thumb/{s['id']}.jpg"} for s in sky_library()],
         "targets": _sky_targets_payload(sky),
         "test": bool(sky and sky.get("test")),
+        "tested": bool(_last_test_targets()),
         "pick": read_json(SKY_PICK_JSON, None),
         "scan": {"generated": fresh, "fresh": fresh, "reading": bool(reading)},
         "active": ({k: sky.get(k) for k in ("id", "name", "yaw", "swap_lr", "flip", "test")} |
@@ -6308,9 +6335,55 @@ def apply_sky(sky_id, target_ids=None, yaw=0, swap_lr=False, flip=False):
             state["skybox"] = {"id": sky["id"], "image": sky["file"], "name": sky["name"], "yaw": yaw,
                                "swap_lr": bool(swap_lr), "flip": bool(flip), "targets": picked,
                                "targets_v": CUSTOMIZE_SCAN_V, "custom": custom}
-        mutate_state(change, f"Sky: {sky['name']}", _sub_progress(progress, 0.4, 1.0))
-        return f"“{sky['name']}” applied to {len(picked)} sky textures."
+        mutate_state(change, f"Sky: {sky['name']}", _sub_progress(progress, 0.4, 0.9))
+        msg = f"“{sky['name']}” applied to {len(picked)} sky textures."
+        if len(picked) <= 8:
+            progress(0.95, "Checking the sky in the game files…")
+            checks = verify_sky_targets(picked)
+            same = [c for c in checks if c.get("changed") is False]
+            if same:
+                msg += (f" But {', '.join(c['name'] for c in same[:3])} still looks like the original in the game file. "
+                        "Please send the diagnostic report.")
+        return msg
     return start_job("sky", job)
+
+
+SKY_CHECK_JSON = STATE_DIR / "sky_check.json"
+
+
+def verify_sky_targets(targets):
+    """Read the sky textures back from the game files after an apply and compare them
+    with the originals, so "applied" is checked, not assumed. Kept for the report."""
+    out = []
+    for t in targets[:8]:
+        res = {"name": t.get("name"), "file": t.get("relative_file"), "path_id": t.get("path_id"),
+               "kind": t.get("kind"), "face": t.get("face"), "mesh": t.get("mesh_id")}
+        try:
+            src = Path(t["source_file"])
+            m = load_manifest(src) or {}
+
+            def image_in(path):
+                env = UnityPy.load(str(path))
+                for o in env.objects:
+                    if int(o.path_id) == int(t["path_id"]) and o.type.name == "Texture2D" and \
+                            (not t.get("cab") or getattr(o.assets_file, "name", "") == t["cab"]):
+                        return o.parse_as_object().image.convert("RGB").resize((64, 64))
+                return None
+            now = image_in(src)
+            orig = image_in(m["original"]) if m.get("original") and Path(m["original"]).exists() else None
+            if now is None:
+                res["error"] = "texture not found in the game file"
+            elif orig is None:
+                res["error"] = "no original copy to compare with"
+            else:
+                diff = sum(ImageChops.difference(now, orig).convert("L").getdata()) / (64 * 64)
+                res.update(changed=diff > 2.0, diff=round(diff, 1))
+        except Exception as e:
+            res["error"] = f"{type(e).__name__}: {e}"
+        out.append(res)
+    write_json(SKY_CHECK_JSON, {"at": datetime.now().isoformat(timespec="seconds"), "targets": out})
+    log("Sky check: " + json.dumps(out))
+    return out
 
 
 def reset_sky():

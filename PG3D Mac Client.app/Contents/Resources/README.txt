@@ -366,6 +366,13 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.2
+Sky       After Apply sky the client reads your sky texture back from the game
+          file and checks it really changed; if not, it says so right away
+          (and the diagnostic report shows exactly what was applied where).
+          The number from a sky test can be entered after the test ended too
+          (it uses the numbers that test painted, also for tests before 1.73.2).
+
 New in 1.73.1
 Fixes     A rebuild of the game files could get stuck forever on one file
           ("Rebuilding game files (82/83)"), which also blocked every later
