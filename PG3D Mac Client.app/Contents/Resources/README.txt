@@ -366,6 +366,12 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.8
+Sky       The number field of the sky test no longer empties itself while you
+          type (the tab refreshed every few seconds and rebuilt it).
+          Sky test numbers can also come with an update (sky_request.json):
+          the client picks them and applies your sky picture by itself, once.
+
 New in 1.73.7
 Sky       1.73.6 matched other maps by the cloud layer's shader, which PG3D
           also uses for scrolling menu patterns and bubble effects, so those

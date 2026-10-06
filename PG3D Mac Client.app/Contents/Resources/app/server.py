@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.7"
+APP_VERSION = "1.73.8"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -4885,6 +4885,7 @@ def diagnostics_report():
                                                        "names": [f"{t.get('name')} ({Path(t['source_file']).name})"
                                                                  for t in (f.get("targets") or [])[:40]]})
                                  if f else "not searched")(read_json(SKY_FAMILY_JSON, None)),
+        "Sky numbers sent with an update: " + json.dumps(read_json(SKY_REQUEST_DONE, None)),
         "Sky test numbers: " + json.dumps({k: v for k, v in (read_json(SKY_TEST_JSON, {}) or {}).items() if k != "targets"}),
         "Files put back to original (by PG3D/Steam): " + ("; ".join(
             f"{Path(k).name} x{v.get('count')} (last {v.get('last')})"
@@ -6853,6 +6854,50 @@ def repair_texture_targets():
         time.sleep(30)
 
 
+SKY_REQUEST = Path(__file__).with_name("sky_request.json")  # numbers sent with an update
+SKY_REQUEST_DONE = STATE_DIR / "sky_request_done.json"
+
+
+def run_sky_request():
+    """Sky test numbers the player sent to be applied with an update (sky_request.json
+    next to this file): pick them like "That's my sky", then apply the player's sky
+    picture, once per request id, as soon as PG3D is closed."""
+    req = read_json(SKY_REQUEST, {}) or {}
+    rid, nums = str(req.get("id") or ""), req.get("nums") or []
+    if not rid or not nums or (read_json(SKY_REQUEST_DONE, {}) or {}).get("id") == rid:
+        return
+    while True:
+        try:
+            if not _game_running_uncached() and not launch_busy() and not jobs_pending():
+                break
+        except Exception:
+            pass
+        time.sleep(15)
+    try:
+        pick_sky(nums)
+        while jobs_pending():
+            time.sleep(1)
+        if STATUS.get("job_phase") == "error":
+            raise RuntimeError(STATUS.get("job_error") or "pick failed")
+        lib = sky_library()
+        active = (load_mods().get("skybox") or {}).get("id")
+        prev = (read_json(HISTORY_JSON, default_history()) or {}).get("undo") or []
+        used = next((((e.get("state") or {}).get("skybox") or {}).get("id") for e in reversed(prev)
+                     if ((e.get("state") or {}).get("skybox") or {}).get("id") not in (None, "test")), None)
+        sid = next((x for x in (req.get("picture"), active, used) if x and any(s["id"] == x for s in lib)),
+                   lib[0]["id"] if lib else None)
+        if sid:
+            apply_sky(sid)
+            while jobs_pending():
+                time.sleep(1)
+        write_json(SKY_REQUEST_DONE, {"id": rid, "at": datetime.now().isoformat(timespec="seconds"),
+                                      "result": STATUS.get("job_message"), "error": STATUS.get("job_error")})
+        log(f"Sky numbers from the update ({rid}): {nums} -> {STATUS.get('job_message') or STATUS.get('job_error')}")
+    except Exception as e:
+        write_json(SKY_REQUEST_DONE, {"id": rid, "error": str(e), "at": datetime.now().isoformat(timespec="seconds")})
+        log(f"Sky numbers from the update ({rid}) failed: {e}")
+
+
 def repair_sky_targets():
     """1.73.6 also put the sky on menu patterns and bubble effects that share the cloud
     layer's scrolling shader. Take every sky target that isn't named like a sky (and
@@ -8110,6 +8155,7 @@ def main():
     threading.Thread(target=ember_sync_watch, daemon=True).start()
     threading.Thread(target=mods_reapply_watch, daemon=True).start()
     threading.Thread(target=repair_sky_targets, daemon=True).start()
+    threading.Thread(target=run_sky_request, daemon=True).start()
     threading.Thread(target=retire_removed_mods, daemon=True).start()
     threading.Thread(target=cleanup_old_app_copies, daemon=True).start()
     def _auto_hud():

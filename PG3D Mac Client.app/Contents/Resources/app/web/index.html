@@ -2051,7 +2051,12 @@ let loadKeysSig=null,skyOnSig=null;async function loadSky(){clearTimeout(skyPoll
 function skyNumRow(){const row=el('div','xRow');const inp=document.createElement('input');inp.className='search';inp.type='text';inp.inputMode='numeric';inp.placeholder='Number(s), e.g. 190, 57';inp.title='Saw the sky in several maps during the test? Enter every number, separated by commas.';inp.style.width='210px';
   const ok=el('button','btn primary','That\'s my sky');ok.onclick=async()=>{const v=inp.value.trim();if(!/\d/.test(v))return toast('Enter the number you saw in the sky.',true);try{await post('/api/sky/pick',{num:v})}catch(e){toast(e.message,true)}};
   row.append(inp,ok);return row}
-function renderSkyTest(){const box=$('#skTest');const d=skyData;if(!box||!d)return;box.innerHTML='';
+function renderSkyTest(){const box=$('#skTest');const d=skyData;if(!box||!d)return;
+  // The tab refreshes every few seconds during the test: rebuilding this box wiped the
+  // number being typed. Only rebuild when something in it changed, and keep the typing.
+  const sig=JSON.stringify([d.test,d.tested,d.pick]);if(box._sig===sig&&box.childNodes.length)return;box._sig=sig;
+  const typing=box.querySelector('input')?.value||'',focused=box.contains(document.activeElement);
+  box.innerHTML='';setTimeout(()=>{const i=box.querySelector('input');if(i&&typing){i.value=typing;if(focused)i.focus()}},0);
   if(d.test){box.append(el('b',null,'Sky test is on'),el('p','xNote','Every possible sky texture shows its own colour and number. Start a match, look at the sky, and enter the number you see. Every other row is mirrored: read the row whose digits face the right way. Play a few different maps while the test is on and enter every number you saw (for example 190, 57), so each map gets your sky. No number in the sky? Then the game doesn\'t use these textures: press End test and send the diagnostic report.'));
     const row=skyNumRow();
     const end=el('button','btn','End test');end.onclick=async()=>{try{await post('/api/sky/reset')}catch(e){toast(e.message,true)}};
