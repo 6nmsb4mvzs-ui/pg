@@ -366,6 +366,14 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.3
+Sky       The sky test draws every other row of numbers mirrored, so one row
+          always reads the right way round in the sky (a mirrored 228 looks
+          like "8SS" and was easy to misread). Tiny textures (under 64 px, like
+          16x16 leaves of the Sky Islands map) are no longer in the test and
+          can't be picked as the sky. Your pick shows the colour that number
+          had in the test, to compare with what you saw.
+
 New in 1.73.2
 Sky       After Apply sky the client reads your sky texture back from the game
           file and checks it really changed; if not, it says so right away

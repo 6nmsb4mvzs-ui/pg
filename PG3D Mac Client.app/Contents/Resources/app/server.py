@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.2"
+APP_VERSION = "1.73.3"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5993,6 +5993,8 @@ def sky_candidates():
             k = (t["source_file"], int(t["path_id"]))
             if k in seen or not Path(t["source_file"]).exists():
                 continue
+            if t.get("type") != "Cubemap" and min(int(t.get("width") or 0), int(t.get("height") or 0)) < 64:
+                continue  # a 16x16 leaf of "sky_islands" is not a sky
             seen.add(k)
             out.append({**t, "id": f"c{t['id']}", "kind": "name", "where": "named like a sky", "origin": "name"})
     for i, t in enumerate(out, 1):
@@ -6066,6 +6068,10 @@ def pick_sky(num):
     hit = next((t for t in cands if int(t.get("num") or 0) == num), None)
     if not hit:
         raise RuntimeError(f"There's no texture #{num} in the test. Check the number in the sky.")
+    if hit.get("type") != "Cubemap" and min(int(hit.get("width") or 0), int(hit.get("height") or 0)) < 64:
+        raise RuntimeError(f"#{num} is {hit.get('name')}, only {hit.get('width')}×{hit.get('height')} pixels: far too small "
+                           "to be the sky. Check the number again: in the sky, read the row where the digits face "
+                           "the right way (every other row is mirrored), and compare the colour.")
     same = [t for t in cands if t is hit or (t.get("name") == hit.get("name") and
                                              (t["width"], t["height"]) == (hit["width"], hit["height"]))]
     write_json(SKY_PICK_JSON, {"keys": [_sky_key(t) for t in same], "num": int(num), "name": hit.get("name"),
@@ -6152,7 +6158,8 @@ def sky_payload():
         "targets": _sky_targets_payload(sky),
         "test": bool(sky and sky.get("test")),
         "tested": bool(_last_test_targets()),
-        "pick": read_json(SKY_PICK_JSON, None),
+        "pick": (lambda p: {**p, "colour": customize.sky_test_colour(int(p.get("num") or 0))} if p else p)(
+            read_json(SKY_PICK_JSON, None)),
         "scan": {"generated": fresh, "fresh": fresh, "reading": bool(reading)},
         "active": ({k: sky.get(k) for k in ("id", "name", "yaw", "swap_lr", "flip", "test")} |
                    {"count": len(sky.get("targets", [])),

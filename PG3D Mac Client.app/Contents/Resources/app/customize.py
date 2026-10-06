@@ -1559,9 +1559,27 @@ def sky_test_image(num, size, font_path=None):
     except Exception:
         font = ImageFont.load_default()
     stroke = max(1, px // 12)
+    if h >= 64 and rows < 2:
+        rows = 2
+        cell_h = h / rows
+        px = max(8, int(min(cell_w / (0.62 * len(text) + 0.4), cell_h * 0.8)))
+        try:
+            font = ImageFont.truetype(str(font_path), px) if font_path else ImageFont.load_default()
+        except Exception:
+            font = ImageFont.load_default()
+        stroke = max(1, px // 12)
+    # Every other row is drawn mirrored: a sky seen from inside shows the picture
+    # backwards, so one of the two rows always reads the right way round.
+    cell = Image.new("RGBA", (max(1, int(cell_w)), max(1, int(cell_h))), (0, 0, 0, 0))
+    ImageDraw.Draw(cell).text((cell.width / 2, cell.height / 2), text, font=font, fill=(255, 255, 255, 255),
+                              anchor="mm", stroke_width=stroke, stroke_fill=(0, 0, 0, 255))
+    flipped = cell.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
     for i in range(cols):
         for j in range(rows):
-            cx, cy = (i + 0.5) * cell_w, (j + 0.5) * cell_h
-            d.text((cx, cy), text, font=font, fill=(255, 255, 255, 255), anchor="mm",
-                   stroke_width=stroke, stroke_fill=(0, 0, 0, 255))
+            img.alpha_composite(flipped if j % 2 else cell, (int(i * cell_w), int(j * cell_h)))
     return img
+
+
+def sky_test_colour(num):
+    r, g, b = colorsys.hsv_to_rgb((num * 0.61803398875) % 1.0, 0.75, 0.85)
+    return "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
