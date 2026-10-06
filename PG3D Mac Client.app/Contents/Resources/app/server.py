@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.75.1"
+APP_VERSION = "1.75.2"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -8190,11 +8190,11 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/ember/disconnect":
                 return self.send_json(ember_client.disconnect())
             if path == "/api/ember/command":
-                cmd = str(data.get("command", ""))
+                action = str(data.get("command", "") or data.get("action", ""))
                 params = data.get("params", {})
-                if not cmd:
-                    raise RuntimeError("command is required.")
-                return self.send_json(ember_client.command(cmd, params))
+                if not action:
+                    raise RuntimeError("command/action is required.")
+                return self.send_json(ember_client.command(action, params))
             if path == "/api/ember/max-progress":
                 options = data.get("options", {})
                 return self.send_json(ember_client.max_progress(options))

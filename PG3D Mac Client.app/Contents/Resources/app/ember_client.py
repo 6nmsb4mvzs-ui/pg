@@ -31,7 +31,7 @@ def _ember_request(method, endpoint, body=None, timeout=15):
     url = EMBER_BASE + endpoint
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "PG3D-Mac-Client/1.75.1",
+        "User-Agent": "PG3D-Mac-Client/1.75.2",
         "Accept": "application/json",
     }
     data = json.dumps(body).encode("utf-8") if body is not None else None
@@ -45,13 +45,21 @@ def _ember_request(method, endpoint, body=None, timeout=15):
                 return {"ok": True, "raw": raw.decode("utf-8", errors="replace")}
     except Exception as e:
         msg = str(e)
+        raw_err = None
         if hasattr(e, "read"):
             try:
-                err_body = json.loads(e.read())
-                msg = err_body.get("message", err_body.get("error", msg))
+                raw_err = e.read()
             except Exception:
                 pass
-        raise RuntimeError(f"Ember API error: {msg}")
+        if raw_err:
+            try:
+                err_body = json.loads(raw_err)
+                msg = err_body.get("message") or err_body.get("error") or err_body.get("msg") or str(err_body)
+            except (json.JSONDecodeError, ValueError):
+                decoded = raw_err.decode("utf-8", errors="replace").strip()
+                if decoded:
+                    msg = decoded[:300]
+        raise RuntimeError(f"Ember: {msg}")
 
 
 # ── credentials (persistent, stored in Application Support) ──
@@ -159,12 +167,27 @@ def disconnect() -> dict:
 
 # ── commands ──
 
-def command(cmd: str, params: dict | None = None) -> dict:
-    return _ember_request("POST", "/game/command", {"command": cmd, **(params or {})})
+def command(action: str, params: dict | None = None) -> dict:
+    return _ember_request("POST", "/game/command", {"action": action, "params": params or {}})
 
 
 def max_progress(options: dict | None = None) -> dict:
-    return _ember_request("POST", "/game/max-progress", options or {})
+    params = {
+        "level": True, "level_value": 65,
+        "weapons": True, "weapon_parts": False, "weapon_skins": True,
+        "profile": True, "wear": True, "armor": True, "wear_skins": True,
+        "royale": True, "gadgets": True, "pets": True, "modules": True,
+        "lobby": True, "dlc": False, "skip_tutorial": True,
+        "skip_br_tutorial": True, "set_paying_user": True,
+        "bonus_currency": True,
+    }
+    if options:
+        params.update(options)
+    return _ember_request("POST", "/game/command", {"action": "add_everything", "params": params})
+
+
+def max_progress_status() -> dict:
+    return _ember_request("GET", "/game/max-progress")
 
 
 # ── items ──
