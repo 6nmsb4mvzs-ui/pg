@@ -1307,7 +1307,15 @@ const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5F
 var clipsTimer=null,settingsTimer=null;
 const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',hud:'HUD',sky:'Sky',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
-async function api(path,opts={}){const r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
+let netFails=0;
+async function netLost(){// "Load failed" is WebKit's word for "no answer": find out whose fault it is
+  netFails++;if(netFails<3)return;
+  let up=false;try{up=(await fetch('/api/health',{cache:'no-store'})).ok}catch{}
+  let last=0;try{last=+sessionStorage.pg3dNetReload||0}catch{}
+  if(up&&Date.now()-last>120000){try{sessionStorage.pg3dNetReload=Date.now()}catch{}location.reload()}}
+async function api(path,opts={}){let r;try{r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts})}
+  catch(e){netLost();throw new Error('The client\'s background service didn\'t answer. If this keeps happening, quit the client (⌘Q) and open it again.')}
+  netFails=0;let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}
 function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Math.round(sec/60)} min`}
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 function setTab(tab){if(!pageNames[tab])tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load()}

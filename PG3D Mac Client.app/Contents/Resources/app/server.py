@@ -93,7 +93,7 @@ import clips
 import ranks
 import updater
 
-APP_VERSION = "1.73.0"
+APP_VERSION = "1.73.1"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1464,25 +1464,72 @@ def _rebuild_many(ordered, state, progress=None):
             _rebuild_one(src, state)
         return
     import concurrent.futures as cf
-    import multiprocessing as mp
-    done = 0
+    # The biggest files first, so the slowest one doesn't start last.
+    order = sorted(ordered, key=lambda p: -(Path(p).stat().st_size if Path(p).exists() else 0))
+    done = {"n": 0}
+
+    def tick(src, n_workers):
+        done["n"] += 1
+        if progress:
+            progress(done["n"] / total, f"Rebuilding game files ({done['n']}/{total}, {n_workers} at once)…")
     try:
-        ctx = mp.get_context("spawn")
-        with cf.ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as pool:
-            # The biggest files first, so the slowest one doesn't start last.
-            order = sorted(ordered, key=lambda p: -(Path(p).stat().st_size if Path(p).exists() else 0))
-            futures = [pool.submit(_rebuild_worker, (src, state)) for src in order]
-            for fut in cf.as_completed(futures):
-                fut.result()  # re-raise the first failure
-                done += 1
-                if progress:
-                    progress(done / total, f"Rebuilding game files ({done}/{total}, {workers} at once)…")
+        stuck = _rebuild_pool(order, state, workers, tick, progress, total)
+        for src in stuck:  # once more on its own, in a fresh process
+            log(f"Rebuild of {Path(src).name} stalled; retrying it on its own")
+            if _rebuild_pool([src], state, 1, tick, progress, total):
+                raise RuntimeError(f"Rebuilding {Path(src).name} got stuck twice and was stopped. "
+                                   "Restart your Mac and try again; if it happens again, send the diagnostic report.")
     except (OSError, ImportError, cf.process.BrokenProcessPool) as e:
         log(f"Parallel rebuild unavailable ({e}); rebuilding one by one")
         for i, src in enumerate(ordered, 1):
             if progress:
                 progress((i - 1) / total, f"Rebuilding game files ({i}/{total})…")
             _rebuild_one(src, state)
+
+
+_POOLS = set()  # rebuild worker pools running now
+REBUILD_STALL_SECONDS = 10 * 60  # no file finished for this long (awake time) = stuck
+
+
+def _rebuild_pool(order, state, workers, tick, progress, total):
+    """Rebuild files in worker processes. Returns the files still unfinished when
+    nothing finished for REBUILD_STALL_SECONDS (their workers are killed), so a stuck
+    worker can never hold the job, and with it every later change and update, forever."""
+    import concurrent.futures as cf
+    import multiprocessing as mp
+
+    pool = cf.ProcessPoolExecutor(max_workers=workers, mp_context=mp.get_context("spawn"))
+    _POOLS.add(pool)
+    pending = {pool.submit(_rebuild_worker, (src, state)): src for src in order}
+    last = time.monotonic()  # doesn't count time the Mac sleeps
+    try:
+        while pending:
+            finished, _ = cf.wait(list(pending), timeout=15, return_when=cf.FIRST_COMPLETED)
+            for fut in finished:
+                src = pending.pop(fut)
+                fut.result()  # re-raise the first failure
+                last = time.monotonic()
+                tick(src, workers)
+            if pending and len(pending) <= 3 and progress and finished:
+                names = ", ".join(Path(p).name for p in pending.values())
+                progress((total - len(pending)) / max(1, total),
+                         f"Rebuilding game files ({total - len(pending)}/{total})… {names}")
+            if pending and not finished and time.monotonic() - last > REBUILD_STALL_SECONDS:
+                stuck = list(pending.values())
+                log(f"Rebuild stalled for {REBUILD_STALL_SECONDS // 60} min on: {', '.join(Path(p).name for p in stuck)}")
+                for proc in list((getattr(pool, "_processes", None) or {}).values()):
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                return stuck
+        return []
+    finally:
+        _POOLS.discard(pool)
+        try:
+            pool.shutdown(wait=not pending, cancel_futures=True)
+        except TypeError:  # Python < 3.9
+            pool.shutdown(wait=not pending)
 
 
 def rebuild_sources(source_strings, state=None, progress=None):
@@ -1815,7 +1862,7 @@ def mods_need_reapply(state=None):
     state = state or load_mods()
     srcs = sources_for_state(state)
     if not srcs:
-        return None
+        return "leftover" if _leftover_modded(srcs) else None
     app = find_app()
     if not app:
         return None
@@ -1842,7 +1889,24 @@ def mods_need_reapply(state=None):
     if restored:
         _record_restores(restored)
         return "restored"
+    if _leftover_modded(srcs):
+        return "leftover"
     return None
+
+
+def _leftover_modded(srcs=None):
+    """Game files that still carry a change no mod asks for any more: a rebuild that was
+    cut off (the client was quit, or a worker got stuck) before it put them back."""
+    srcs = sources_for_state(load_mods()) if srcs is None else srcs
+    out = []
+    for mf in BACKUPS.glob("*/manifest.json"):
+        if "_archived_" in mf.parent.name:
+            continue
+        m = read_json(mf, None) or {}
+        src = m.get("source")
+        if m.get("last_mod_sha256") and src and src not in srcs and Path(src).exists():
+            out.append(src)
+    return out
 
 
 GAME_RESTORES_JSON = STATE_DIR / "game_restores.json"
@@ -4827,7 +4891,10 @@ def diagnostics_report():
         "", f"--- last game run (mouse fix {'on' if mouse_fix_enabled() else 'off'}) ---",
         _game_run_summary(max(FPS_LOG_DIR.glob("run-*.log"), key=lambda p: p.stat().st_mtime, default=SUPPORT / "none.log")),
         "", "--- recent game-file jobs ---", "\n".join(_JOB_HISTORY) or "(none)",
-        f"now: {STATUS.get('job_phase')} {STATUS.get('job_message')} queue={STATUS.get('job_queue')}",
+        f"now: {STATUS.get('job_phase')} {STATUS.get('job_label') or ''}: {STATUS.get('job_message')}"
+        + (f" (for {int((time.time() - STATUS['job_started']) // 60)} min)"
+           if STATUS.get('job_phase') == 'running' and STATUS.get('job_started') else "")
+        + f" queue={STATUS.get('job_queue')}",
         "", "--- applied mods ---", _mods_summary(),
         "", "--- PG3D bundles outside the app ---", external_cache_summary(),
         "", "--- bundle / crc lines in PG3D's log ---", _unity_log_grep(r"crc|assetbundle|bundle|mismatch|corrupt|failed to load|exception"),
@@ -5052,7 +5119,7 @@ def _job_worker():
                        job_message=f"{task['label']}: waiting for PG3D to close…")
             time.sleep(1.0)
         set_status(job_kind=task["kind"], job_id=task["id"], job_phase="running", job_progress=0, job_eta=None,
-                   job_message=f"{task['label']}…", job_error=None)
+                   job_message=f"{task['label']}…", job_error=None, job_label=task["label"], job_started=time.time())
         t0 = time.time()
         try:
             msg = task["fn"](_job_progress_fn(task)) or "Done."
@@ -6396,11 +6463,13 @@ def _remap_state(state, progress):
 def _reapply_work(progress, reason):
     before = load_mods()
     state, lost = (_remap_state(before, progress) if reason == "update" else (before, []))
-    rebuild_sources(sources_for_state(state) | {s for s in sources_for_state(before) if Path(s).exists()}, state,
-                    _sub_progress(progress, .7, 1.0))
+    rebuild_sources(sources_for_state(state) | {s for s in sources_for_state(before) if Path(s).exists()} |
+                    set(_leftover_modded(sources_for_state(state))), state, _sub_progress(progress, .7, 1.0))
     save_mods(state)
     invalidate("game_update")
-    msg = "Your mods were re-applied after the PG3D update." if reason == "update" else "Your mods were re-applied."
+    msg = ("Your mods were re-applied after the PG3D update." if reason == "update" else
+           "Game files left half-changed by an interrupted change were put back." if reason == "leftover" else
+           "Your mods were re-applied.")
     if lost:
         msg += f" Not found in the new version: {', '.join(sorted(set(lost))[:4])}."
     set_status(mods_reapplied={"at": int(time.time()), "reason": reason, "message": msg})
@@ -7706,6 +7775,21 @@ def cleanup_old_app_copies():
         log(f"Old client copies cleanup failed: {e}")
 
 
+def _on_sigterm(*_):
+    # A rebuild worker that is still busy would make the exit wait for it (and keep
+    # the port, so the next start fails): stop the workers, and never hang on exit.
+    for pool in list(_POOLS):
+        for proc in list((getattr(pool, "_processes", None) or {}).values()):
+            try:
+                proc.kill()
+            except Exception:
+                pass
+    guard = threading.Timer(8.0, lambda: os._exit(0))
+    guard.daemon = True
+    guard.start()
+    sys.exit(0)
+
+
 def main():
     port = 38435
     if len(sys.argv) > 1:
@@ -7720,7 +7804,7 @@ def main():
     atexit.register(cleanup)
     # launch.sh stops old servers with SIGTERM; turn that into a normal exit so
     # cleanup() runs and the replay-buffer ffmpeg process is stopped too.
-    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    signal.signal(signal.SIGTERM, _on_sigterm)
     start_cursor_init(False)
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     threading.Thread(target=idle_watch, args=(server,), daemon=True).start()

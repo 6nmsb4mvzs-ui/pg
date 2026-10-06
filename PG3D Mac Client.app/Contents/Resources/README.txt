@@ -366,6 +366,18 @@ Detection Sky names: any texture with "sky" in its name counts unless it's a
           GamepadCursor is allowed as the cursor again (it is the one), and
           a cursor you picked is kept across scans and game updates.
 
+New in 1.73.1
+Fixes     A rebuild of the game files could get stuck forever on one file
+          ("Rebuilding game files (82/83)"), which also blocked every later
+          change and client update. Now a file that makes no progress for 10
+          minutes is stopped and tried once more on its own; if it sticks
+          again the change fails with a clear message instead of hanging.
+          Quitting the client no longer hangs on a stuck rebuild.
+          Game files left half-changed by an interrupted change are found
+          and put back by themselves.
+          "Load failed" is replaced by a clear message, and the window
+          reloads itself when only its connection got stuck.
+
 New in 1.73
 Sky       "That's my sky" uses the numbers exactly as the running sky test
           painted them, then looks through PG3D's files for the sphere that
