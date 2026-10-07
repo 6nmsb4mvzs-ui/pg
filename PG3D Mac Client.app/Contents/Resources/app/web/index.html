@@ -1445,7 +1445,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
 
       <div class="crCard" id="emStealCard" hidden>
-        <div class="crCardHead"><div><h3>Skin &amp; Cape Stealer</h3><p class="xNote" style="margin-top:4px">Look up a player and copy their skins, cape, or wear to your account.</p></div></div>
+        <div class="crCardHead"><div><h3>Skin &amp; Cape Stealer</h3><p class="xNote" style="margin-top:4px">Look up a player and copy their skin or cape to your account.</p></div></div>
         <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
           <div style="flex:1;min-width:100px"><div class="xLabel">Player ID</div><input class="xInput" id="emStealId" placeholder="Enter player ID"></div>
           <button class="btn primary" id="emStealLookup">Lookup</button>
@@ -2771,10 +2771,8 @@ $('#emStealLookup').onclick=async()=>{
       return c}
     if(p.skin)g.appendChild(stealBtn('Current Skin','steal_skin',{player_id:id}));
     if(F.cape)g.appendChild(stealBtn(F.cape.name||'Cape','steal_cape',{player_id:id}));
-    for(const [cat,arr] of Object.entries(F.wear||{}))for(const x of(arr||[]))g.appendChild(stealBtn(x.name||cat,'steal_wear',{player_id:id,wear_id:x.id},'/api/ember-icon/Armor/'+encodeURIComponent(x.id)+'.png'));
-    for(const x of(F.weapon_skins||[]))g.appendChild(stealBtn(x.name||'Weapon Skin','steal_weapon_skin',{player_id:id,skin_id:x.id},'/api/ember-icon/WeaponSkin/'+encodeURIComponent(x.id)+'.png'));
     for(const ps of(F.player_skins||[]))if(ps?.texture&&ps.texture!==p.skin)g.appendChild(stealBtn(ps.name||'Alt Skin','steal_skin',{player_id:id,skin_index:F.player_skins.indexOf(ps)}));
-    if(!g.children.length)g.innerHTML='<div style="padding:12px;color:var(--muted);font-size:12px">No stealable cosmetics found.</div>';
+    if(!g.children.length)g.innerHTML='<div style="padding:12px;color:var(--muted);font-size:12px">No skins or capes found for this player.</div>';
     $('#emStealResult').hidden=false;$('#emStealStatus').textContent='';
   }catch(e){$('#emStealStatus').textContent='Failed: '+e.message;$('#emStealResult').hidden=true}
   finally{b.disabled=false}
