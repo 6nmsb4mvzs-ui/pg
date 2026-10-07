@@ -72,6 +72,9 @@ static Il2CppType *(*il2cpp_class_get_type)(Il2CppClass *klass);
 static Il2CppClass *(*il2cpp_object_get_class)(Il2CppObject *obj);
 static const char *(*il2cpp_class_get_name)(Il2CppClass *klass);
 static Il2CppClass *(*il2cpp_class_get_parent)(Il2CppClass *klass);
+static size_t (*il2cpp_image_get_class_count)(Il2CppImage *image);
+static Il2CppClass *(*il2cpp_image_get_class)(Il2CppImage *image, size_t index);
+static const char *(*il2cpp_class_get_namespace)(Il2CppClass *klass);
 
 // Unity icall function pointers
 static Il2CppObject *(*Camera_get_main)(void);
@@ -164,7 +167,17 @@ static void parse_key(const char *str, int *out_type, int *out_code) {
 
 static bool key_is_down(int type, int code) {
     if (code < 0) return false;
-    if (type == 1) return CGEventSourceButtonState(kCGEventSourceStateCombinedSessionState, (uint32_t)code);
+    if (type == 1) {
+        // [NSEvent pressedMouseButtons] — works without Accessibility permission
+        Class cls = objc_getClass("NSEvent");
+        if (cls) {
+            unsigned long buttons = ((unsigned long (*)(id, SEL))objc_msgSend)(
+                (id)cls, sel_registerName("pressedMouseButtons"));
+            return (buttons >> code) & 1;
+        }
+        return CGEventSourceButtonState(kCGEventSourceStateCombinedSessionState, (uint32_t)code);
+    }
+    // Keyboard keys still need Accessibility; mouse-button toggles preferred
     return CGEventSourceKeyState(kCGEventSourceStateCombinedSessionState, (uint16_t)code);
 }
 
@@ -189,6 +202,9 @@ static bool find_game_assembly(void) {
             il2cpp_object_get_class = (Il2CppClass *(*)(Il2CppObject *))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_object_get_class");
             il2cpp_class_get_name = (const char *(*)(Il2CppClass *))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_class_get_name");
             il2cpp_class_get_parent = (Il2CppClass *(*)(Il2CppClass *))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_class_get_parent");
+            il2cpp_image_get_class_count = (size_t (*)(Il2CppImage *))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_image_get_class_count");
+            il2cpp_image_get_class = (Il2CppClass *(*)(Il2CppImage *, size_t))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_image_get_class");
+            il2cpp_class_get_namespace = (const char *(*)(Il2CppClass *))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_class_get_namespace");
             note("GameAssembly found: %s", name);
             return true;
         }
@@ -236,6 +252,16 @@ static bool resolve_unity_icalls(void) {
 static Il2CppClass *g_player_class;
 static Il2CppImage *g_game_image;
 
+static bool inherits_from(Il2CppClass *cls, const char *ancestor_name) {
+    if (!il2cpp_class_get_parent || !il2cpp_class_get_name) return false;
+    for (int depth = 0; depth < 16 && cls; depth++) {
+        const char *name = il2cpp_class_get_name(cls);
+        if (name && strcmp(name, ancestor_name) == 0) return true;
+        cls = il2cpp_class_get_parent(cls);
+    }
+    return false;
+}
+
 static bool find_player_class(void) {
     if (g_player_class) return true;
     if (!il2cpp_domain_get || !il2cpp_domain_get_assemblies ||
@@ -248,6 +274,7 @@ static bool find_player_class(void) {
     Il2CppAssembly **assemblies = il2cpp_domain_get_assemblies(domain, &count);
     if (!assemblies) return false;
 
+    // 1. Try known PG3D class names (pre-obfuscation builds)
     static const char *class_names[] = {
         "Player_move_c", "PlayerMovC", "PlayerMoveC", "Player_Move_C", NULL
     };
@@ -268,6 +295,47 @@ static bool find_player_class(void) {
             }
         }
     }
+
+    // 2. Fallback: CharacterController — standard Unity player component,
+    //    never obfuscated since it's engine code, not game code
+    for (size_t i = 0; i < count; i++) {
+        Il2CppImage *img = il2cpp_assembly_get_image(assemblies[i]);
+        if (!img) continue;
+        Il2CppClass *cls = il2cpp_class_from_name(img, "UnityEngine", "CharacterController");
+        if (cls) {
+            g_player_class = cls;
+            g_game_image = img;
+            note("using CharacterController as player proxy (obfuscated game classes)");
+            return true;
+        }
+    }
+
+    // 3. Enumerate all classes, find MonoBehaviour subclasses with player-like traits
+    if (il2cpp_image_get_class_count && il2cpp_image_get_class &&
+        il2cpp_class_get_name && il2cpp_class_get_method_from_name) {
+        for (size_t i = 0; i < count; i++) {
+            Il2CppImage *img = il2cpp_assembly_get_image(assemblies[i]);
+            if (!img) continue;
+            size_t cls_count = il2cpp_image_get_class_count(img);
+            for (size_t j = 0; j < cls_count; j++) {
+                Il2CppClass *cls = il2cpp_image_get_class(img, j);
+                if (!cls) continue;
+                if (!inherits_from(cls, "MonoBehaviour")) continue;
+                // Look for classes with characteristic player methods
+                if (il2cpp_class_get_method_from_name(cls, "Move", -1) ||
+                    il2cpp_class_get_method_from_name(cls, "OnDamage", -1) ||
+                    il2cpp_class_get_method_from_name(cls, "TakeDamage", -1) ||
+                    il2cpp_class_get_method_from_name(cls, "Die", -1)) {
+                    const char *name = il2cpp_class_get_name(cls);
+                    g_player_class = cls;
+                    g_game_image = img;
+                    note("found player class via enumeration: %s", name ? name : "?");
+                    return true;
+                }
+            }
+        }
+    }
+
     return false;
 }
 
@@ -465,10 +533,15 @@ static void *cheats_thread(void *arg) {
         resolve_physics();
         g_il2cpp_ready = true;
         note("IL2CPP ready — aimbot:%s triggerbot:%s (find_objects=%p physics=%p)",
-             g_aimbot_enabled ? "enabled" : "off",
-             g_triggerbot_enabled ? "enabled" : "off",
+             g_aimbot_active ? "ON" : "off",
+             g_triggerbot_active ? "ON" : "off",
              (void *)g_find_objects_method, (void *)g_physics_raycast);
-        toast("Cheats ready");
+        {
+            char tmsg[80];
+            snprintf(tmsg, sizeof(tmsg), "Cheats ON — aim:%s trig:%s",
+                     g_aimbot_active ? "ON" : "off", g_triggerbot_active ? "ON" : "off");
+            toast(tmsg);
+        }
         break;
     }
 
@@ -580,15 +653,18 @@ static void start_cheats(void) {
     g_aimbot_enabled = aim && strcmp(aim, "1") == 0;
     g_triggerbot_enabled = trig && strcmp(trig, "1") == 0;
     if (!g_aimbot_enabled && !g_triggerbot_enabled) return;
+    g_aimbot_active = g_aimbot_enabled;
+    g_triggerbot_active = g_triggerbot_enabled;
 
     parse_key(getenv("PG3D_CHEATS_AIMBOT_KEY"), &g_aimbot_key_type, &g_aimbot_key_code);
     parse_key(getenv("PG3D_CHEATS_TRIGGERBOT_KEY"), &g_triggerbot_key_type, &g_triggerbot_key_code);
     if (g_aimbot_key_code < 0)    { g_aimbot_key_type = 1; g_aimbot_key_code = 3; }
     if (g_triggerbot_key_code < 0) { g_triggerbot_key_type = 1; g_triggerbot_key_code = 4; }
 
-    note("loaded — aimbot:%s (key type=%d code=%d) triggerbot:%s (key type=%d code=%d)",
-         g_aimbot_enabled ? "on" : "off", g_aimbot_key_type, g_aimbot_key_code,
-         g_triggerbot_enabled ? "on" : "off", g_triggerbot_key_type, g_triggerbot_key_code);
+    note("loaded — aimbot:%s (key type=%d code=%d) triggerbot:%s (key type=%d code=%d) — active by default",
+         g_aimbot_enabled ? "ON" : "off", g_aimbot_key_type, g_aimbot_key_code,
+         g_triggerbot_enabled ? "ON" : "off", g_triggerbot_key_type, g_triggerbot_key_code);
+    note("mouse-button toggles use NSEvent (no Accessibility needed); keyboard toggles need Accessibility");
 
     pthread_t tid;
     pthread_attr_t attr;
