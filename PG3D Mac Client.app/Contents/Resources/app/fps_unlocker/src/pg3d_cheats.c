@@ -213,7 +213,10 @@ static bool resolve_unity_icalls(void) {
     if (!il2cpp_resolve_icall) return false;
     if (il2cpp_get_corlib && il2cpp_get_corlib() == NULL) return false;
 
-    Camera_get_main = (Il2CppObject *(*)(void))il2cpp_resolve_icall("UnityEngine.Camera::get_main");
+    if (!Camera_get_main)
+        Camera_get_main = (Il2CppObject *(*)(void))il2cpp_resolve_icall("UnityEngine.Camera::get_main()");
+    if (!Camera_get_main)
+        Camera_get_main = (Il2CppObject *(*)(void))il2cpp_resolve_icall("UnityEngine.Camera::get_main");
     Component_get_transform = (Il2CppObject *(*)(Il2CppObject *))il2cpp_resolve_icall("UnityEngine.Component::get_transform");
     Time_get_frameCount = (int (*)(void))il2cpp_resolve_icall("UnityEngine.Time::get_frameCount");
     Time_get_deltaTime = (float (*)(void))il2cpp_resolve_icall("UnityEngine.Time::get_deltaTime");
@@ -555,6 +558,11 @@ static void cheat_tick(void *unused) {
     if (g_aimbot_active) {
         int player_count = 0;
         Il2CppObject **players = get_player_objects(&player_count);
+        if (player_count > 0) {
+            static int aim_log_count;
+            if (aim_log_count++ < 3)
+                note("aimbot: %d players found", player_count);
+        }
         if (players && player_count > 0) {
             float best_dist = 1e30f;
             Vec3 best_pos = {0};
@@ -622,7 +630,6 @@ reschedule:
 static void init_tick(void *unused) {
     (void)unused;
     if (g_il2cpp_ready) {
-        // Start the cheat tick
         dispatch_after_f(dispatch_time(0, (int64_t)kTickMs * 1000000), MAIN_QUEUE, NULL, cheat_tick);
         return;
     }
@@ -635,18 +642,34 @@ static void init_tick(void *unused) {
 
     if (!g_game_assembly_found) {
         g_game_assembly_found = find_game_assembly();
-        if (!g_game_assembly_found) goto retry;
+        if (!g_game_assembly_found) {
+            if (g_retry_count == 1) note("init try %u: GameAssembly not found yet", g_retry_count);
+            goto retry;
+        }
     }
 
-    if (!resolve_unity_icalls()) goto retry;
-    if (!find_player_class()) goto retry;
+    if (!resolve_unity_icalls()) {
+        if (g_retry_count <= 3 || g_retry_count % 20 == 0)
+            note("init try %u: icalls not ready (cam=%p comp_tf=%p tf_pos=%p tf_euler=%p tf_set_euler=%p frameCount=%p)",
+                 g_retry_count,
+                 (void *)Camera_get_main, (void *)Component_get_transform,
+                 (void *)Transform_get_position, (void *)Transform_get_eulerAngles,
+                 (void *)Transform_set_eulerAngles, (void *)Time_get_frameCount);
+        goto retry;
+    }
+    if (!find_player_class()) {
+        if (g_retry_count <= 3 || g_retry_count % 20 == 0)
+            note("init try %u: player class not found yet", g_retry_count);
+        goto retry;
+    }
     resolve_find_objects();
     resolve_physics();
 
     g_il2cpp_ready = true;
-    note("IL2CPP ready — aimbot:%s triggerbot:%s",
+    note("IL2CPP ready — aimbot:%s triggerbot:%s (find_objects=%p physics=%p)",
          g_aimbot_enabled ? "enabled" : "off",
-         g_triggerbot_enabled ? "enabled" : "off");
+         g_triggerbot_enabled ? "enabled" : "off",
+         (void *)g_find_objects_method, (void *)g_physics_raycast);
 
     // Start the cheat tick immediately
     dispatch_after_f(dispatch_time(0, (int64_t)kTickMs * 1000000), MAIN_QUEUE, NULL, cheat_tick);
