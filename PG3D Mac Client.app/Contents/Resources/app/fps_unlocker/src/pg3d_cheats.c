@@ -13,8 +13,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
+#include <dispatch/dispatch.h>
 
-// ── ObjC / CoreGraphics / GCD externs (no SDK) ──
+// ── ObjC / CoreGraphics externs (no SDK) ──
 
 typedef struct objc_object *id;
 typedef struct objc_selector *SEL;
@@ -38,12 +39,8 @@ extern bool CGEventSourceKeyState(int stateID, uint16_t keyCode);
 extern bool CGEventSourceButtonState(int stateID, uint32_t button);
 #define kCGEventSourceStateCombinedSessionState 0
 
-extern char _dispatch_main_q;
-extern void dispatch_async_f(void *queue, void *context, void (*work)(void *));
-extern void dispatch_after_f(uint64_t when, void *queue, void *context, void (*work)(void *));
-extern uint64_t dispatch_time(uint64_t when, int64_t delta);
-
-#define MAIN_QUEUE ((void *)&_dispatch_main_q)
+static dispatch_source_t g_init_timer;
+static dispatch_source_t g_cheat_timer;
 #define SEL_(name) sel_registerName(name)
 #define MSG(ret, ...) ((ret (*)(id, SEL, ##__VA_ARGS__))objc_msgSend)
 
@@ -522,7 +519,7 @@ static int g_last_log_frame;
 static void cheat_tick(void *unused) {
     (void)unused;
 
-    if (!g_il2cpp_ready) goto reschedule;
+    if (!g_il2cpp_ready) return;
 
     // Toggle check: detect rising edge of hotkey
     if (g_aimbot_enabled) {
@@ -542,17 +539,17 @@ static void cheat_tick(void *unused) {
         g_trig_key_was_down = down;
     }
 
-    if (!g_aimbot_active && !g_triggerbot_active) goto reschedule;
+    if (!g_aimbot_active && !g_triggerbot_active) return;
 
     // Get main camera
     Il2CppObject *cam = Camera_get_main ? Camera_get_main() : NULL;
-    if (!cam) goto reschedule;
+    if (!cam) return;
 
     Il2CppObject *cam_tf = Component_get_transform ? Component_get_transform(cam) : NULL;
-    if (!cam_tf) goto reschedule;
+    if (!cam_tf) return;
 
     Vec3 cam_pos;
-    if (!get_position(cam_tf, &cam_pos)) goto reschedule;
+    if (!get_position(cam_tf, &cam_pos)) return;
 
     // ── aimbot ──
     if (g_aimbot_active) {
@@ -621,8 +618,26 @@ static void cheat_tick(void *unused) {
         }
     }
 
-reschedule:
-    dispatch_after_f(dispatch_time(0, (int64_t)kTickMs * 1000000), MAIN_QUEUE, NULL, cheat_tick);
+}
+
+// ── cheat timer ──
+
+static void start_cheat_timer(void) {
+    g_cheat_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
+                                           dispatch_get_main_queue());
+    if (!g_cheat_timer) {
+        note("could not create cheat timer");
+        return;
+    }
+    dispatch_source_set_timer(g_cheat_timer,
+                              dispatch_time(DISPATCH_TIME_NOW, (int64_t)kTickMs * NSEC_PER_MSEC),
+                              (uint64_t)kTickMs * NSEC_PER_MSEC,
+                              2 * NSEC_PER_MSEC);
+    dispatch_source_set_event_handler(g_cheat_timer, ^{
+        cheat_tick(NULL);
+    });
+    dispatch_resume(g_cheat_timer);
+    note("cheat timer started (%dms interval)", kTickMs);
 }
 
 // ── initialization retry loop ──
@@ -630,13 +645,15 @@ reschedule:
 static void init_tick(void *unused) {
     (void)unused;
     if (g_il2cpp_ready) {
-        dispatch_after_f(dispatch_time(0, (int64_t)kTickMs * 1000000), MAIN_QUEUE, NULL, cheat_tick);
+        dispatch_source_cancel(g_init_timer);
+        start_cheat_timer();
         return;
     }
 
     g_retry_count++;
     if (g_retry_count > kRetryLimit) {
         note("timed out waiting for IL2CPP; cheats inactive.");
+        dispatch_source_cancel(g_init_timer);
         return;
     }
 
@@ -644,7 +661,7 @@ static void init_tick(void *unused) {
         g_game_assembly_found = find_game_assembly();
         if (!g_game_assembly_found) {
             if (g_retry_count == 1) note("init try %u: GameAssembly not found yet", g_retry_count);
-            goto retry;
+            return;
         }
     }
 
@@ -655,12 +672,12 @@ static void init_tick(void *unused) {
                  (void *)Camera_get_main, (void *)Component_get_transform,
                  (void *)Transform_get_position, (void *)Transform_get_eulerAngles,
                  (void *)Transform_set_eulerAngles, (void *)Time_get_frameCount);
-        goto retry;
+        return;
     }
     if (!find_player_class()) {
         if (g_retry_count <= 3 || g_retry_count % 20 == 0)
             note("init try %u: player class not found yet", g_retry_count);
-        goto retry;
+        return;
     }
     resolve_find_objects();
     resolve_physics();
@@ -671,12 +688,8 @@ static void init_tick(void *unused) {
          g_triggerbot_enabled ? "enabled" : "off",
          (void *)g_find_objects_method, (void *)g_physics_raycast);
 
-    // Start the cheat tick immediately
-    dispatch_after_f(dispatch_time(0, (int64_t)kTickMs * 1000000), MAIN_QUEUE, NULL, cheat_tick);
-    return;
-
-retry:
-    dispatch_after_f(dispatch_time(0, (int64_t)kRetryMs * 1000000), MAIN_QUEUE, NULL, init_tick);
+    dispatch_source_cancel(g_init_timer);
+    start_cheat_timer();
 }
 
 // ── entry ──
@@ -704,5 +717,20 @@ static void start_cheats(void) {
          g_aimbot_enabled ? "on" : "off", g_aimbot_key_type, g_aimbot_key_code,
          g_triggerbot_enabled ? "on" : "off", g_triggerbot_key_type, g_triggerbot_key_code);
 
-    dispatch_after_f(dispatch_time(0, 2000LL * 1000000), MAIN_QUEUE, NULL, init_tick);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        g_init_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
+                                              dispatch_get_main_queue());
+        if (!g_init_timer) {
+            note("could not create init timer");
+            return;
+        }
+        dispatch_source_set_timer(g_init_timer,
+                                  dispatch_time(DISPATCH_TIME_NOW, 2000LL * NSEC_PER_MSEC),
+                                  (uint64_t)kRetryMs * NSEC_PER_MSEC,
+                                  25 * NSEC_PER_MSEC);
+        dispatch_source_set_event_handler(g_init_timer, ^{
+            init_tick(NULL);
+        });
+        dispatch_resume(g_init_timer);
+    });
 }
