@@ -206,13 +206,12 @@ def cheats_config() -> dict:
         except Exception:
             pass
     return {"ok": True, "aimbot": False, "triggerbot": False,
-            "aimbot_key": "mouse4", "triggerbot_key": "mouse5",
-            "safe_account": ""}
+            "aimbot_key": "mouse4", "triggerbot_key": "mouse5"}
 
 
 def save_cheats(config: dict) -> dict:
     _ensure_dirs()
-    allowed = {"aimbot", "triggerbot", "aimbot_key", "triggerbot_key", "safe_account"}
+    allowed = {"aimbot", "triggerbot", "aimbot_key", "triggerbot_key"}
     clean = {k: v for k, v in config.items() if k in allowed}
     CHEATS_FILE.write_text(json.dumps(clean, indent=2), encoding="utf-8")
     return {"ok": True, **clean}

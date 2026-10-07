@@ -1308,48 +1308,82 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
             <button class="btn primary" id="emLevelSet">Set</button>
           </div>
           <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:10px">
-            <div style="flex:1;min-width:100px"><div class="xLabel">Currency</div><select class="select" id="emCurType" style="width:100%"><option value="Coins">Coins</option><option value="GemsCurrency">Gems</option><option value="Coupons">Coupons</option><option value="PixelPassCurrency">Pixel Pass</option><option value="ClanSilver">Clan Silver</option><option value="ClanLootBoxPoints">Clan Loot Box Pts</option><option value="RouletteAdsCurrency">Roulette Ads</option><option value="RouletteAdsSpin">Roulette Spins</option><option value="PixelBucks">Pixel Bucks</option><option value="BattlePassCurrency">Battle Pass</option><option value="CurrencyCompetitionTier1">Competition T1</option><option value="CurrencyCompetitionTier2">Competition T2</option></select></div>
+            <div style="flex:1;min-width:100px"><div class="xLabel">Currency</div><select class="select" id="emCurType" style="width:100%"><option value="Coins">Coins</option><option value="GemsCurrency">Gems</option><option value="Coupons">Coupons</option><option value="PixelPassCurrency">Pixel Pass</option><option value="ClanSilver">Clan Silver</option><option value="ClanLootBoxPoints">Clan Loot Box Points</option><option value="RouletteAdsCurrency">Roulette Ads Currency</option><option value="RouletteAdsSpin">Roulette Spins</option><option value="PixelBucks">Pixel Bucks</option><option value="BattlePassCurrency">Battle Pass Currency</option><option value="CurrencyCompetitionTier1">Competition Tier 1</option><option value="CurrencyCompetitionTier2">Competition Tier 2</option></select></div>
             <div style="flex:1;min-width:80px"><div class="xLabel">Amount</div><input class="xInput" id="emCurAmt" type="number" value="999999"></div>
             <button class="btn primary" id="emCurAdd">Add</button>
           </div>
         </div>
 
+        <div class="emCmdSection"><h4>Consumables</h4>
+          <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+            <div style="flex:1;min-width:140px"><div class="xLabel">Consumable</div><select class="select" id="emConsType" style="width:100%"><option value="0">Novice Chest</option><option value="1">Fighter Chest</option><option value="2">Winner Chest</option><option value="9">War Hero Chest</option><option value="3">25% Booster</option><option value="4">50% Booster</option><option value="5">100% Booster</option><option value="6">200% Booster</option><option value="7">Event Booster</option><option value="8">VIP</option><option value="10">Primary Free Upgrade</option><option value="11">Backup Free Upgrade</option><option value="12">Melee Free Upgrade</option><option value="13">Special Free Upgrade</option><option value="14">Sniper Free Upgrade</option><option value="15">Heavy Free Upgrade</option><option value="16">Event Data Chips</option></select></div>
+            <div style="flex:0 0 80px"><div class="xLabel">Amount</div><input class="xInput" id="emConsAmt" type="number" value="100" min="1"></div>
+            <button class="btn primary" id="emConsAdd">Add</button>
+          </div>
+        </div>
+
         <div class="emCmdSection"><h4>Weapons</h4>
           <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_all_weapons" data-params='{"level":65,"rarity":5}'>All weapons</div>
-            <div class="emCmd" data-cmd="add_primary" data-params='{"level":65}'>All primary</div>
-            <div class="emCmd" data-cmd="add_backup" data-params='{"level":65}'>All backup</div>
-            <div class="emCmd" data-cmd="add_melee" data-params='{"level":65}'>All melee</div>
-            <div class="emCmd" data-cmd="add_special" data-params='{"level":65}'>All special</div>
-            <div class="emCmd" data-cmd="add_sniper" data-params='{"level":65}'>All sniper</div>
-            <div class="emCmd" data-cmd="add_heavy" data-params='{"level":65}'>All heavy</div>
+            <div class="emCmd" data-cmd="add_all_weapons" data-params='{"level":65,"rarity":5}'>All Weapons</div>
+            <div class="emCmd" data-cmd="add_primary" data-params='{"level":65}'>Primary</div>
+            <div class="emCmd" data-cmd="add_backup" data-params='{"level":65}'>Backup</div>
+            <div class="emCmd" data-cmd="add_melee" data-params='{"level":65}'>Melee</div>
+            <div class="emCmd" data-cmd="add_special" data-params='{"level":65}'>Special</div>
+            <div class="emCmd" data-cmd="add_sniper" data-params='{"level":65}'>Sniper</div>
+            <div class="emCmd" data-cmd="add_heavy" data-params='{"level":65}'>Heavy</div>
+            <div class="emCmd" data-cmd="add_all_weapon_skins">Weapon Skins</div>
+            <div class="emCmd" data-cmd="add_all_weapon_parts">Weapon Parts</div>
+            <div class="emCmd" data-cmd="upgrade_all_weapons" data-params='{"level":65,"rarity":5}'>Upgrade All</div>
           </div>
         </div>
 
         <div class="emCmdSection"><h4>Wear &amp; Armor</h4>
           <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_all_wear">All wear</div>
-            <div class="emCmd" data-cmd="add_all_armor">All armor</div>
-            <div class="emCmd" data-cmd="add_all_hats">All hats</div>
-            <div class="emCmd" data-cmd="add_all_masks">All masks</div>
-            <div class="emCmd" data-cmd="add_all_capes">All capes</div>
-            <div class="emCmd" data-cmd="add_all_boots">All boots</div>
+            <div class="emCmd" data-cmd="add_all_wear">All Wear</div>
+            <div class="emCmd" data-cmd="add_all_armor">All Armor</div>
+            <div class="emCmd" data-cmd="add_all_hats">Hats</div>
+            <div class="emCmd" data-cmd="add_all_masks">Masks</div>
+            <div class="emCmd" data-cmd="add_all_capes">Capes</div>
+            <div class="emCmd" data-cmd="add_all_boots">Boots</div>
           </div>
         </div>
 
         <div class="emCmdSection"><h4>Gadgets, Pets &amp; Modules</h4>
           <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_all_gadgets">All gadgets</div>
-            <div class="emCmd" data-cmd="add_all_pets">All pets</div>
-            <div class="emCmd" data-cmd="upgrade_all_modules" data-params='{"cap":10}'>All modules</div>
+            <div class="emCmd" data-cmd="add_all_gadgets">All Gadgets</div>
+            <div class="emCmd" data-cmd="add_all_pets">All Pets</div>
+            <div class="emCmd" data-cmd="upgrade_all_modules" data-params='{"cap":10}'>Upgrade Modules</div>
+            <div class="emCmd" data-cmd="upgrade_all_gadgets">Upgrade Gadgets</div>
+            <div class="emCmd" data-cmd="upgrade_all_pets">Upgrade Pets</div>
+            <div class="emCmd" data-cmd="add_pet_parts">Pet Parts</div>
           </div>
         </div>
 
-        <div class="emCmdSection"><h4>Account &amp; Extras</h4>
+        <div class="emCmdSection"><h4>Royale</h4>
           <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_veteran_badge">Veteran badge</div>
-            <div class="emCmd" data-cmd="add_dlc_sets">DLC sets</div>
-            <div class="emCmd" data-cmd="add_clan_valor" data-params='{"shields":500}'>Clan valor</div>
+            <div class="emCmd" data-cmd="add_all_royale">All Royale</div>
+            <div class="emCmd" data-cmd="add_all_vehicles" data-params='{"level":5}'>Vehicles</div>
+            <div class="emCmd" data-cmd="add_all_gliders" data-params='{"level":5}'>Gliders</div>
+            <div class="emCmd" data-cmd="add_all_trails">Trails</div>
+            <div class="emCmd" data-cmd="add_all_avatars">Avatars</div>
+            <div class="emCmd" data-cmd="add_all_shovels">Shovels</div>
+          </div>
+        </div>
+
+        <div class="emCmdSection"><h4>Profile</h4>
+          <div class="emCmdGrid">
+            <div class="emCmd" data-cmd="add_all_portraits">Portraits</div>
+            <div class="emCmd" data-cmd="add_all_frames">Frames</div>
+            <div class="emCmd" data-cmd="add_all_backgrounds">Backgrounds</div>
+            <div class="emCmd" data-cmd="add_all_lobby">Lobby Items</div>
+          </div>
+        </div>
+
+        <div class="emCmdSection"><h4>Account</h4>
+          <div class="emCmdGrid">
+            <div class="emCmd" data-cmd="add_veteran_badge">Veteran Badge</div>
+            <div class="emCmd" data-cmd="add_dlc_sets">DLC Sets</div>
+            <div class="emCmd" data-cmd="set_paying_user">Set Paying User</div>
             <div class="emCmd" data-cmd="add_goblins" data-params='{"days":30,"negative":false}'>Goblins</div>
           </div>
         </div>
@@ -1367,17 +1401,12 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 
     <section class="page" id="page-cheats">
       <div class="crCard">
-        <div class="crCardHead"><div><h3>Cheats</h3><p class="xNote" style="margin-top:4px">Toggle cheats to inject on next game launch. Use hotkeys in-game to activate them.</p></div></div>
-        <button class="xSwitch" id="chAimbotToggle" role="switch" aria-checked="false"><div><b>Aimbot</b><small>Locks aim onto the nearest enemy while the hotkey is held.</small></div><span class="pillToggle"></span></button>
+        <div class="crCardHead"><div><h3>Cheats</h3><p class="xNote" style="margin-top:4px">Enable cheats to inject on next game launch. Press the hotkey in-game to toggle on/off.</p></div></div>
+        <button class="xSwitch" id="chAimbotToggle" role="switch" aria-checked="false"><div><b>Aimbot</b><small>Locks aim onto the nearest enemy. Press the hotkey to toggle on/off in-game.</small></div><span class="pillToggle"></span></button>
         <div class="chRow"><div class="xLabel">Hotkey</div><button class="chKeyBtn" id="chAimbotBind" type="button" data-key="mouse4">Mouse 4</button></div>
         <div style="height:8px"></div>
-        <button class="xSwitch" id="chTriggerbotToggle" role="switch" aria-checked="false"><div><b>Triggerbot</b><small>Auto-fires when your crosshair is over an enemy while the hotkey is held.</small></div><span class="pillToggle"></span></button>
+        <button class="xSwitch" id="chTriggerbotToggle" role="switch" aria-checked="false"><div><b>Triggerbot</b><small>Auto-fires when your crosshair is over an enemy. Press the hotkey to toggle on/off in-game.</small></div><span class="pillToggle"></span></button>
         <div class="chRow"><div class="xLabel">Hotkey</div><button class="chKeyBtn" id="chTriggerbotBind" type="button" data-key="mouse5">Mouse 5</button></div>
-      </div>
-
-      <div class="crCard">
-        <div class="crCardHead"><div><h3>Safe Account</h3><p class="xNote" style="margin-top:4px">This account never launches with cheats, even if enabled above.</p></div></div>
-        <select class="select" id="chSafeAccount" style="width:100%"><option value="">None (cheats apply to all)</option></select>
       </div>
     </section>
 
@@ -2551,6 +2580,10 @@ $('#emLevelSet').onclick=async()=>{
   if(!_emConnected)return toast('Connect first.',true);
   try{await post('/api/ember/command',{command:'set_level',params:{level:Number($('#emLevel').value)}});toast('Level set.')}catch(e){toast(e.message,true)}
 };
+$('#emConsAdd').onclick=async()=>{
+  if(!_emConnected)return toast('Connect first.',true);
+  try{await post('/api/ember/command',{command:'add_consumable',params:{consumable:Number($('#emConsType').value),amount:Number($('#emConsAmt').value)}});toast('Consumable added.')}catch(e){toast(e.message,true)}
+};
 const MAX_OPTS=['level','weapons','weapon_parts','weapon_skins','profile','wear','armor','wear_skins','royale','gadgets','pets','modules','lobby','dlc','skip_tutorial','skip_br_tutorial','set_paying_user','bonus_currency'];
 (function renderMaxOpts(){
   const g=$('#emMaxGrid');g.innerHTML='';
@@ -2589,22 +2622,6 @@ async function chInit(){
     setSwitch('#chTriggerbotToggle',!!d.triggerbot);
     if(d.aimbot_key){$('#chAimbotBind').dataset.key=d.aimbot_key;$('#chAimbotBind').textContent=chKeyLabel(d.aimbot_key)}
     if(d.triggerbot_key){$('#chTriggerbotBind').dataset.key=d.triggerbot_key;$('#chTriggerbotBind').textContent=chKeyLabel(d.triggerbot_key)}
-    if(d.safe_account)$('#chSafeAccount').value=d.safe_account;
-  }catch{}
-  chLoadAccounts();
-}
-async function chLoadAccounts(){
-  try{
-    if(!statusData?.accounts)return;
-    const sel=$('#chSafeAccount');
-    const cur=sel.value;
-    sel.innerHTML='<option value="">None (cheats apply to all)</option>';
-    for(const a of statusData.accounts){
-      const o=document.createElement('option');o.value=a.account_name||a.id;
-      o.textContent=a.display_name||a.persona_name||a.account_name||'Account';
-      sel.appendChild(o);
-    }
-    if(cur)sel.value=cur;
   }catch{}
 }
 function chToggle(id){
@@ -2612,7 +2629,7 @@ function chToggle(id){
   const on=btn.classList.toggle('on');
   btn.setAttribute('aria-checked',on?'true':'false');
   const name=id==='chAimbotToggle'?'Aimbot':'Triggerbot';
-  toast(name+(on?' will inject on next launch':' disabled'));
+  toast(name+(on?' enabled — will inject on next launch':' disabled'));
   chSave();
 }
 let _chListening=null;
@@ -2650,14 +2667,12 @@ $('#chAimbotToggle').onclick=()=>chToggle('chAimbotToggle');
 $('#chTriggerbotToggle').onclick=()=>chToggle('chTriggerbotToggle');
 $('#chAimbotBind').onclick=()=>chStartCapture('chAimbotBind');
 $('#chTriggerbotBind').onclick=()=>chStartCapture('chTriggerbotBind');
-$('#chSafeAccount').onchange=chSave;
 async function chSave(){
   try{await post('/api/cheats/save',{
     aimbot:$('#chAimbotToggle').classList.contains('on'),
     triggerbot:$('#chTriggerbotToggle').classList.contains('on'),
     aimbot_key:$('#chAimbotBind').dataset.key,
-    triggerbot_key:$('#chTriggerbotBind').dataset.key,
-    safe_account:$('#chSafeAccount').value
+    triggerbot_key:$('#chTriggerbotBind').dataset.key
   })}catch{}
 }
 </script>

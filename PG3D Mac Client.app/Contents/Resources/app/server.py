@@ -109,6 +109,7 @@ FPS_SOURCE_DIR = BASE / "fps_unlocker"
 FPS_SOURCE_DYLIB = FPS_SOURCE_DIR / "build/PG3DFPSUnlock.dylib"
 FPS_SOURCE_LAUNCHER = FPS_SOURCE_DIR / "build/launch-game"
 FPS_SOURCE_MOUSEFIX = FPS_SOURCE_DIR / "build/PG3DMouseFix.dylib"
+FPS_SOURCE_CHEATS = FPS_SOURCE_DIR / "build/PG3DCheats.dylib"
 
 SUPPORT = Path.home() / "Library/Application Support/PG3D Mac Client"
 HUD_SELECTOR_FILE = Path.home() / "Library/Application Support/PG3D HUD Asset Selector/hud_selection.json"
@@ -135,6 +136,7 @@ ACCOUNT_HELPER_RESULT = SUPPORT / "helper_result.txt"
 FPS_DYLIB = FPS_RUNTIME_DIR / "PG3DFPSUnlock.dylib"
 FPS_LAUNCHER = FPS_RUNTIME_DIR / "launch-game"
 MOUSEFIX_DYLIB = FPS_RUNTIME_DIR / "PG3DMouseFix.dylib"
+CHEATS_DYLIB = FPS_RUNTIME_DIR / "PG3DCheats.dylib"
 ORIGINAL_CURSOR_BASELINE = STATE_DIR / "original_cursor_baseline.png"
 OVERLAY_CONFIG_JSON = STATE_DIR / "overlay_config.json"
 OVERLAY_RUNTIME_JSON = STATE_DIR / "overlay_runtime.json"
@@ -343,13 +345,13 @@ def prepare_fps_runtime():
     try:
         FPS_RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
         for src, dst in ((FPS_SOURCE_DYLIB, FPS_DYLIB), (FPS_SOURCE_LAUNCHER, FPS_LAUNCHER),
-                         (FPS_SOURCE_MOUSEFIX, MOUSEFIX_DYLIB)):
+                         (FPS_SOURCE_MOUSEFIX, MOUSEFIX_DYLIB), (FPS_SOURCE_CHEATS, CHEATS_DYLIB)):
             if src.is_file() and src.stat().st_size > 0:
                 stamp = dst.with_name(dst.name + ".src-sha256")
                 src_sha = sha256_file(src)
                 if not dst.exists() or (stamp.read_text().strip() if stamp.exists() else sha256_file(dst)) != src_sha:
                     shutil.copy2(src, dst)
-                    if dst in (MOUSEFIX_DYLIB, FPS_DYLIB):
+                    if dst in (MOUSEFIX_DYLIB, FPS_DYLIB, CHEATS_DYLIB):
                         # Built without Apple's tools, so they get their ad-hoc signature here.
                         try:
                             subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", str(dst)],
@@ -3883,8 +3885,20 @@ def launch_with_mouse_fix(game: Path):
     log_path.write_text(f"[PG3D Mac Client] launch {datetime.now().isoformat(timespec='seconds')} mouse fix only\n",
                         encoding="utf-8")
     # "-1" leaves the frame rate alone (the FPS library isn't loaded); "1" keeps Unity's own display-link path.
-    result = subprocess.run([str(FPS_LAUNCHER), str(binary), str(MOUSEFIX_DYLIB), "-1", str(log_path), "1"],
-                            cwd=str(game.parent), capture_output=True, text=True, timeout=10)
+    dylib_path = str(MOUSEFIX_DYLIB)
+    cheats = ember_client.cheats_config()
+    use_cheats = CHEATS_DYLIB.is_file() and (cheats.get("aimbot") or cheats.get("triggerbot"))
+    if use_cheats:
+        dylib_path += f":{CHEATS_DYLIB}"
+    env = os.environ.copy()
+    if use_cheats:
+        env["PG3D_CHEATS"] = "1"
+        env["PG3D_CHEATS_AIMBOT"] = "1" if cheats.get("aimbot") else "0"
+        env["PG3D_CHEATS_TRIGGERBOT"] = "1" if cheats.get("triggerbot") else "0"
+        env["PG3D_CHEATS_AIMBOT_KEY"] = cheats.get("aimbot_key", "mouse4")
+        env["PG3D_CHEATS_TRIGGERBOT_KEY"] = cheats.get("triggerbot_key", "mouse5")
+    result = subprocess.run([str(FPS_LAUNCHER), str(binary), dylib_path, "-1", str(log_path), "1"],
+                            cwd=str(game.parent), capture_output=True, text=True, timeout=10, env=env)
     if result.returncode != 0:
         raise RuntimeError(f"Starting PG3D failed: {(result.stderr or result.stdout).strip()}")
     _watch_mouse_fix_start()
@@ -3916,9 +3930,20 @@ def fps_launch(game: Path, fps: str):
     )
     use_mouse_fix = mouse_fix_usable(binary)
     dylibs = f"{FPS_DYLIB}:{MOUSEFIX_DYLIB}" if use_mouse_fix else str(FPS_DYLIB)
+    cheats = ember_client.cheats_config()
+    use_cheats = CHEATS_DYLIB.is_file() and (cheats.get("aimbot") or cheats.get("triggerbot"))
+    if use_cheats:
+        dylibs += f":{CHEATS_DYLIB}"
+    env = os.environ.copy()
+    if use_cheats:
+        env["PG3D_CHEATS"] = "1"
+        env["PG3D_CHEATS_AIMBOT"] = "1" if cheats.get("aimbot") else "0"
+        env["PG3D_CHEATS_TRIGGERBOT"] = "1" if cheats.get("triggerbot") else "0"
+        env["PG3D_CHEATS_AIMBOT_KEY"] = cheats.get("aimbot_key", "mouse4")
+        env["PG3D_CHEATS_TRIGGERBOT_KEY"] = cheats.get("triggerbot_key", "mouse5")
     result = subprocess.run(
         [str(FPS_LAUNCHER), str(binary), dylibs, fps, str(log_path), "0"],
-        cwd=str(game.parent), capture_output=True, text=True, timeout=10
+        cwd=str(game.parent), capture_output=True, text=True, timeout=10, env=env
     )
     if use_mouse_fix and result.returncode == 0:
         _watch_mouse_fix_start()
