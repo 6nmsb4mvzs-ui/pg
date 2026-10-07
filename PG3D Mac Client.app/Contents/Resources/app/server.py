@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.75.9"
+APP_VERSION = "1.76.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -7351,7 +7351,7 @@ def remember_pg3d_id(account, pid, name=None):
 
 _LOOKUP_CACHE = {}
 EMBER_ICON_DIR = SUPPORT / "ember_icons"
-EMBER_ICON_FOLDERS = {"Weapons", "Armor", "WeaponSkin", "Pet", "Lookup", "Currency"}
+EMBER_ICON_FOLDERS = {"Weapons", "Armor", "WeaponSkin", "Pet", "Lookup", "Currency", "Gadget", "Wear", "Royale"}
 
 
 def ember_icon_url(folder, name):

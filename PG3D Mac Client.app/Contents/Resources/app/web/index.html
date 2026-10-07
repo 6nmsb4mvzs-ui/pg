@@ -922,6 +922,16 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .emWepItem img{width:34px;height:34px;object-fit:contain;flex-shrink:0;border-radius:4px}
 .emWepItem .emWN{font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
 .emWepItem .emWN small{display:block;font-size:10px;color:var(--muted);font-weight:400}
+.emCmdIco{width:16px;height:16px;object-fit:contain;vertical-align:-2px;margin-right:4px;border-radius:2px;opacity:.85}
+.emStatGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:10px}
+.emStatRow{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);font-size:12px}
+.emStatRow .xLabel{margin:0;font-size:11px;white-space:nowrap;min-width:80px;font-weight:600}
+.emStatRow input{flex:1;min-width:0}
+.emStealGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-top:10px}
+.emStealItem{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;overflow:hidden}
+.emStealItem:hover{background:hsl(var(--nh) var(--ns) 8%);border-color:var(--accent)}
+.emStealItem img{width:28px;height:28px;object-fit:contain;flex-shrink:0;border-radius:4px}
+.emStealItem.busy{opacity:.5;pointer-events:none}
 /* cheats */
 .chRow{display:flex;align-items:center;gap:10px;margin:8px 0 0;padding:0 12px}
 .chRow .xLabel{margin:0;font-size:11px;white-space:nowrap;min-width:48px}
@@ -1415,6 +1425,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
             <div class="emCmd" data-cmd="add_dlc_sets">DLC Sets</div>
             <div class="emCmd" data-cmd="set_paying_user">Set Paying User</div>
             <div class="emCmd" data-cmd="add_goblins" data-params='{"days":30,"negative":false}'>Goblins</div>
+            <div class="emCmd" data-cmd="add_pixel_pass">Pixel Pass</div>
           </div>
         </div>
 
@@ -1431,6 +1442,31 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
             <div class="xRow"><button class="btn primary" id="emCustomSend">Send</button></div>
           </div>
         </details>
+      </div>
+
+      <div class="crCard" id="emStealCard" hidden>
+        <div class="crCardHead"><div><h3>Skin &amp; Cape Stealer</h3><p class="xNote" style="margin-top:4px">Look up a player and copy their skins, cape, or wear to your account.</p></div></div>
+        <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+          <div style="flex:1;min-width:100px"><div class="xLabel">Player ID</div><input class="xInput" id="emStealId" placeholder="Enter player ID"></div>
+          <button class="btn primary" id="emStealLookup">Lookup</button>
+        </div>
+        <div class="xNote" id="emStealStatus" style="margin-top:6px"></div>
+        <div id="emStealResult" hidden>
+          <div class="xNote" id="emStealName" style="margin-top:8px;font-weight:600;font-size:13px"></div>
+          <div class="emStealGrid" id="emStealItems"></div>
+        </div>
+      </div>
+
+      <div class="crCard" id="emStatsCard" hidden>
+        <div class="crCardHead"><div><h3>Stats Editor</h3><p class="xNote" style="margin-top:4px">Edit weekly stats and global wins by mode.</p></div></div>
+        <div class="emCmdSection"><h4>Weekly Stats</h4>
+          <div class="emStatGrid" id="emWeeklyGrid"></div>
+          <div class="xRow" style="margin-top:10px"><button class="btn primary" id="emWeeklySet">Set Weekly Stats</button><button class="btn ghost" id="emWeeklyReset">Reset to 0</button></div>
+        </div>
+        <div class="emCmdSection"><h4>Global Wins by Mode</h4>
+          <div class="emStatGrid" id="emGlobalGrid"></div>
+          <div class="xRow" style="margin-top:10px"><button class="btn primary" id="emGlobalSet">Set Global Wins</button><button class="btn ghost" id="emGlobalReset">Reset to 0</button></div>
+        </div>
       </div>
     </section>
 
@@ -2551,6 +2587,7 @@ async function emInit(){
 function emShowConnected(show){
   _emConnected=show;
   $('#emCmdCard').hidden=!show;$('#emMaxCard').hidden=!show;$('#emSessionCard').hidden=!show;
+  $('#emStealCard').hidden=!show;$('#emStatsCard').hidden=!show;
   if(show)emLoadWeapons();
 }
 $('#emLogin').onclick=async()=>{
@@ -2677,10 +2714,71 @@ $('#emPartRemove').onclick=async()=>{if(!_emConnected)return toast('Connect firs
   if(!w)return toast('Select a weapon.',true);try{await post('/api/ember/command',{command:'remove_weapon_parts',params:{weapon:w,amount:a}});toast('Parts removed.')}catch(e){toast(e.message,true)}};
 /* ── DLC parts ── */
 $('#emDlcRemoveParts').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);const b=$('#emDlcRemoveParts');if(b.classList.contains('busy'))return;b.classList.add('busy');b.style.opacity='.5';
-  try{const dlc=_emWeapons.filter(w=>w.dlc||w.is_dlc||(w.tags||[]).includes('dlc'));
-    if(dlc.length){for(const w of dlc)await post('/api/ember/command',{command:'remove_weapon_parts',params:{weapon:w.id||w._id||w.weapon_id||w.name,amount:250}});toast('Removed 250 parts from '+dlc.length+' DLC weapons.')}
-    else{await post('/api/ember/command',{command:'remove_weapon_parts',params:{dlc:true,amount:250}});toast('Removed 250 parts from DLC weapons.')}}
+  const DLC_NAMES=['Achievement Hunter','FPS Destroyer','New-Well Pistol'];
+  try{for(const name of DLC_NAMES){const w=_emWeapons.find(x=>(x.name||x.title||x.weapon_name||'')===name);
+    await post('/api/ember/command',{command:'remove_weapon_parts',params:{weapon:w?(w.id||w._id||w.weapon_id||name):name,amount:250}})}
+    toast('Removed 250 parts from '+DLC_NAMES.join(', ')+'.')}
   catch(e){toast(e.message,true)}finally{b.classList.remove('busy');b.style.opacity=''}};
+/* ── Command icons ── */
+(function(){
+  const ICO={
+    add_all_weapons:'Lookup/Weapons',add_all_weapon_skins:'Lookup/Weapons',add_all_weapon_parts:'Lookup/Weapons',upgrade_all_weapons:'Lookup/Weapons',
+    add_all_wear:'Lookup/Sets',add_all_armor:'Lookup/Sets',add_all_hats:'Lookup/Sets',add_all_masks:'Lookup/Sets',add_all_capes:'Lookup/Sets',add_all_boots:'Lookup/Sets',
+    add_all_gadgets:'Lookup/Gadgets',upgrade_all_gadgets:'Lookup/Gadgets',add_all_pets:'Lookup/Pets',upgrade_all_pets:'Lookup/Pets',add_pet_parts:'Lookup/Pets',upgrade_all_modules:'Lookup/Gadgets',
+    add_all_royale:'Lookup/Avatars',add_all_vehicles:'Lookup/Avatars',add_all_gliders:'Lookup/Avatars',add_all_trails:'Lookup/Avatars',add_all_avatars:'Lookup/Avatars',add_all_shovels:'Lookup/Avatars',
+    add_all_portraits:'Lookup/Avatars',add_all_frames:'Lookup/Avatars',add_all_backgrounds:'Lookup/Avatars',add_all_lobby:'Lookup/Avatars',
+    add_veteran_badge:'Lookup/Sets',add_dlc_sets:'Lookup/Sets',set_paying_user:'Currency/Coin',add_goblins:'Currency/Coin',add_pixel_pass:'Currency/PP Tickets'
+  };
+  const SEC={'Level & Currency':'Currency/Coin','Weapons':'Lookup/Weapons','Wear & Armor':'Lookup/Sets','Gadgets, Pets & Modules':'Lookup/Gadgets','Royale':'Lookup/Avatars','DLC Weapons':'Lookup/Sets'};
+  function ico(path,sz){const img=document.createElement('img');img.className='emCmdIco';img.src='/api/ember-icon/'+path+'.png';img.onerror=()=>img.remove();img.width=sz||16;img.height=sz||16;img.loading='lazy';img.alt='';return img}
+  for(const el of $$('.emCmd')){const p=ICO[el.dataset.cmd];if(p)el.prepend(ico(p))}
+  for(const h of $$('#emCmdCard .emCmdSection h4')){const p=SEC[h.textContent.trim()];if(p)h.prepend(ico(p))}
+})();
+/* ── Stats editor ── */
+const EM_WEEKLY=['kills','deaths','headshots','matches','wins','killstreak','winstreak','score'];
+const EM_MODES=[['2','Team Fight'],['0','Deathmatch'],['20','Battle Royale'],['4','Capture'],['16','Team Strike'],['8','Duels'],['1','Tournament'],['5','Free-Play'],['22e','Raids Easy'],['22m','Raids Medium'],['22h','Raids Hard']];
+(function(){
+  const wg=$('#emWeeklyGrid');
+  for(const k of EM_WEEKLY){const d=document.createElement('div');d.className='emStatRow';
+    d.innerHTML='<span class="xLabel">'+k.charAt(0).toUpperCase()+k.slice(1)+'</span><input class="xInput" id="emStat_'+k+'" type="number" value="0" min="0" step="1">';wg.appendChild(d)}
+  const gg=$('#emGlobalGrid');
+  for(const [id,label] of EM_MODES){const d=document.createElement('div');d.className='emStatRow';
+    d.innerHTML='<span class="xLabel">'+esc(label)+'</span><input class="xInput" id="emWins_'+id+'" type="number" value="0" min="0">';gg.appendChild(d)}
+})();
+$('#emWeeklySet').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);
+  const stats={};for(const k of EM_WEEKLY)stats[k]=Number($('#emStat_'+k).value)||0;
+  try{await post('/api/ember/command',{command:'set_weekly_stats',params:stats});toast('Weekly stats set.')}catch(e){toast(e.message,true)}};
+$('#emWeeklyReset').onclick=()=>{for(const k of EM_WEEKLY)$('#emStat_'+k).value='0'};
+$('#emGlobalSet').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);
+  const wins={};for(const [id] of EM_MODES)wins[id]=Number($('#emWins_'+id).value)||0;
+  try{await post('/api/ember/command',{command:'set_global_wins',params:{wins}});toast('Global wins set.')}catch(e){toast(e.message,true)}};
+$('#emGlobalReset').onclick=()=>{for(const [id] of EM_MODES)$('#emWins_'+id).value='0'};
+/* ── Skin & Cape Stealer ── */
+$('#emStealLookup').onclick=async()=>{
+  const id=$('#emStealId').value.trim();if(!id)return toast('Enter a player ID.',true);
+  if(!_emConnected)return toast('Connect to a game account first.',true);
+  const b=$('#emStealLookup');b.disabled=true;$('#emStealStatus').textContent='Looking up player…';$('#emStealResult').hidden=true;
+  try{
+    const d=await api('/api/lookup/'+encodeURIComponent(id));const p=d.player,F=p.full||{},name=p.name||'Unknown';
+    $('#emStealName').textContent=name+'\'s cosmetics';
+    const g=$('#emStealItems');g.innerHTML='';
+    function stealBtn(label,cmd,params,iconSrc){
+      const c=document.createElement('div');c.className='emStealItem';
+      if(iconSrc){const img=document.createElement('img');img.src=iconSrc;img.onerror=()=>img.remove();img.width=28;img.height=28;img.loading='lazy';img.alt='';c.appendChild(img)}
+      const sp=document.createElement('span');sp.textContent=label;c.appendChild(sp);
+      c.onclick=async()=>{if(c.classList.contains('busy'))return;c.classList.add('busy');
+        try{await post('/api/ember/command',{command:cmd,params});toast('Stole '+label+' from '+name+'.')}catch(e){toast(e.message,true)}finally{c.classList.remove('busy')}};
+      return c}
+    if(p.skin)g.appendChild(stealBtn('Current Skin','steal_skin',{player_id:id}));
+    if(F.cape)g.appendChild(stealBtn(F.cape.name||'Cape','steal_cape',{player_id:id}));
+    for(const [cat,arr] of Object.entries(F.wear||{}))for(const x of(arr||[]))g.appendChild(stealBtn(x.name||cat,'steal_wear',{player_id:id,wear_id:x.id},'/api/ember-icon/Armor/'+encodeURIComponent(x.id)+'.png'));
+    for(const x of(F.weapon_skins||[]))g.appendChild(stealBtn(x.name||'Weapon Skin','steal_weapon_skin',{player_id:id,skin_id:x.id},'/api/ember-icon/WeaponSkin/'+encodeURIComponent(x.id)+'.png'));
+    for(const ps of(F.player_skins||[]))if(ps?.texture&&ps.texture!==p.skin)g.appendChild(stealBtn(ps.name||'Alt Skin','steal_skin',{player_id:id,skin_index:F.player_skins.indexOf(ps)}));
+    if(!g.children.length)g.innerHTML='<div style="padding:12px;color:var(--muted);font-size:12px">No stealable cosmetics found.</div>';
+    $('#emStealResult').hidden=false;$('#emStealStatus').textContent='';
+  }catch(e){$('#emStealStatus').textContent='Failed: '+e.message;$('#emStealResult').hidden=true}
+  finally{b.disabled=false}
+};
 
 /* ── Cheats ── */
 let _chInited=false;
