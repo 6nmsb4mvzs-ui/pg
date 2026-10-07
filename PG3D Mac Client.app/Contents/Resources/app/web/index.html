@@ -2709,14 +2709,14 @@ $('#emWepSearch').oninput=emRenderWeps;
 function emPopulatePartSel(){const s=$('#emPartWep');s.innerHTML='';
   for(const w of _emWeapons){const o=document.createElement('option');o.value=w.id||w._id||w.weapon_id||w.name||'';o.textContent=w.name||w.title||w.weapon_name||'';s.appendChild(o)}}
 $('#emPartAdd').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);const w=$('#emPartWep').value,a=Number($('#emPartAmt').value)||250;
-  if(!w)return toast('Select a weapon.',true);try{await post('/api/ember/command',{command:'add_weapon_parts',params:{weapon:w,amount:a}});toast('Parts added.')}catch(e){toast(e.message,true)}};
+  if(!w)return toast('Select a weapon.',true);try{await post('/api/ember/command',{command:'add_weapon_parts',params:{index:w,amount:a}});toast('Parts added.')}catch(e){toast(e.message,true)}};
 $('#emPartRemove').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);const w=$('#emPartWep').value,a=Number($('#emPartAmt').value)||250;
-  if(!w)return toast('Select a weapon.',true);try{await post('/api/ember/command',{command:'add_weapon_parts',params:{weapon:w,amount:-a}});toast('Parts removed.')}catch(e){toast(e.message,true)}};
+  if(!w)return toast('Select a weapon.',true);try{await post('/api/ember/command',{command:'add_weapon_parts',params:{index:w,amount:-a}});toast('Parts removed.')}catch(e){toast(e.message,true)}};
 /* ── DLC parts ── */
 $('#emDlcRemoveParts').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);const b=$('#emDlcRemoveParts');if(b.classList.contains('busy'))return;b.classList.add('busy');b.style.opacity='.5';
   const DLC_NAMES=['Achievement Hunter','FPS Destroyer','New-Well Pistol'];
   try{for(const name of DLC_NAMES){const w=_emWeapons.find(x=>(x.name||x.title||x.weapon_name||'')===name);
-    await post('/api/ember/command',{command:'add_weapon_parts',params:{weapon:w?(w.id||w._id||w.weapon_id||name):name,amount:-250}})}
+    await post('/api/ember/command',{command:'add_weapon_parts',params:{index:w?(w.id||w._id||w.weapon_id||name):name,amount:-250}})}
     toast('Removed 250 parts from '+DLC_NAMES.join(', ')+'.')}
   catch(e){toast(e.message,true)}finally{b.classList.remove('busy');b.style.opacity=''}};
 /* ── Command icons ── */
