@@ -2759,7 +2759,7 @@ $('#emStealLookup').onclick=async()=>{
   if(!_emConnected)return toast('Connect to a game account first.',true);
   const b=$('#emStealLookup');b.disabled=true;$('#emStealStatus').textContent='Looking up player…';$('#emStealResult').hidden=true;
   try{
-    const d=await api('/api/lookup/'+encodeURIComponent(id));const p=d.player,F=p.full||{},name=p.name||'Unknown';
+    const d=await api('/api/lookup/'+encodeURIComponent(id));const p=d.player;if(!p)throw new Error('Player not found.');const F=p.full||{},name=p.name||'Unknown';
     $('#emStealName').textContent=name+'\'s cosmetics';
     const g=$('#emStealItems');g.innerHTML='';
     function stealBtn(label,cmd,params,iconSrc){
