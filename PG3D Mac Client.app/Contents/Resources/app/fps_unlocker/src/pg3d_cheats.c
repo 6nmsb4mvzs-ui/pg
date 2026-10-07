@@ -494,7 +494,9 @@ static bool resolve_physics(void) {
 
 // ── simulate mouse click via CGEvent ──
 
-extern void *CGEventCreateMouseEvent(void *source, uint32_t mouseType, struct { double x; double y; } mouseCursorPosition, uint32_t mouseButton);
+typedef struct { double x; double y; } CGPoint_t;
+
+extern void *CGEventCreateMouseEvent(void *source, uint32_t mouseType, CGPoint_t mouseCursorPosition, uint32_t mouseButton);
 extern void CGEventPost(uint32_t tap, void *event);
 extern void CFRelease(void *cf);
 
@@ -503,8 +505,7 @@ extern void CFRelease(void *cf);
 #define kCGHIDEventTap         0
 
 static void simulate_click(void) {
-    struct { double x; double y; } zero = {0, 0};
-    // We use kCGHIDEventTap to inject at the lowest level
+    CGPoint_t zero = {0, 0};
     void *down = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseDown, zero, 0);
     void *up   = CGEventCreateMouseEvent(NULL, kCGEventLeftMouseUp,   zero, 0);
     if (down) { CGEventPost(kCGHIDEventTap, down); CFRelease(down); }
