@@ -1,11 +1,9 @@
-// PG3D aimbot + triggerbot with in-game overlay.
+// PG3D aimbot + triggerbot — v3.
 // Injected via DYLD_INSERT_LIBRARIES alongside the FPS unlocker.
 //
-// v2 rewrite — the pthread in v1 silently died before logging. This version
-// uses GCD (dispatch), the same timer mechanism the FPS unlocker uses
-// successfully. Targets are found via CharacterController (a Unity engine
-// type that is never obfuscated) instead of game-specific class names.
-// Toggle feedback is shown in a transparent floating NSWindow overlay.
+// v3: uses the EXACT GCD pattern from the FPS unlocker (which works):
+//   constructor → dispatch_async(main_queue) → dispatch_source timer on main_queue
+// v1 (pthread) and v2 (dispatch_after on global_queue) both silently failed.
 //
 // Built without the macOS SDK (zig cc, -undefined dynamic_lookup, -fblocks).
 
@@ -68,7 +66,7 @@ typedef void Il2CppDomain;
 typedef void Il2CppAssembly;
 typedef void Il2CppType;
 
-// ── IL2CPP API function pointers ──
+// ── IL2CPP API ──
 
 static void  *(*p_resolve_icall)(const char *name);
 static void  *(*p_get_corlib)(void);
@@ -78,7 +76,7 @@ static Il2CppImage      *(*p_assembly_get_image)(Il2CppAssembly *);
 static Il2CppClass      *(*p_class_from_name)(Il2CppImage *, const char *, const char *);
 static Il2CppType       *(*p_class_get_type)(Il2CppClass *);
 
-// ── Unity icall function pointers ──
+// ── Unity icalls ──
 
 static Il2CppObject *(*Camera_get_main)(void);
 static Il2CppObject *(*Component_get_transform)(Il2CppObject *);
@@ -96,13 +94,13 @@ typedef struct { double x, y, w, h; } NSRect_t;
 // ── Config ──
 
 enum {
-    kInitRetryMs   = 500,
-    kInitMaxRetries = 120,     // 60 s of retries
+    kInitRetryMs    = 500,
+    kInitMaxRetries = 120,
     kTickHz         = 60,
     kMaxTargets     = 32,
     kAimSmoothing   = 8,
     kOverlayMs      = 2000,
-    kTriggerDot     = 998,     // cos(~3.6 deg) × 1000
+    kTriggerDot     = 998,
 };
 
 // ── State ──
@@ -125,6 +123,7 @@ static Il2CppClass *g_target_class;
 static void *(*g_type_get_object)(void *);
 static void *(*g_find_of_type)(void *);
 
+static dispatch_source_t g_init_timer;
 static dispatch_source_t g_tick_timer;
 static dispatch_source_t g_dismiss_timer;
 static id g_overlay_window;
@@ -135,7 +134,7 @@ static bool g_overlay_failed;
 // ── Logging ──
 
 static void note(const char *fmt, ...) {
-    fprintf(stderr, "[PG3D Cheats pid=%d] ", getpid());
+    fprintf(stderr, "[PG3D Cheats v3 pid=%d] ", getpid());
     va_list ap;
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
@@ -206,6 +205,7 @@ static void ensure_overlay(void) {
     Class FntCls  = objc_getClass("NSFont");
     Class ScrCls  = objc_getClass("NSScreen");
     if (!WinCls || !TFCls || !ColCls || !FntCls) {
+        note("overlay: missing AppKit classes");
         g_overlay_failed = true;
         return;
     }
@@ -222,7 +222,7 @@ static void ensure_overlay(void) {
     id w = MSG(id)((id)WinCls, SEL_("alloc"));
     w = ((id (*)(id, SEL, NSRect_t, unsigned long, unsigned long, int))objc_msgSend)(
         w, SEL_("initWithContentRect:styleMask:backing:defer:"), wf, 0UL, 2UL, 0);
-    if (!w) { g_overlay_failed = true; return; }
+    if (!w) { note("overlay: NSWindow alloc failed"); g_overlay_failed = true; return; }
 
     id bg = MSG(id, double, double, double, double)(
         (id)ColCls, SEL_("colorWithCalibratedRed:green:blue:alpha:"),
@@ -232,7 +232,6 @@ static void ensure_overlay(void) {
     MSG(void, long)(w, SEL_("setLevel:"), 1000);
     MSG(void, int)(w, SEL_("setIgnoresMouseEvents:"), 1);
     MSG(void, int)(w, SEL_("setHasShadow:"), 0);
-    // CanJoinAllSpaces | Transient | IgnoresCycle | FullScreenAuxiliary
     MSG(void, unsigned long)(w, SEL_("setCollectionBehavior:"), 1UL | 8UL | 64UL | 256UL);
 
     NSRect_t lf = {0, 2, ww, wh - 2};
@@ -241,7 +240,7 @@ static void ensure_overlay(void) {
     MSG(void, int)(lbl, SEL_("setEditable:"), 0);
     MSG(void, int)(lbl, SEL_("setBezeled:"), 0);
     MSG(void, int)(lbl, SEL_("setDrawsBackground:"), 0);
-    MSG(void, long)(lbl, SEL_("setAlignment:"), 2); // center
+    MSG(void, long)(lbl, SEL_("setAlignment:"), 2);
     id font = MSG(id, double)((id)FntCls, SEL_("boldSystemFontOfSize:"), 15.0);
     MSG(void, id)(lbl, SEL_("setFont:"), font);
 
@@ -251,6 +250,7 @@ static void ensure_overlay(void) {
     g_overlay_window = w;
     g_overlay_label = lbl;
     g_overlay_created = true;
+    note("overlay: created");
 }
 
 static void overlay_set_text(const char *text, bool on) {
@@ -369,19 +369,16 @@ static bool resolve_unity_icalls(void) {
            && Transform_get_position && Transform_get_eulerAngles
            && Transform_set_eulerAngles;
 
-    note("icalls: cam=%p tf=%p pos=%p euler=%p set_euler=%p fwd=%p fot=%p → %s",
+    note("icalls: cam=%p tf=%p pos=%p euler=%p set_euler=%p fwd=%p fot=%p dt=%p → %s",
          (void *)Camera_get_main, (void *)Component_get_transform,
          (void *)Transform_get_position, (void *)Transform_get_eulerAngles,
          (void *)Transform_set_eulerAngles, (void *)Transform_get_forward,
-         (void *)g_find_of_type, ok ? "OK" : "incomplete");
+         (void *)g_find_of_type, (void *)Time_get_deltaTime,
+         ok ? "OK" : "incomplete");
     return ok;
 }
 
 // ── Target class discovery ──
-// CharacterController is a Unity engine type in UnityEngine.PhysicsModule — it
-// is never obfuscated regardless of game build.  Every player character in PG3D
-// (and most Unity FPS games) carries one.  We search every loaded assembly image
-// so we hit the engine module, not just the game assembly.
 
 static bool find_target_class(void) {
     if (g_target_class) return true;
@@ -418,8 +415,6 @@ static bool find_target_class(void) {
 }
 
 // ── Target enumeration ──
-// Returns world-space positions of enemy characters, with the local player
-// filtered out (closest to camera, within 3 m).
 
 static int get_targets(Vec3 cam_pos, Vec3 *out, int max_n) {
     if (!g_target_class || !p_class_get_type || !g_type_get_object || !g_find_of_type)
@@ -431,7 +426,6 @@ static int get_targets(Vec3 cam_pos, Vec3 *out, int max_n) {
     void *arr = g_find_of_type(rtype);
     if (!arr) return 0;
 
-    // IL2CPP array: 16-byte header + 8-byte bounds + 8-byte length + elements
     uint8_t *raw = (uint8_t *)arr;
     size_t len = *(size_t *)(raw + 24);
     if (len == 0 || len > (size_t)kMaxTargets * 2) return 0;
@@ -445,8 +439,8 @@ static int get_targets(Vec3 cam_pos, Vec3 *out, int max_n) {
         Vec3 pos;
         Transform_get_position(tf, (float *)&pos);
         float dx = pos.x - cam_pos.x, dy = pos.y - cam_pos.y, dz = pos.z - cam_pos.z;
-        if (dx*dx + dy*dy + dz*dz < 9.0f) continue; // local player (<3 m)
-        pos.y += 1.5f; // head height
+        if (dx*dx + dy*dy + dz*dz < 9.0f) continue;
+        pos.y += 1.5f;
         out[n++] = pos;
     }
     return n;
@@ -498,13 +492,16 @@ static void simulate_click(void) {
     if (up)   { CGEventPost(kCGHIDEventTap, up);   CFRelease(up);   }
 }
 
-// ── Tick (runs ~60 Hz on a GCD global queue) ──
+// ── Tick (runs ~60 Hz on main queue) ──
 
 static bool g_aim_was_down;
 static bool g_trig_was_down;
 static bool g_logged_first_tick;
+static unsigned long g_tick_count;
 
 static void cheats_tick(void) {
+    g_tick_count++;
+
     // ── toggle detection (rising edge) ──
     if (g_aimbot_enabled) {
         bool down = key_is_down(g_aim_key_type, g_aim_key_code);
@@ -538,7 +535,8 @@ static void cheats_tick(void) {
     Transform_get_position(cam_tf, (float *)&cam_pos);
 
     if (!g_logged_first_tick) {
-        note("first tick — camera at (%.1f, %.1f, %.1f)", cam_pos.x, cam_pos.y, cam_pos.z);
+        note("first active tick (#%lu) — camera at (%.1f, %.1f, %.1f)",
+             g_tick_count, cam_pos.x, cam_pos.y, cam_pos.z);
         g_logged_first_tick = true;
     }
 
@@ -585,33 +583,34 @@ static void cheats_tick(void) {
     }
 }
 
-// ── Init (GCD-based retry, fires every 500 ms until ready) ──
+// ── Init (timer on main queue, same pattern as FPS unlocker) ──
 
 static void start_tick_timer(void) {
     g_tick_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
-        dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0));
-    dispatch_source_set_timer(g_tick_timer, DISPATCH_TIME_NOW,
-        (uint64_t)(NSEC_PER_SEC / kTickHz), NSEC_PER_MSEC);
+                                          dispatch_get_main_queue());
+    if (!g_tick_timer) {
+        note("FATAL: could not create tick timer");
+        return;
+    }
+    dispatch_source_set_timer(g_tick_timer,
+                              dispatch_time(DISPATCH_TIME_NOW, 0),
+                              (uint64_t)(NSEC_PER_SEC / kTickHz),
+                              NSEC_PER_MSEC);
     dispatch_source_set_event_handler(g_tick_timer, ^{ cheats_tick(); });
     dispatch_resume(g_tick_timer);
-    note("tick timer started (%d Hz)", kTickHz);
+    note("tick timer started (%d Hz on main queue)", kTickHz);
 }
 
-static void cheats_init_attempt(void);
-
-static void schedule_retry(void) {
-    dispatch_after(
-        dispatch_time(DISPATCH_TIME_NOW, (int64_t)kInitRetryMs * NSEC_PER_MSEC),
-        dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-        ^{ cheats_init_attempt(); });
-}
-
-static void cheats_init_attempt(void) {
+static void init_attempt(void) {
     g_init_attempts++;
 
     if (g_init_attempts > (unsigned)kInitMaxRetries) {
-        note("gave up after %u init attempts — cheats inactive", g_init_attempts);
+        note("gave up after %u attempts", g_init_attempts);
         show_game_msg("CHEATS FAILED", false);
+        if (g_init_timer) {
+            dispatch_source_cancel(g_init_timer);
+            g_init_timer = NULL;
+        }
         return;
     }
 
@@ -620,7 +619,6 @@ static void cheats_init_attempt(void) {
         if (!g_ga_found) {
             if (g_init_attempts <= 3 || g_init_attempts % 20 == 0)
                 note("init %u: GameAssembly not loaded yet", g_init_attempts);
-            schedule_retry();
             return;
         }
     }
@@ -630,7 +628,6 @@ static void cheats_init_attempt(void) {
         if (!g_icalls_ready) {
             if (g_init_attempts <= 3 || g_init_attempts % 20 == 0)
                 note("init %u: icalls not ready", g_init_attempts);
-            schedule_retry();
             return;
         }
     }
@@ -640,25 +637,30 @@ static void cheats_init_attempt(void) {
         if (!g_target_class) {
             if (g_init_attempts <= 5 || g_init_attempts % 20 == 0)
                 note("init %u: target class not found", g_init_attempts);
-            schedule_retry();
             return;
         }
+    }
+
+    // All systems go — cancel the init timer and start the tick timer
+    if (g_init_timer) {
+        dispatch_source_cancel(g_init_timer);
+        g_init_timer = NULL;
     }
 
     g_ready = true;
     g_has_accessibility = AXIsProcessTrusted();
 
-    note("READY — aim:%s trig:%s targets:%s accessibility:%s",
+    note("READY after %u attempts — aim:%s trig:%s targets:CharacterController accessibility:%s",
+         g_init_attempts,
          g_aimbot_active  ? "ON" : "off",
          g_triggerbot_active ? "ON" : "off",
-         g_target_class ? "CharacterController" : "none",
-         g_has_accessibility ? "yes" : "no (triggerbot click may not work)");
+         g_has_accessibility ? "yes" : "no (triggerbot click won't work)");
 
     show_game_msg("CHEATS READY", true);
     start_tick_timer();
 }
 
-// ── Entry ──
+// ── Entry — exact FPS unlocker GCD pattern ──
 
 __attribute__((constructor))
 static void start_cheats(void) {
@@ -683,9 +685,26 @@ static void start_cheats(void) {
          g_aimbot_enabled  ? "ON" : "off", g_aim_key_type,  g_aim_key_code,
          g_triggerbot_enabled ? "ON" : "off", g_trig_key_type, g_trig_key_code);
 
-    // Schedule init with 2 s delay (same GCD pattern the FPS unlocker uses)
-    dispatch_after(
-        dispatch_time(DISPATCH_TIME_NOW, 2LL * NSEC_PER_SEC),
-        dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-        ^{ cheats_init_attempt(); });
+    // Exact FPS unlocker pattern: dispatch_async to main queue, create timer on main queue.
+    // v1 (pthread) and v2 (dispatch_after on global queue) both silently died.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        note("main queue block fired — creating init timer");
+
+        g_init_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
+                                              dispatch_get_main_queue());
+        if (g_init_timer == NULL) {
+            note("FATAL: could not create init timer");
+            return;
+        }
+        dispatch_source_set_timer(g_init_timer,
+                                  dispatch_time(DISPATCH_TIME_NOW,
+                                                (int64_t)kInitRetryMs * NSEC_PER_MSEC),
+                                  (uint64_t)kInitRetryMs * NSEC_PER_MSEC,
+                                  25 * NSEC_PER_MSEC);
+        dispatch_source_set_event_handler(g_init_timer, ^{
+            init_attempt();
+        });
+        dispatch_resume(g_init_timer);
+        note("init timer started (%d ms interval on main queue)", kInitRetryMs);
+    });
 }
