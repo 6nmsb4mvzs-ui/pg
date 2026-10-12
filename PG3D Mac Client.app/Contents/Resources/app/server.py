@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.76.3"
+APP_VERSION = "1.77.0"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -2794,6 +2794,9 @@ def _steam_accounts_uncached():
             "active": active, "remembered": remember, "auto_login": allow_auto,
         })
     prefs = read_json(PREFS_JSON, {})
+    hidden = set(prefs.get("hidden_accounts", []))
+    if hidden:
+        accounts = [a for a in accounts if a["steamid64"] not in hidden]
     nicknames = prefs.get("account_nicknames", {})
     if not isinstance(nicknames, dict):
         nicknames = {}
@@ -2820,6 +2823,18 @@ def select_account(steamid64):
     prefs = read_json(PREFS_JSON, {})
     prefs["selected_steamid"] = steamid64
     write_json(PREFS_JSON, prefs)
+    return {"ok": True}
+
+
+def hide_account(steamid64):
+    prefs = read_json(PREFS_JSON, {})
+    hidden = set(prefs.get("hidden_accounts", []))
+    hidden.add(str(steamid64))
+    prefs["hidden_accounts"] = sorted(hidden)
+    if prefs.get("selected_steamid") == str(steamid64):
+        prefs.pop("selected_steamid", None)
+    write_json(PREFS_JSON, prefs)
+    invalidate("steam_accounts")
     return {"ok": True}
 
 
@@ -3727,36 +3742,15 @@ def submit_steam_guard_code(raw_code):
 
     # Steam has now created/updated its own remembered authorization for this Mac.
     # Continue the launch without re-running the account switch and causing another Guard challenge.
-    if launch_kind == 'fps':
-        game = find_app()
-        if not game:
-            raise RuntimeError('Pixel Gun 3D.app was not found.')
-        set_status(launch_phase='launching', launch_message='Starting PG3D through FPS unlocker…', launch_error=None)
-        result = fps_launch(game, fps if fps is not None else prefs_payload().get('fps_target', 'uncapped'))
-        set_status(launch_phase='idle', launch_message=result['message'], launch_error=None,
-                   last_fps={**result, 'at': datetime.now().isoformat(timespec='seconds')})
-        return {'ok': True, 'launched': True, 'needs_guard': False, **result}
+    game = find_app()
+    if not game:
+        raise RuntimeError('Pixel Gun 3D.app was not found.')
+    set_status(launch_phase='launching', launch_message='Starting PG3D through FPS unlocker…', launch_error=None)
+    result = fps_launch(game, fps if fps is not None else prefs_payload().get('fps_target', 'uncapped'))
+    set_status(launch_phase='idle', launch_message=result['message'], launch_error=None,
+               last_fps={**result, 'at': datetime.now().isoformat(timespec='seconds')})
+    return {'ok': True, 'launched': True, 'needs_guard': False, **result}
 
-    set_status(launch_phase='launching', launch_message='Starting PG3D normally…', launch_error=None)
-    set_status(launch_phase='idle', launch_message=start_game_normally(), launch_error=None)
-    return {'ok': True, 'launched': True, 'needs_guard': False}
-
-def launch_normal():
-    if game_running():
-        raise RuntimeError("Pixel Gun 3D is already running.")
-    account_result = switch_steam_account_if_needed()
-    if account_result.get('needs_guard'):
-        target = account_result.get('account') or {}
-        _set_pending_guard(target, 'normal')
-        return {'ok': True, 'needs_guard': True, 'needs_login': True,
-                'message': 'Enter the Steam Guard code sent to your email.'}
-    if account_result.get("needs_login"):
-        msg = account_result.get("message") or "Steam needs you to finish signing in to the selected account."
-        set_status(launch_phase="needs_login", launch_message=msg, launch_error=None)
-        return {"ok": True, "needs_login": True, "message": msg + " PG3D was not launched."}
-    set_status(launch_phase="launching", launch_message="Starting PG3D normally…", launch_error=None)
-    set_status(launch_phase="idle", launch_message=start_game_normally(), launch_error=None)
-    return {"ok": True, "needs_login": False}
 
 
 def fps_target_value(value):
@@ -3857,52 +3851,39 @@ def ensure_steam_running(timeout=60):
     return False
 
 
-def start_game_normally():
-    """Start PG3D at its own frame rate: directly with the mouse fix when it can
-    be used, otherwise through Steam. Returns the message to show."""
-    game = find_app()
-    binary = game / "Contents/MacOS/Pixel Gun 3D" if game else None
-    if binary and mouse_fix_usable(binary) and FPS_LAUNCHER.is_file():
-        if ensure_steam_running():
-            try:
-                launch_with_mouse_fix(game)
-                return "PG3D is running with the mouse fix."
-            except Exception as e:
-                log(f"Mouse-fix start failed, starting through Steam instead: {e}")
+
+
+def run_trace_cleaner():
+    """Run the ban trace cleaner silently before game launch."""
+    pgtc_script = BASE / "pgtc.py"
+    if not pgtc_script.is_file():
+        return
+    try:
+        r = subprocess.run(
+            [sys.executable, "-I", str(pgtc_script), "--auto", "--apply"],
+            capture_output=True, text=True, timeout=60
+        )
+        if r.returncode == 0:
+            log("Trace cleaner completed.")
         else:
-            log("Mouse-fix start skipped: Steam didn't come up in time.")
-    elif binary:
-        log(f"Mouse fix not used: enabled={mouse_fix_enabled()} dylib={MOUSEFIX_DYLIB.is_file()} "
-            f"launcher={FPS_LAUNCHER.is_file()} arches={sorted(binary_arches(binary))}")
-    subprocess.Popen(["open", f"steam://run/{STEAM_APP_ID}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return "PG3D is running."
+            log(f"Trace cleaner: {r.stderr.strip() or r.stdout.strip()}")
+    except Exception as e:
+        log(f"Trace cleaner failed: {e}")
 
 
-def launch_with_mouse_fix(game: Path):
-    """Start PG3D directly with only the mouse fix loaded (normal frame pacing)."""
-    binary = game / "Contents/MacOS/Pixel Gun 3D"
-    log_path = FPS_LOG_DIR / f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
-    log_path.write_text(f"[PG3D Mac Client] launch {datetime.now().isoformat(timespec='seconds')} mouse fix only\n",
-                        encoding="utf-8")
-    # "-1" leaves the frame rate alone (the FPS library isn't loaded); "1" keeps Unity's own display-link path.
-    dylib_path = str(MOUSEFIX_DYLIB)
+def _setup_cheats_env(env, dylibs):
+    """Load the cheats dylib and write its config file. Returns the updated dylib string."""
     cheats = ember_client.cheats_config()
-    use_cheats = CHEATS_DYLIB.is_file() and (cheats.get("aimbot") or cheats.get("triggerbot"))
-    if use_cheats:
-        dylib_path += f":{CHEATS_DYLIB}"
-    env = os.environ.copy()
-    if use_cheats:
-        env["PG3D_CHEATS"] = "1"
-        env["PG3D_CHEATS_AIMBOT"] = "1" if cheats.get("aimbot") else "0"
-        env["PG3D_CHEATS_TRIGGERBOT"] = "1" if cheats.get("triggerbot") else "0"
-        env["PG3D_CHEATS_AIMBOT_KEY"] = cheats.get("aimbot_key", "mouse4")
-        env["PG3D_CHEATS_TRIGGERBOT_KEY"] = cheats.get("triggerbot_key", "mouse5")
-    result = subprocess.run([str(FPS_LAUNCHER), str(binary), dylib_path, "-1", str(log_path), "1"],
-                            cwd=str(game.parent), capture_output=True, text=True, timeout=10, env=env)
-    if result.returncode != 0:
-        raise RuntimeError(f"Starting PG3D failed: {(result.stderr or result.stdout).strip()}")
-    _watch_mouse_fix_start()
-    return {"log": str(log_path)}
+    if not CHEATS_DYLIB.is_file():
+        return dylibs
+    dylibs += f":{CHEATS_DYLIB}"
+    aim_log = FPS_LOG_DIR / f"aim-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
+    aim_config = STATE_DIR / "aim_controls.conf"
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    ember_client.write_aim_config(str(aim_config), cheats)
+    env["PG3D_AIM_LOG"] = str(aim_log)
+    env["PG3D_AIM_CONFIG"] = str(aim_config)
+    return dylibs
 
 
 def fps_launch(game: Path, fps: str):
@@ -3923,6 +3904,7 @@ def fps_launch(game: Path, fps: str):
     fps = fps_target_value(fps)
     if not ensure_steam_running():
         raise RuntimeError("Steam didn't start. Open Steam, sign in, then press Start again.")
+    run_trace_cleaner()
     log_path = FPS_LOG_DIR / f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
     log_path.write_text(
         f"[PG3D Mac Client] launch {datetime.now().isoformat(timespec='seconds')} fps={fps}\n",
@@ -3930,17 +3912,8 @@ def fps_launch(game: Path, fps: str):
     )
     use_mouse_fix = mouse_fix_usable(binary)
     dylibs = f"{FPS_DYLIB}:{MOUSEFIX_DYLIB}" if use_mouse_fix else str(FPS_DYLIB)
-    cheats = ember_client.cheats_config()
-    use_cheats = CHEATS_DYLIB.is_file() and (cheats.get("aimbot") or cheats.get("triggerbot"))
-    if use_cheats:
-        dylibs += f":{CHEATS_DYLIB}"
     env = os.environ.copy()
-    if use_cheats:
-        env["PG3D_CHEATS"] = "1"
-        env["PG3D_CHEATS_AIMBOT"] = "1" if cheats.get("aimbot") else "0"
-        env["PG3D_CHEATS_TRIGGERBOT"] = "1" if cheats.get("triggerbot") else "0"
-        env["PG3D_CHEATS_AIMBOT_KEY"] = cheats.get("aimbot_key", "mouse4")
-        env["PG3D_CHEATS_TRIGGERBOT_KEY"] = cheats.get("triggerbot_key", "mouse5")
+    dylibs = _setup_cheats_env(env, dylibs)
     result = subprocess.run(
         [str(FPS_LAUNCHER), str(binary), dylibs, fps, str(log_path), "0"],
         cwd=str(game.parent), capture_output=True, text=True, timeout=10, env=env
@@ -4003,7 +3976,7 @@ def _confirm_fps_by_measurement(log_path, pid, timeout=120):
 
 _FPS_MESSAGES = {
     "ok": "FPS unlocker active.",
-    "fail": "The FPS unlocker isn't supported on this PG3D build, so it stays off (it can't crash the game); PG3D runs at its own frame rate.",
+    "fail": "PG3D is running.",
     "exited": "PG3D closed before the FPS unlocker could start.",
     None: "PG3D is loading; the FPS unlocker switches on once the game is ready.",
 }
@@ -4175,26 +4148,25 @@ def _launch_ticker():
         time.sleep(0.4)
 
 
-def start_launch(kind, fps=None):
+def start_launch(kind="fps", fps=None):
     with _LOCK:
         if launch_busy():
             raise RuntimeError("PG3D is already starting.")
         if game_running():
             raise RuntimeError("Pixel Gun 3D is already running.")
-        if kind == "fps" and not find_app():
+        if not find_app():
             raise RuntimeError("Pixel Gun 3D.app was not found.")
         STATUS.update(launch_phase="preparing", launch_progress=0, launch_eta=None,
                       launch_message="Getting ready…", launch_error=None)
-    threading.Thread(target=_launch_job, args=(kind, fps), daemon=True).start()
+    threading.Thread(target=_launch_job, args=(fps,), daemon=True).start()
     threading.Thread(target=_launch_ticker, daemon=True).start()
     return {"ok": True, "started": True}
 
 
-def _launch_job(kind, fps):
+def _launch_job(fps):
     times = _launch_times()
-    start_key = "start_fps" if kind == "fps" else "start_normal"
+    start_key = "start_fps"
     try:
-        # 1) Never start while game files are being rewritten (theme, sky, cursor).
         _launch_stage("preparing", 0, 8, 1, "Checking game files…", later=times["switch"] + times[start_key])
         waited = time.time()
         _LAUNCH["waiting_jobs"] = True  # lets queued changes run first instead of waiting for this start
@@ -4221,7 +4193,7 @@ def _launch_job(kind, fps):
         if account_result.get("switched"):
             _learn_launch_time("switch", time.time() - t0)
         if account_result.get("needs_guard"):
-            _set_pending_guard(account_result.get("account") or {}, kind, fps)
+            _set_pending_guard(account_result.get("account") or {}, "fps", fps)
             _LAUNCH["stage"] = None
             set_status(launch_phase="steam_guard", launch_message="Enter the Steam Guard code sent to your email.",
                        launch_progress=None, launch_eta=None)
@@ -4255,14 +4227,11 @@ def _launch_job(kind, fps):
 
         # 4) Start the game and wait until it is actually running.
         _launch_stage("launching", 55 if needs_switch else 12, 96, times[start_key],
-                      "Starting PG3D through the FPS unlocker…" if kind == "fps" else "Starting PG3D…")
+                      "Starting PG3D through the FPS unlocker…")
         t0 = time.time()
-        if kind == "fps":
-            result = fps_launch(find_app(), fps if fps is not None else prefs_payload().get("fps_target", "uncapped"))
-            message = result["message"]
-            set_status(last_fps={**result, "at": datetime.now().isoformat(timespec="seconds")})
-        else:
-            message = start_game_normally()
+        result = fps_launch(find_app(), fps if fps is not None else prefs_payload().get("fps_target", "uncapped"))
+        message = result["message"]
+        set_status(last_fps={**result, "at": datetime.now().isoformat(timespec="seconds")})
         # The first start after a game update can take a few minutes while Steam
         # finishes up, so wait patiently and say what's going on.
         deadline = time.time() + 300
@@ -4707,7 +4676,6 @@ def status_payload():
                    if updater.UPDATER else None),
         "playtime": playtime_summary(account_info.get("current") or account_info.get("selected") or "unknown"),
         "rank": _safe_rank(account_info.get("current") or account_info.get("selected") or "unknown"),
-        "last_session": last_session_payload(),
         "game_update": game_update_info(),
         "reapply_mods": reapply_enabled(),
         "mouse_fix": mouse_fix_enabled(),
@@ -7408,9 +7376,14 @@ def _png_b64(value):
 
 
 def lookup_player(pid):
-    pid = re.sub(r"\s+", "", str(pid or ""))
-    if not re.fullmatch(r"\d{1,12}", pid):
-        raise RuntimeError("A PG3D player ID is numbers only.")
+    raw = re.sub(r"\s+", "", str(pid or ""))
+    if not re.fullmatch(r"\d{1,12}", raw):
+        m = re.search(r"\d{4,12}", raw)
+        if m:
+            raw = m.group(0)
+        else:
+            raise RuntimeError("Could not find a PG3D player ID (numeric, 4–12 digits).")
+    pid = raw
     hit = _LOOKUP_CACHE.get(pid)
     if hit and time.time() - hit["fetched"] < 120:
         return hit
@@ -8096,6 +8069,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(set_account_credentials(str(data.get("steamid64", "")), data.get("username", ""), data.get("password", "")))
             if path == "/api/account/credentials/remove":
                 return self.send_json(remove_account_credentials(str(data.get("steamid64", ""))))
+            if path == "/api/account/hide":
+                return self.send_json(hide_account(str(data.get("steamid64", ""))))
             if path == "/api/account/guard":
                 return self.send_json(submit_steam_guard_code(data.get("code", "")))
             if path == "/api/account/refresh":
@@ -8195,8 +8170,6 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/clips/screens/refresh":
                 clips.RECORDER.screens(refresh=True)
                 return self.send_json(clips.payload())
-            if path == "/api/launch/normal":
-                return self.send_json(start_launch("normal"))
             if path == "/api/launch/fps":
                 return self.send_json(start_launch("fps", data.get("fps", prefs_payload().get("fps_target", "uncapped"))))
             if path == "/api/ember/login":
@@ -8204,7 +8177,9 @@ class Handler(BaseHTTPRequestHandler):
                 password = str(data.get("password", "")).strip()
                 if not username or not password:
                     raise RuntimeError("Username and password are required.")
-                return self.send_json(ember_client.login(username, password))
+                result = ember_client.login(username, password)
+                ember_client.save_credentials(username, password)
+                return self.send_json(result)
             if path == "/api/ember/logout":
                 return self.send_json(ember_client.logout())
             if path == "/api/ember/connect":
@@ -8373,6 +8348,15 @@ def main():
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     threading.Thread(target=idle_watch, args=(server,), daemon=True).start()
     threading.Thread(target=playtime_watch, daemon=True).start()
+    def _ember_auto_login():
+        try:
+            creds = ember_client.load_credentials()
+            if creds.get("ok") and creds.get("username") and creds.get("password"):
+                ember_client.login(creds["username"], creds["password"])
+                log("Ember: auto-login succeeded.")
+        except Exception as e:
+            log(f"Ember: auto-login failed: {e}")
+    threading.Thread(target=_ember_auto_login, daemon=True).start()
     threading.Thread(target=ember_sync_watch, daemon=True).start()
     threading.Thread(target=mods_reapply_watch, daemon=True).start()
     threading.Thread(target=repair_sky_targets, daemon=True).start()
