@@ -18,7 +18,7 @@ func interact(by: Node) -> void:
 		return
 	_is_active = true
 	var rest_pos := global_position + rest_position_offset
-	GameManager.rest_at_point(rest_point_id, rest_pos, GameManager.current_scene_path)
+	GameManager.rest_at_point(rest_point_id, rest_pos)
 	rested.emit()
 	_is_active = false
 

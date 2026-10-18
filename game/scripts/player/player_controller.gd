@@ -151,7 +151,7 @@ func _handle_input(delta: float) -> void:
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
-	var is_sprint := Input.is_action_pressed("sprint") and direction.length() > 0.1 and stats.stamina > 0
+	var is_sprint: bool = Input.is_action_pressed("sprint") and direction.length() > 0.1 and stats.stamina > 0
 
 	if is_sprint:
 		stats.use_stamina(sprint_stamina_rate * delta)
@@ -259,7 +259,7 @@ func _check_interaction() -> void:
 func take_damage(amount: float, from_pos: Vector3, _from_dir: Vector3, _heavy: bool = false) -> void:
 	if is_invincible or current_state == PlayerState.DEAD:
 		return
-	var actual := stats.apply_damage(amount)
+	var actual: float = stats.apply_damage(amount)
 	if stats.health <= 0:
 		_die()
 	elif actual > stats.max_health * 0.25:
