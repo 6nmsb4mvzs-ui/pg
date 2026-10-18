@@ -1,0 +1,41 @@
+; Ashvale — Dark Fantasy Soulslike RPG
+; Godot 4.3, Forward+ renderer
+
+config_version=5
+
+[application]
+
+config/name="Ashvale"
+config/description="A Dark Fantasy Soulslike RPG"
+run/main_scene="res://scenes/main_menu.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
+
+[autoload]
+
+SettingsManager="*res://scripts/autoload/settings_manager.gd"
+SaveManager="*res://scripts/autoload/save_manager.gd"
+GameManager="*res://scripts/autoload/game_manager.gd"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+
+[layer_names]
+
+3d_physics/layer_1="world"
+3d_physics/layer_2="player"
+3d_physics/layer_3="enemies"
+3d_physics/layer_4="interactables"
+3d_physics/layer_5="projectiles"
+
+[physics]
+
+3d/default_gravity=20.0
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0.02, 0.02, 0.04, 1)

@@ -1,0 +1,257 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/game_level.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="3"]
+[ext_resource type="Script" path="res://scripts/world/rest_point.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/enemies/enemy_base.gd" id="5"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.03, 0.03, 0.08, 1)
+sky_horizon_color = Color(0.06, 0.05, 0.08, 1)
+ground_bottom_color = Color(0.02, 0.02, 0.03, 1)
+ground_horizon_color = Color(0.06, 0.05, 0.08, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 2
+ambient_light_color = Color(0.08, 0.08, 0.12, 1)
+ambient_light_energy = 0.3
+tonemap_mode = 2
+fog_enabled = true
+fog_light_color = Color(0.05, 0.04, 0.06, 1)
+fog_density = 0.005
+
+[sub_resource type="StandardMaterial3D" id="stone_floor"]
+albedo_color = Color(0.15, 0.13, 0.12, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="dark_wall"]
+albedo_color = Color(0.1, 0.09, 0.08, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="pillar_stone"]
+albedo_color = Color(0.18, 0.16, 0.14, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="bonfire_mat"]
+albedo_color = Color(0.12, 0.1, 0.08, 1)
+roughness = 0.9
+
+[sub_resource type="CapsuleShape3D" id="enemy_shape"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="BoxShape3D" id="bonfire_col"]
+size = Vector3(1.5, 1.5, 1.5)
+
+[sub_resource type="StandardMaterial3D" id="enemy_mat"]
+albedo_color = Color(0.25, 0.06, 0.06, 1)
+roughness = 0.8
+
+[node name="TestArena" type="Node3D"]
+script = ExtResource("1")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
+
+[node name="Moonlight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, 0, -0.5, -0.433, 0.5, -0.75, 0.25, 0.866, 0.433, 0, 0, 0)
+light_color = Color(0.55, 0.6, 0.8, 1)
+light_energy = 0.4
+shadow_enabled = true
+
+[node name="Ground" type="CSGBox3D" parent="."]
+size = Vector3(50, 0.2, 50)
+material = SubResource("stone_floor")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="WallNorth" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -20)
+size = Vector3(40, 6, 0.8)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="WallSouthL" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, 3, 20)
+size = Vector3(14, 6, 0.8)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="WallSouthR" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 3, 20)
+size = Vector3(14, 6, 0.8)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="WallEast" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 3, 0)
+size = Vector3(0.8, 6, 40)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="WallWestTop" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 3, -13)
+size = Vector3(0.8, 6, 14)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="WallWestBot" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 3, 13)
+size = Vector3(0.8, 6, 14)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="PillarNW" type="CSGCylinder3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 2.5, -6)
+radius = 0.5
+height = 5.0
+sides = 8
+material = SubResource("pillar_stone")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="PillarNE" type="CSGCylinder3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 2.5, -6)
+radius = 0.5
+height = 5.0
+sides = 8
+material = SubResource("pillar_stone")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="PillarSW" type="CSGCylinder3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 2.5, 6)
+radius = 0.5
+height = 5.0
+sides = 8
+material = SubResource("pillar_stone")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="PillarSE" type="CSGCylinder3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 2.5, 6)
+radius = 0.5
+height = 5.0
+sides = 8
+material = SubResource("pillar_stone")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="Platform" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 1, -14)
+size = Vector3(10, 2, 10)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="Step1" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 0.35, -14)
+size = Vector3(2, 0.5, 4)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="Step2" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.5, 0.75, -14)
+size = Vector3(1.5, 0.5, 4)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="Rubble1" type="CSGBox3D" parent="."]
+transform = Transform3D(0.966, 0, 0.259, 0, 1, 0, -0.259, 0, 0.966, -8, 0.4, 3)
+size = Vector3(2, 0.8, 1.5)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="Rubble2" type="CSGBox3D" parent="."]
+transform = Transform3D(0.866, 0, 0.5, 0, 1, 0, -0.5, 0, 0.866, 10, 0.3, 8)
+size = Vector3(1.8, 0.6, 1.2)
+material = SubResource("dark_wall")
+use_collision = true
+collision_layer = 1
+collision_mask = 0
+
+[node name="Bonfire" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("4")
+rest_point_id = "arena_bonfire"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Bonfire"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("bonfire_col")
+
+[node name="Base" type="CSGCylinder3D" parent="Bonfire"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+radius = 0.6
+height = 0.3
+sides = 12
+material = SubResource("bonfire_mat")
+
+[node name="BonfireLight" type="OmniLight3D" parent="Bonfire"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+light_color = Color(1, 0.7, 0.3, 1)
+light_energy = 3.0
+omni_range = 12.0
+omni_attenuation = 1.5
+shadow_enabled = true
+
+[node name="Enemy" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 12)
+collision_layer = 4
+collision_mask = 3
+script = ExtResource("5")
+enemy_id = "arena_sentinel"
+max_health = 80.0
+damage = 20.0
+detection_range = 12.0
+souls_reward = 50
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Enemy"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("enemy_shape")
+
+[node name="Body" type="CSGBox3D" parent="Enemy"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+size = Vector3(0.6, 1.8, 0.4)
+material = SubResource("enemy_mat")
+
+[node name="Head" type="CSGBox3D" parent="Enemy"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
+size = Vector3(0.4, 0.4, 0.4)
+material = SubResource("enemy_mat")
+
+[node name="Player" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, -3)
+
+[node name="HUD" parent="." instance=ExtResource("3")]
