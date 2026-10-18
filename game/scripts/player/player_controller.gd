@@ -312,39 +312,75 @@ func get_save_data() -> Dictionary:
 
 
 func _create_weapon_mesh() -> void:
+	var blade_mat := StandardMaterial3D.new()
+	blade_mat.albedo_color = Color(0.5, 0.48, 0.52)
+	blade_mat.metallic = 0.9
+	blade_mat.roughness = 0.15
+
+	var edge_mat := StandardMaterial3D.new()
+	edge_mat.albedo_color = Color(0.8, 0.85, 0.9)
+	edge_mat.metallic = 1.0
+	edge_mat.roughness = 0.05
+	edge_mat.emission_enabled = true
+	edge_mat.emission = Color(0.6, 0.65, 0.75)
+	edge_mat.emission_energy_multiplier = 0.4
+
+	var guard_mat := StandardMaterial3D.new()
+	guard_mat.albedo_color = Color(0.3, 0.25, 0.18)
+	guard_mat.metallic = 0.7
+	guard_mat.roughness = 0.4
+
+	var grip_mat := StandardMaterial3D.new()
+	grip_mat.albedo_color = Color(0.15, 0.08, 0.05)
+	grip_mat.roughness = 0.9
+
 	var blade := MeshInstance3D.new()
 	var blade_mesh := BoxMesh.new()
-	blade_mesh.size = Vector3(0.03, 0.55, 0.015)
-	var blade_mat := StandardMaterial3D.new()
-	blade_mat.albedo_color = Color(0.65, 0.65, 0.7)
-	blade_mat.metallic = 0.85
-	blade_mat.roughness = 0.2
+	blade_mesh.size = Vector3(0.06, 0.9, 0.018)
 	blade_mesh.material = blade_mat
 	blade.mesh = blade_mesh
 	weapon_pivot.add_child(blade)
 
+	var edge_l := MeshInstance3D.new()
+	var el_mesh := BoxMesh.new()
+	el_mesh.size = Vector3(0.003, 0.82, 0.02)
+	el_mesh.material = edge_mat
+	edge_l.mesh = el_mesh
+	edge_l.position = Vector3(-0.032, 0, 0)
+	weapon_pivot.add_child(edge_l)
+
+	var edge_r := MeshInstance3D.new()
+	var er_mesh := BoxMesh.new()
+	er_mesh.size = Vector3(0.003, 0.82, 0.02)
+	er_mesh.material = edge_mat
+	edge_r.mesh = er_mesh
+	edge_r.position = Vector3(0.032, 0, 0)
+	weapon_pivot.add_child(edge_r)
+
 	var guard := MeshInstance3D.new()
 	var guard_mesh := BoxMesh.new()
-	guard_mesh.size = Vector3(0.12, 0.02, 0.04)
-	var guard_mat := StandardMaterial3D.new()
-	guard_mat.albedo_color = Color(0.35, 0.3, 0.2)
-	guard_mat.metallic = 0.6
-	guard_mat.roughness = 0.5
+	guard_mesh.size = Vector3(0.2, 0.03, 0.06)
 	guard_mesh.material = guard_mat
 	guard.mesh = guard_mesh
-	guard.position = Vector3(0, -0.29, 0)
+	guard.position = Vector3(0, -0.48, 0)
 	weapon_pivot.add_child(guard)
 
 	var grip := MeshInstance3D.new()
 	var grip_mesh := BoxMesh.new()
-	grip_mesh.size = Vector3(0.025, 0.15, 0.025)
-	var grip_mat := StandardMaterial3D.new()
-	grip_mat.albedo_color = Color(0.2, 0.12, 0.08)
-	grip_mat.roughness = 0.9
+	grip_mesh.size = Vector3(0.035, 0.25, 0.035)
 	grip_mesh.material = grip_mat
 	grip.mesh = grip_mesh
-	grip.position = Vector3(0, -0.4, 0)
+	grip.position = Vector3(0, -0.62, 0)
 	weapon_pivot.add_child(grip)
+
+	var pommel := MeshInstance3D.new()
+	var pommel_mesh := SphereMesh.new()
+	pommel_mesh.radius = 0.025
+	pommel_mesh.height = 0.05
+	pommel_mesh.material = guard_mat
+	pommel.mesh = pommel_mesh
+	pommel.position = Vector3(0, -0.77, 0)
+	weapon_pivot.add_child(pommel)
 
 
 func _apply_save_data(data: Dictionary) -> void:

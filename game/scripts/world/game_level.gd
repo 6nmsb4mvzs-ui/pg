@@ -70,18 +70,18 @@ func _spawn_soul_drop(pos: Vector3, amount: int) -> void:
 
 func _create_atmosphere() -> void:
 	var ash := CPUParticles3D.new()
-	ash.amount = 80
-	ash.lifetime = 10.0
+	ash.amount = 100
+	ash.lifetime = 12.0
 	ash.local_coords = false
 	ash.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	ash.emission_box_extents = Vector3(22, 6, 22)
-	ash.direction = Vector3(-0.3, -0.15, 0.1)
+	ash.emission_box_extents = Vector3(25, 8, 25)
+	ash.direction = Vector3(-0.3, -0.1, 0.15)
 	ash.spread = 70.0
-	ash.initial_velocity_min = 0.08
-	ash.initial_velocity_max = 0.35
-	ash.gravity = Vector3(0, -0.03, 0)
+	ash.initial_velocity_min = 0.06
+	ash.initial_velocity_max = 0.3
+	ash.gravity = Vector3(0, -0.02, 0)
 	ash.scale_amount_min = 0.008
-	ash.scale_amount_max = 0.02
+	ash.scale_amount_max = 0.022
 	var mesh := SphereMesh.new()
 	mesh.radius = 0.5
 	mesh.height = 1.0
@@ -90,9 +90,40 @@ func _create_atmosphere() -> void:
 	var mat := StandardMaterial3D.new()
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(0.55, 0.5, 0.45, 0.25)
+	mat.albedo_color = Color(0.75, 0.6, 0.35, 0.2)
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	mesh.material = mat
 	ash.mesh = mesh
-	ash.position = Vector3(0, 3, 0)
+	ash.position = Vector3(0, 4, 0)
 	add_child(ash)
+
+	var embers := CPUParticles3D.new()
+	embers.amount = 30
+	embers.lifetime = 6.0
+	embers.local_coords = false
+	embers.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	embers.emission_box_extents = Vector3(15, 2, 15)
+	embers.direction = Vector3(0, 1, 0)
+	embers.spread = 40.0
+	embers.initial_velocity_min = 0.2
+	embers.initial_velocity_max = 0.8
+	embers.gravity = Vector3(0, -0.05, 0)
+	embers.scale_amount_min = 0.005
+	embers.scale_amount_max = 0.012
+	var e_mesh := SphereMesh.new()
+	e_mesh.radius = 0.5
+	e_mesh.height = 1.0
+	e_mesh.radial_segments = 4
+	e_mesh.rings = 2
+	var e_mat := StandardMaterial3D.new()
+	e_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	e_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	e_mat.albedo_color = Color(1.0, 0.6, 0.15, 0.35)
+	e_mat.emission_enabled = true
+	e_mat.emission = Color(1.0, 0.5, 0.1)
+	e_mat.emission_energy_multiplier = 2.0
+	e_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	e_mesh.material = e_mat
+	embers.mesh = e_mesh
+	embers.position = Vector3(0, 1, 0)
+	add_child(embers)

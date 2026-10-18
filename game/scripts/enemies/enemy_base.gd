@@ -43,6 +43,7 @@ func _ready() -> void:
 	_patrol_target = _spawn_position
 	if is_unique and GameManager.is_unique_defeated(enemy_id):
 		queue_free()
+	_create_body_mesh()
 	_create_eyes()
 
 
@@ -236,6 +237,131 @@ func _face_direction(dir: Vector3) -> void:
 
 func get_interaction_label() -> String:
 	return ""
+
+
+func _create_body_mesh() -> void:
+	var armor_mat := StandardMaterial3D.new()
+	armor_mat.albedo_color = Color(0.12, 0.1, 0.09)
+	armor_mat.metallic = 0.7
+	armor_mat.roughness = 0.35
+
+	var cloth_mat := StandardMaterial3D.new()
+	cloth_mat.albedo_color = Color(0.06, 0.05, 0.05)
+	cloth_mat.roughness = 0.95
+
+	var skin_mat := StandardMaterial3D.new()
+	skin_mat.albedo_color = Color(0.35, 0.3, 0.27)
+	skin_mat.roughness = 0.85
+
+	var weapon_mat := StandardMaterial3D.new()
+	weapon_mat.albedo_color = Color(0.45, 0.42, 0.4)
+	weapon_mat.metallic = 0.85
+	weapon_mat.roughness = 0.2
+
+	var torso := MeshInstance3D.new()
+	var torso_mesh := BoxMesh.new()
+	torso_mesh.size = Vector3(0.55, 0.7, 0.3)
+	torso_mesh.material = armor_mat
+	torso.mesh = torso_mesh
+	torso.position = Vector3(0, 1.15, 0)
+	add_child(torso)
+
+	var waist := MeshInstance3D.new()
+	var waist_mesh := BoxMesh.new()
+	waist_mesh.size = Vector3(0.35, 0.25, 0.25)
+	waist_mesh.material = cloth_mat
+	waist.mesh = waist_mesh
+	waist.position = Vector3(0, 0.7, 0)
+	add_child(waist)
+
+	var leg_l := MeshInstance3D.new()
+	var ll_mesh := BoxMesh.new()
+	ll_mesh.size = Vector3(0.16, 0.55, 0.18)
+	ll_mesh.material = armor_mat
+	leg_l.mesh = ll_mesh
+	leg_l.position = Vector3(-0.1, 0.3, 0)
+	add_child(leg_l)
+
+	var leg_r := MeshInstance3D.new()
+	var lr_mesh := BoxMesh.new()
+	lr_mesh.size = Vector3(0.16, 0.55, 0.18)
+	lr_mesh.material = armor_mat
+	leg_r.mesh = lr_mesh
+	leg_r.position = Vector3(0.1, 0.3, 0)
+	add_child(leg_r)
+
+	var arm_l := MeshInstance3D.new()
+	var al_mesh := BoxMesh.new()
+	al_mesh.size = Vector3(0.14, 0.6, 0.14)
+	al_mesh.material = cloth_mat
+	arm_l.mesh = al_mesh
+	arm_l.position = Vector3(-0.35, 1.0, 0)
+	add_child(arm_l)
+
+	var arm_r := MeshInstance3D.new()
+	var ar_mesh := BoxMesh.new()
+	ar_mesh.size = Vector3(0.14, 0.6, 0.14)
+	ar_mesh.material = armor_mat
+	arm_r.mesh = ar_mesh
+	arm_r.position = Vector3(0.35, 1.0, 0)
+	add_child(arm_r)
+
+	var pauldron_l := MeshInstance3D.new()
+	var pl_mesh := BoxMesh.new()
+	pl_mesh.size = Vector3(0.22, 0.1, 0.22)
+	pl_mesh.material = armor_mat
+	pauldron_l.mesh = pl_mesh
+	pauldron_l.position = Vector3(-0.35, 1.45, 0)
+	add_child(pauldron_l)
+
+	var pauldron_r := MeshInstance3D.new()
+	var pr_mesh := BoxMesh.new()
+	pr_mesh.size = Vector3(0.22, 0.1, 0.22)
+	pr_mesh.material = armor_mat
+	pauldron_r.mesh = pr_mesh
+	pauldron_r.position = Vector3(0.35, 1.45, 0)
+	add_child(pauldron_r)
+
+	var head := MeshInstance3D.new()
+	var head_mesh := SphereMesh.new()
+	head_mesh.radius = 0.15
+	head_mesh.height = 0.3
+	head_mesh.material = skin_mat
+	head.mesh = head_mesh
+	head.position = Vector3(0, 1.7, 0)
+	add_child(head)
+
+	var hood := MeshInstance3D.new()
+	var hood_mesh := BoxMesh.new()
+	hood_mesh.size = Vector3(0.3, 0.25, 0.32)
+	hood_mesh.material = cloth_mat
+	hood.mesh = hood_mesh
+	hood.position = Vector3(0, 1.75, 0.02)
+	add_child(hood)
+
+	var cape := MeshInstance3D.new()
+	var cape_mesh := BoxMesh.new()
+	cape_mesh.size = Vector3(0.45, 0.9, 0.02)
+	cape_mesh.material = cloth_mat
+	cape.mesh = cape_mesh
+	cape.position = Vector3(0, 0.95, 0.17)
+	add_child(cape)
+
+	var blade := MeshInstance3D.new()
+	var blade_mesh := BoxMesh.new()
+	blade_mesh.size = Vector3(0.04, 0.8, 0.015)
+	blade_mesh.material = weapon_mat
+	blade.mesh = blade_mesh
+	blade.position = Vector3(0.35, 0.7, -0.25)
+	add_child(blade)
+
+	var guard := MeshInstance3D.new()
+	var guard_mesh := BoxMesh.new()
+	guard_mesh.size = Vector3(0.14, 0.025, 0.04)
+	guard_mesh.material = weapon_mat
+	guard.mesh = guard_mesh
+	guard.position = Vector3(0.35, 0.28, -0.25)
+	add_child(guard)
 
 
 func _create_eyes() -> void:

@@ -136,7 +136,7 @@ func _build_vignette(parent: Control) -> void:
 	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var shader := Shader.new()
-	shader.code = "shader_type canvas_item;\nvoid fragment() {\n\tvec2 uv = UV - 0.5;\n\tfloat d = length(uv) * 1.4;\n\tfloat v = smoothstep(0.35, 1.2, d);\n\tCOLOR = vec4(0.0, 0.0, 0.0, v * 0.55);\n}\n"
+	shader.code = "shader_type canvas_item;\nvoid fragment() {\n\tvec2 uv = UV - 0.5;\n\tfloat d = length(uv) * 1.4;\n\tfloat v = smoothstep(0.5, 1.3, d);\n\tCOLOR = vec4(0.0, 0.0, 0.0, v * 0.35);\n}\n"
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
 	vignette.material = mat
