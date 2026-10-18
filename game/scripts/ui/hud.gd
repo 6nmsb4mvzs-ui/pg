@@ -22,6 +22,7 @@ func _ready() -> void:
 	_build_interaction(root)
 	_build_death_overlay(root)
 	_build_damage_container(root)
+	_build_vignette(root)
 	GameManager.souls_changed.connect(_on_souls_changed)
 	GameManager.state_changed.connect(_on_state_changed)
 	GameManager.player_died.connect(_on_player_died)
@@ -128,6 +129,18 @@ func _build_damage_container(parent: Control) -> void:
 	_damage_container.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_damage_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(_damage_container)
+
+
+func _build_vignette(parent: Control) -> void:
+	var vignette := ColorRect.new()
+	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var shader := Shader.new()
+	shader.code = "shader_type canvas_item;\nvoid fragment() {\n\tvec2 uv = UV - 0.5;\n\tfloat d = length(uv) * 1.4;\n\tfloat v = smoothstep(0.35, 1.2, d);\n\tCOLOR = vec4(0.0, 0.0, 0.0, v * 0.55);\n}\n"
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	vignette.material = mat
+	parent.add_child(vignette)
 
 
 func _on_health_changed(current: float, maximum: float) -> void:

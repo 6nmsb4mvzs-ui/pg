@@ -54,6 +54,7 @@ func _ready() -> void:
 	if not GameManager.pending_player_data.is_empty():
 		_apply_save_data(GameManager.pending_player_data)
 		GameManager.pending_player_data.clear()
+	_create_weapon_mesh()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -308,6 +309,42 @@ func get_save_data() -> Dictionary:
 		"rotation_y": rotation.y,
 		"stats": stats.get_save_data() if stats.has_method("get_save_data") else {},
 	}
+
+
+func _create_weapon_mesh() -> void:
+	var blade := MeshInstance3D.new()
+	var blade_mesh := BoxMesh.new()
+	blade_mesh.size = Vector3(0.03, 0.55, 0.015)
+	var blade_mat := StandardMaterial3D.new()
+	blade_mat.albedo_color = Color(0.65, 0.65, 0.7)
+	blade_mat.metallic = 0.85
+	blade_mat.roughness = 0.2
+	blade_mesh.material = blade_mat
+	blade.mesh = blade_mesh
+	weapon_pivot.add_child(blade)
+
+	var guard := MeshInstance3D.new()
+	var guard_mesh := BoxMesh.new()
+	guard_mesh.size = Vector3(0.12, 0.02, 0.04)
+	var guard_mat := StandardMaterial3D.new()
+	guard_mat.albedo_color = Color(0.35, 0.3, 0.2)
+	guard_mat.metallic = 0.6
+	guard_mat.roughness = 0.5
+	guard_mesh.material = guard_mat
+	guard.mesh = guard_mesh
+	guard.position = Vector3(0, -0.29, 0)
+	weapon_pivot.add_child(guard)
+
+	var grip := MeshInstance3D.new()
+	var grip_mesh := BoxMesh.new()
+	grip_mesh.size = Vector3(0.025, 0.15, 0.025)
+	var grip_mat := StandardMaterial3D.new()
+	grip_mat.albedo_color = Color(0.2, 0.12, 0.08)
+	grip_mat.roughness = 0.9
+	grip_mesh.material = grip_mat
+	grip.mesh = grip_mesh
+	grip.position = Vector3(0, -0.4, 0)
+	weapon_pivot.add_child(grip)
 
 
 func _apply_save_data(data: Dictionary) -> void:

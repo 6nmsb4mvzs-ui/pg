@@ -19,12 +19,25 @@ sky_material = SubResource("sky_mat")
 background_mode = 2
 sky = SubResource("sky")
 ambient_light_source = 2
-ambient_light_color = Color(0.08, 0.08, 0.12, 1)
-ambient_light_energy = 0.3
+ambient_light_color = Color(0.06, 0.06, 0.1, 1)
+ambient_light_energy = 0.25
 tonemap_mode = 2
+tonemap_white = 6.0
+ssao_enabled = true
+ssao_radius = 1.5
+ssao_intensity = 2.5
+glow_enabled = true
+glow_intensity = 0.8
+glow_bloom = 0.15
+glow_blend_mode = 1
+glow_hdr_threshold = 0.8
 fog_enabled = true
-fog_light_color = Color(0.05, 0.04, 0.06, 1)
-fog_density = 0.005
+fog_light_color = Color(0.04, 0.035, 0.05, 1)
+fog_density = 0.008
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.03
+volumetric_fog_albedo = Color(0.04, 0.035, 0.05, 1)
+volumetric_fog_emission = Color(0.01, 0.008, 0.015, 1)
 
 [sub_resource type="StandardMaterial3D" id="stone_floor"]
 albedo_color = Color(0.15, 0.13, 0.12, 1)
@@ -41,6 +54,9 @@ roughness = 0.85
 [sub_resource type="StandardMaterial3D" id="bonfire_mat"]
 albedo_color = Color(0.12, 0.1, 0.08, 1)
 roughness = 0.9
+emission_enabled = true
+emission = Color(0.4, 0.2, 0.05, 1)
+emission_energy_multiplier = 1.5
 
 [sub_resource type="CapsuleShape3D" id="enemy_shape"]
 radius = 0.4
@@ -52,6 +68,9 @@ size = Vector3(1.5, 1.5, 1.5)
 [sub_resource type="StandardMaterial3D" id="enemy_mat"]
 albedo_color = Color(0.25, 0.06, 0.06, 1)
 roughness = 0.8
+emission_enabled = true
+emission = Color(0.15, 0.02, 0.02, 1)
+emission_energy_multiplier = 0.5
 
 [node name="TestArena" type="Node3D"]
 script = ExtResource("1")
@@ -221,8 +240,8 @@ material = SubResource("bonfire_mat")
 [node name="BonfireLight" type="OmniLight3D" parent="Bonfire"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
 light_color = Color(1, 0.7, 0.3, 1)
-light_energy = 3.0
-omni_range = 12.0
+light_energy = 5.0
+omni_range = 15.0
 omni_attenuation = 1.5
 shadow_enabled = true
 

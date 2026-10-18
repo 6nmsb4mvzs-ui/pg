@@ -43,6 +43,7 @@ func _ready() -> void:
 	_patrol_target = _spawn_position
 	if is_unique and GameManager.is_unique_defeated(enemy_id):
 		queue_free()
+	_create_eyes()
 
 
 func _physics_process(delta: float) -> void:
@@ -235,3 +236,27 @@ func _face_direction(dir: Vector3) -> void:
 
 func get_interaction_label() -> String:
 	return ""
+
+
+func _create_eyes() -> void:
+	var eye_mat := StandardMaterial3D.new()
+	eye_mat.albedo_color = Color(1, 0.12, 0.03)
+	eye_mat.emission_enabled = true
+	eye_mat.emission = Color(1, 0.12, 0.03)
+	eye_mat.emission_energy_multiplier = 6.0
+
+	var left_eye := MeshInstance3D.new()
+	var le_mesh := BoxMesh.new()
+	le_mesh.size = Vector3(0.06, 0.04, 0.06)
+	le_mesh.material = eye_mat
+	left_eye.mesh = le_mesh
+	left_eye.position = Vector3(-0.08, 2.02, -0.18)
+	add_child(left_eye)
+
+	var right_eye := MeshInstance3D.new()
+	var re_mesh := BoxMesh.new()
+	re_mesh.size = Vector3(0.06, 0.04, 0.06)
+	re_mesh.material = eye_mat
+	right_eye.mesh = re_mesh
+	right_eye.position = Vector3(0.08, 2.02, -0.18)
+	add_child(right_eye)
