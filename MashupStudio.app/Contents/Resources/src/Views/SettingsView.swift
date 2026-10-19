@@ -147,6 +147,12 @@ struct SettingsView: View {
         }
         .frame(width: 420, height: 400)
         .background(Color(nsColor: NSColor(white: 0.1, alpha: 1)))
+        .task {
+            if updateManager.lastChecked == nil ||
+               Date().timeIntervalSince(updateManager.lastChecked!) > 60 {
+                await updateManager.checkForUpdates(silent: true)
+            }
+        }
     }
 
     private func sectionHeader(_ title: String) -> some View {

@@ -15,6 +15,14 @@ class UpdateManager: ObservableObject {
     private let repoOwner = "6nmsb4mvzs-ui"
     private let repoName = "mix"
     private let branch = "main"
+    private var autoCheckTimer: Timer?
+
+    private lazy var noCacheSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        config.urlCache = nil
+        return URLSession(configuration: config)
+    }()
 
     var sourceDir: String? {
         ProcessInfo.processInfo.environment["MASHUP_SOURCE_DIR"]
@@ -33,22 +41,38 @@ class UpdateManager: ObservableObject {
     }
 
     @MainActor
-    func checkForUpdates() async {
+    func checkOnLaunch() {
+        Task {
+            await checkForUpdates(silent: true)
+        }
+        autoCheckTimer?.invalidate()
+        autoCheckTimer = Timer.scheduledTimer(withTimeInterval: 1800, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.checkForUpdates(silent: true)
+            }
+        }
+    }
+
+    @MainActor
+    func checkForUpdates(silent: Bool = false) async {
+        guard !isChecking else { return }
         isChecking = true
-        statusMessage = "Checking for updates..."
+        if !silent { statusMessage = "Checking for updates..." }
 
         let urlString = "https://raw.githubusercontent.com/\(repoOwner)/\(repoName)/\(branch)/version.txt"
         guard let url = URL(string: urlString) else {
             isChecking = false
-            statusMessage = "Invalid update URL"
+            if !silent { statusMessage = "Invalid update URL" }
             return
         }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            var request = URLRequest(url: url)
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            let (data, response) = try await noCacheSession.data(for: request)
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
                 isChecking = false
-                statusMessage = "Server returned \(http.statusCode)"
+                if !silent { statusMessage = "Server returned \(http.statusCode)" }
                 return
             }
             let remote = String(data: data, encoding: .utf8)?
@@ -56,7 +80,7 @@ class UpdateManager: ObservableObject {
 
             guard !remote.isEmpty, remote.contains(".") else {
                 isChecking = false
-                statusMessage = "Invalid version data from server"
+                if !silent { statusMessage = "Invalid version data from server" }
                 return
             }
 
@@ -69,7 +93,7 @@ class UpdateManager: ObservableObject {
                 : "You're up to date (v\(currentVersion))"
         } catch {
             isChecking = false
-            statusMessage = "Connection failed: \(error.localizedDescription)"
+            if !silent { statusMessage = "Connection failed: \(error.localizedDescription)" }
         }
     }
 
@@ -92,7 +116,7 @@ class UpdateManager: ObservableObject {
         }
 
         do {
-            let (tempURL, _) = try await URLSession.shared.download(from: url)
+            let (tempURL, _) = try await noCacheSession.download(from: url)
 
             downloadProgress = 0.5
             statusMessage = "Installing update..."

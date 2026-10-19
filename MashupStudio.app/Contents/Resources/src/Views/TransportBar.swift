@@ -178,12 +178,20 @@ struct TransportBar: View {
             .help("Export WAV with all effects applied")
 
             Button(action: { showSettings = true }) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 12))
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 12))
+                    if UpdateManager.shared.updateAvailable {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 7, height: 7)
+                            .offset(x: 3, y: -3)
+                    }
+                }
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .help("Settings")
+            .help(UpdateManager.shared.updateAvailable ? "Update available!" : "Settings")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

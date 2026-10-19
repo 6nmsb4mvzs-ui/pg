@@ -43,6 +43,7 @@ struct ContentView: View {
         .onAppear {
             engine.project = project
             installKeyMonitor()
+            UpdateManager.shared.checkOnLaunch()
         }
         .onDisappear {
             engine.stop()
