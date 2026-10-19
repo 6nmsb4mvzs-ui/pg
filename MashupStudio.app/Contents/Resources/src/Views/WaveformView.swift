@@ -17,7 +17,7 @@ struct WaveformView: View {
     private let trimHandleWidth: CGFloat = 10
 
     var body: some View {
-        GeometryReader { geo in
+        GeometryReader { _ in
             let pps = project.pixelsPerSecond
             let trackX = project.timeToX(track.offset)
             let trackWidth = CGFloat(track.duration * pps)
@@ -27,7 +27,6 @@ struct WaveformView: View {
 
             if track.isLoaded && visibleWidth > 0 {
                 ZStack(alignment: .leading) {
-                    // Trimmed-out regions
                     if trimStartX > 0 {
                         Rectangle()
                             .fill(color.opacity(0.08))
@@ -41,7 +40,6 @@ struct WaveformView: View {
                             .offset(x: trackX + trackWidth - trimEndX)
                     }
 
-                    // Waveform body
                     waveformPath(width: visibleWidth, height: height)
                         .fill(
                             LinearGradient(
@@ -60,17 +58,14 @@ struct WaveformView: View {
                         .offset(x: trackX + trimStartX)
                         .gesture(dragGesture())
 
-                    // Trim handle: start
                     trimHandle(isStart: true)
                         .offset(x: trackX + trimStartX - trimHandleWidth / 2)
                         .gesture(trimStartGesture())
 
-                    // Trim handle: end
                     trimHandle(isStart: false)
                         .offset(x: trackX + trimStartX + visibleWidth - trimHandleWidth / 2)
                         .gesture(trimEndGesture())
 
-                    // Track label
                     Text(track.label)
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(color)
@@ -80,7 +75,6 @@ struct WaveformView: View {
                         .cornerRadius(3)
                         .offset(x: trackX + trimStartX + 6, y: -height / 2 + 14)
 
-                    // Track name
                     Text(track.name)
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(.white.opacity(0.6))

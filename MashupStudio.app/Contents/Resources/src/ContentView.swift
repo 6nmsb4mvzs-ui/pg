@@ -11,7 +11,6 @@ struct ContentView: View {
             Divider().background(Color.white.opacity(0.1))
 
             HSplitView {
-                // Controls sidebar
                 ScrollView {
                     VStack(spacing: 12) {
                         TrackControlsView(
@@ -32,17 +31,12 @@ struct ContentView: View {
                 .frame(minWidth: 220, idealWidth: 260, maxWidth: 320)
                 .background(Color(nsColor: NSColor(white: 0.09, alpha: 1)))
 
-                // Timeline
                 TimelineView(project: project, engine: engine)
                     .frame(minWidth: 400)
             }
         }
         .background(Color(nsColor: NSColor(white: 0.1, alpha: 1)))
-        .onAppear {
-            engine.project = project
-        }
-        .onDisappear {
-            engine.stop()
-        }
+        .onAppear { engine.project = project }
+        .onDisappear { engine.stop() }
     }
 }

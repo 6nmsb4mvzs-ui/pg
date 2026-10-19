@@ -6,20 +6,16 @@ struct TransportBar: View {
     @ObservedObject var engine: AudioEngineManager
     @Environment(\.undoManager) var undoManager
 
-    @State private var showExporter = false
     @State private var exportProgress = false
 
     var body: some View {
         HStack(spacing: 16) {
-            // Transport controls
             HStack(spacing: 8) {
-                // Rewind to start
                 transportButton(systemName: "backward.end.fill") {
                     engine.stop()
                     project.currentTime = 0
                 }
 
-                // Play / Pause
                 transportButton(
                     systemName: engine.isPlaying ? "pause.fill" : "play.fill",
                     accent: true
@@ -31,7 +27,6 @@ struct TransportBar: View {
                     }
                 }
 
-                // Stop
                 transportButton(systemName: "stop.fill") {
                     engine.stop()
                     project.currentTime = 0
@@ -40,7 +35,6 @@ struct TransportBar: View {
 
             Divider().frame(height: 20)
 
-            // Time display
             Text(formatTime(project.currentTime))
                 .font(.system(size: 16, weight: .medium, design: .monospaced))
                 .foregroundColor(.white)
@@ -56,7 +50,6 @@ struct TransportBar: View {
 
             Divider().frame(height: 20)
 
-            // Loop
             HStack(spacing: 4) {
                 Button(action: { project.loopEnabled.toggle() }) {
                     Image(systemName: "repeat")
@@ -82,7 +75,6 @@ struct TransportBar: View {
 
             Divider().frame(height: 20)
 
-            // Master volume
             HStack(spacing: 4) {
                 Image(systemName: "speaker.wave.2.fill")
                     .font(.system(size: 10))
@@ -96,7 +88,6 @@ struct TransportBar: View {
 
             Divider().frame(height: 20)
 
-            // Zoom
             HStack(spacing: 4) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 10))
@@ -114,7 +105,6 @@ struct TransportBar: View {
 
             Spacer()
 
-            // Export
             Button(action: { exportMix() }) {
                 HStack(spacing: 4) {
                     if exportProgress {

@@ -1,0 +1,75 @@
+#!/bin/zsh
+# MashupStudio launcher.
+# Compiles the Swift source on first run (needs Xcode Command Line Tools),
+# caches the binary in Application Support, and exec's it. Subsequent
+# launches are instant unless the source changed.
+set -u
+
+APP_NAME="MashupStudio"
+SOURCE_BASE="$(cd "$(dirname "$0")/../Resources" && pwd)"
+SRC="$SOURCE_BASE/src"
+SUPPORT="$HOME/Library/Application Support/$APP_NAME"
+BUILD_DIR="$SUPPORT/build"
+BINARY="$BUILD_DIR/$APP_NAME"
+LOG="$SUPPORT/build.log"
+
+mkdir -p "$BUILD_DIR"
+
+notify() {
+  /usr/bin/osascript -e "display notification \"$1\" with title \"$APP_NAME\"" >/dev/null 2>&1 || true
+}
+fail() {
+  local choice
+  choice="$(/usr/bin/osascript -e "button returned of (display dialog \"$1\" with title \"$APP_NAME\" buttons {\"Show Log\", \"OK\"} default button \"OK\" with icon caution)" 2>/dev/null)"
+  [[ "$choice" == "Show Log" ]] && /usr/bin/open "$LOG"
+  exit 1
+}
+
+# Source checksum — recompile only when files changed.
+STAMP="$(/usr/bin/find "$SRC" -name '*.swift' -exec /usr/bin/stat -f '%m %z' {} + 2>/dev/null | /usr/bin/shasum | /usr/bin/cut -d' ' -f1)"
+STAMP_FILE="$BUILD_DIR/.source-stamp"
+
+if [[ ! -x "$BINARY" || ! -f "$STAMP_FILE" || "$(cat "$STAMP_FILE" 2>/dev/null)" != "$STAMP" ]]; then
+  notify "Building $APP_NAME (one-time)…"
+
+  SDK="$(xcrun --show-sdk-path --sdk macosx 2>/dev/null)"
+  if [[ -z "$SDK" ]]; then
+    fail "$APP_NAME needs Xcode Command Line Tools.\n\nInstall them by running this in Terminal:\n  xcode-select --install"
+  fi
+
+  ARCH="$(uname -m)"
+  TARGET="${ARCH}-apple-macosx14.0"
+
+  # Collect all Swift files from subdirectories.
+  SWIFT_FILES=()
+  while IFS= read -r -d '' f; do
+    SWIFT_FILES+=("$f")
+  done < <(/usr/bin/find "$SRC" -name '*.swift' -print0)
+
+  if (( ${#SWIFT_FILES[@]} == 0 )); then
+    fail "$APP_NAME has no source files. The app bundle may be damaged."
+  fi
+
+  rm -f "$BINARY"
+  xcrun swiftc \
+    -parse-as-library \
+    -sdk "$SDK" \
+    -target "$TARGET" \
+    -framework SwiftUI \
+    -framework AVFoundation \
+    -framework Accelerate \
+    -framework UniformTypeIdentifiers \
+    -O \
+    -o "$BINARY" \
+    "${SWIFT_FILES[@]}" \
+    >"$LOG" 2>&1
+
+  if [[ $? -ne 0 || ! -x "$BINARY" ]]; then
+    fail "$APP_NAME failed to compile.\n\nMake sure Xcode Command Line Tools are installed:\n  xcode-select --install"
+  fi
+
+  echo "$STAMP" > "$STAMP_FILE"
+  notify "$APP_NAME is ready."
+fi
+
+exec "$BINARY"

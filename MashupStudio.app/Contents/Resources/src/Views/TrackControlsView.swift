@@ -13,7 +13,6 @@ struct TrackControlsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Header
             HStack {
                 Circle()
                     .fill(color)
@@ -24,7 +23,6 @@ struct TrackControlsView: View {
                 Spacer()
             }
 
-            // File
             HStack(spacing: 6) {
                 Text(track.name)
                     .font(.system(size: 11, design: .monospaced))
@@ -58,7 +56,6 @@ struct TrackControlsView: View {
             if track.isLoaded {
                 Divider().background(Color.white.opacity(0.1))
 
-                // Volume
                 controlRow("Vol") {
                     Slider(value: Binding(
                         get: { track.volume },
@@ -73,7 +70,6 @@ struct TrackControlsView: View {
                         .frame(width: 32, alignment: .trailing)
                 }
 
-                // Mute / Solo
                 HStack(spacing: 8) {
                     Button(action: { project.toggleMute(track, undoManager: undoManager) }) {
                         Text("M")
@@ -104,7 +100,6 @@ struct TrackControlsView: View {
 
                 Divider().background(Color.white.opacity(0.1))
 
-                // Speed
                 controlRow("Spd") {
                     Slider(value: Binding(
                         get: { track.playbackRate },
@@ -121,7 +116,6 @@ struct TrackControlsView: View {
 
                 Divider().background(Color.white.opacity(0.1))
 
-                // EQ
                 Text("EQ")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.4))
@@ -139,7 +133,6 @@ struct TrackControlsView: View {
                     set: { project.setEQ(track, band: .high, to: $0, undoManager: undoManager) }
                 ))
 
-                // Reset EQ
                 Button("Reset EQ") {
                     project.setEQ(track, band: .low, to: 0, undoManager: undoManager)
                     project.setEQ(track, band: .mid, to: 0, undoManager: undoManager)

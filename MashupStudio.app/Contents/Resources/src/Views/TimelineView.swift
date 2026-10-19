@@ -9,85 +9,78 @@ struct TimelineView: View {
     var body: some View {
         let totalWidth = project.timeToX(project.totalDuration + 10)
 
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: true) {
-                ZStack(alignment: .topLeading) {
-                    VStack(spacing: 0) {
-                        timeRuler(width: totalWidth)
-                            .frame(height: 28)
+        ScrollView(.horizontal, showsIndicators: true) {
+            ZStack(alignment: .topLeading) {
+                VStack(spacing: 0) {
+                    timeRuler(width: totalWidth)
+                        .frame(height: 28)
 
-                        Divider().background(Color.white.opacity(0.1))
+                    Divider().background(Color.white.opacity(0.1))
 
-                        // Track A
-                        ZStack(alignment: .topLeading) {
-                            gridLines(width: totalWidth, height: trackHeight)
-                            WaveformView(
-                                track: project.trackA,
-                                project: project,
-                                color: .cyan,
-                                height: trackHeight
-                            )
-                        }
-                        .frame(height: trackHeight)
-                        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                            handleDrop(providers: providers, track: project.trackA)
-                        }
-
-                        Divider().background(Color.white.opacity(0.1))
-
-                        // Track B
-                        ZStack(alignment: .topLeading) {
-                            gridLines(width: totalWidth, height: trackHeight)
-                            WaveformView(
-                                track: project.trackB,
-                                project: project,
-                                color: .orange,
-                                height: trackHeight
-                            )
-                        }
-                        .frame(height: trackHeight)
-                        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                            handleDrop(providers: providers, track: project.trackB)
-                        }
-
-                        Spacer()
+                    ZStack(alignment: .topLeading) {
+                        gridLines(width: totalWidth, height: trackHeight)
+                        WaveformView(
+                            track: project.trackA,
+                            project: project,
+                            color: .cyan,
+                            height: trackHeight
+                        )
+                    }
+                    .frame(height: trackHeight)
+                    .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                        handleDrop(providers: providers, track: project.trackA)
                     }
 
-                    // Loop region
-                    if project.loopEnabled {
-                        let loopX = project.timeToX(project.loopStart)
-                        let loopW = project.timeToX(project.loopEnd) - loopX
-                        Rectangle()
-                            .fill(Color.purple.opacity(0.1))
-                            .frame(width: loopW)
-                            .offset(x: loopX, y: 28)
-                            .allowsHitTesting(false)
+                    Divider().background(Color.white.opacity(0.1))
+
+                    ZStack(alignment: .topLeading) {
+                        gridLines(width: totalWidth, height: trackHeight)
+                        WaveformView(
+                            track: project.trackB,
+                            project: project,
+                            color: .orange,
+                            height: trackHeight
+                        )
+                    }
+                    .frame(height: trackHeight)
+                    .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                        handleDrop(providers: providers, track: project.trackB)
                     }
 
-                    // Playhead
-                    let playX = project.timeToX(project.currentTime)
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(width: 1)
-                        .offset(x: playX)
-                        .allowsHitTesting(false)
-
-                    // Playhead triangle
-                    Path { p in
-                        p.move(to: CGPoint(x: playX - 5, y: 0))
-                        p.addLine(to: CGPoint(x: playX + 5, y: 0))
-                        p.addLine(to: CGPoint(x: playX, y: 8))
-                        p.closeSubpath()
-                    }
-                    .fill(Color.white)
-                    .allowsHitTesting(false)
+                    Spacer()
                 }
-                .frame(width: totalWidth, alignment: .topLeading)
-                .contentShape(Rectangle())
-                .onTapGesture { location in
-                    if !engine.isPlaying {
-                        project.currentTime = project.xToTime(location.x)
-                    }
+
+                if project.loopEnabled {
+                    let loopX = project.timeToX(project.loopStart)
+                    let loopW = project.timeToX(project.loopEnd) - loopX
+                    Rectangle()
+                        .fill(Color.purple.opacity(0.1))
+                        .frame(width: loopW)
+                        .offset(x: loopX, y: 28)
+                        .allowsHitTesting(false)
+                }
+
+                let playX = project.timeToX(project.currentTime)
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: 1)
+                    .offset(x: playX)
+                    .allowsHitTesting(false)
+
+                Path { p in
+                    p.move(to: CGPoint(x: playX - 5, y: 0))
+                    p.addLine(to: CGPoint(x: playX + 5, y: 0))
+                    p.addLine(to: CGPoint(x: playX, y: 8))
+                    p.closeSubpath()
+                }
+                .fill(Color.white)
+                .allowsHitTesting(false)
+            }
+            .frame(width: totalWidth, alignment: .topLeading)
+            .contentShape(Rectangle())
+            .onTapGesture { location in
+                if !engine.isPlaying {
+                    project.currentTime = project.xToTime(location.x)
                 }
             }
         }
