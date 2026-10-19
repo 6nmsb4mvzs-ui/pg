@@ -7,6 +7,7 @@ struct TransportBar: View {
     @Environment(\.undoManager) var undoManager
 
     @State private var exportProgress = false
+    @State private var showSettings = false
 
     var body: some View {
         HStack(spacing: 16) {
@@ -123,10 +124,21 @@ struct TransportBar: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
             .disabled(!project.trackA.isLoaded && !project.trackB.isLoaded)
+
+            Button(action: { showSettings = true }) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("Settings")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Color(nsColor: NSColor(white: 0.12, alpha: 1)))
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
     }
 
     private func transportButton(

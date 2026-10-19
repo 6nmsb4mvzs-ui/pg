@@ -74,4 +74,7 @@ if [[ ! -x "$BINARY" || ! -f "$STAMP_FILE" || "$(cat "$STAMP_FILE" 2>/dev/null)"
   notify "$APP_NAME is ready."
 fi
 
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+export MASHUP_SOURCE_DIR="$SRC"
+export MASHUP_APP_DIR="$APP_DIR"
 exec "$BINARY"

@@ -9,7 +9,6 @@ struct TrackControlsView: View {
 
     let color: Color
 
-    @State private var showFileImporter = false
     @State private var isDropTarget = false
     @State private var showEQ = false
 
@@ -42,26 +41,10 @@ struct TrackControlsView: View {
                     .truncationMode(.middle)
                 Spacer()
                 Button("Open") {
-                    showFileImporter = true
+                    openFile()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-            }
-            .fileImporter(
-                isPresented: $showFileImporter,
-                allowedContentTypes: [.audio, .mp3, .wav, .aiff],
-                allowsMultipleSelection: false
-            ) { result in
-                if case .success(let urls) = result, let url = urls.first {
-                    Task {
-                        try? await track.loadFile(url)
-                        if track.label == "A" {
-                            try? engine.loadTrackA(url: url)
-                        } else {
-                            try? engine.loadTrackB(url: url)
-                        }
-                    }
-                }
             }
 
             if track.isLoaded {
@@ -206,6 +189,25 @@ struct TrackControlsView: View {
         let m = Int(t) / 60
         let s = Int(t) % 60
         return String(format: "%d:%02d", m, s)
+    }
+
+    private func openFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.audio]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Choose an audio file for Track \(track.label)"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                try? await track.loadFile(url)
+                if track.label == "A" {
+                    try? engine.loadTrackA(url: url)
+                } else {
+                    try? engine.loadTrackB(url: url)
+                }
+            }
+        }
     }
 
     private func handleDrop(providers: [NSItemProvider]) -> Bool {
