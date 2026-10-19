@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var project = MashupProject()
@@ -68,12 +69,22 @@ struct ContentView: View {
                 eng.stop()
                 proj.currentTime = 0
                 return nil
-            case 1: // S - split at playhead
+            case 1: // S
+                if event.modifierFlags.contains(.command) {
+                    saveProject(proj, eng)
+                    return nil
+                }
                 let wasPlaying = eng.isPlaying
                 if wasPlaying { eng.pause() }
                 proj.splitAtPlayhead(undoManager: NSApp.keyWindow?.undoManager)
                 if wasPlaying { eng.play(from: proj.currentTime) }
                 return nil
+            case 31: // O
+                if event.modifierFlags.contains(.command) {
+                    openProject(proj, eng)
+                    return nil
+                }
+                return event
             case 123: // left arrow
                 if !eng.isPlaying {
                     proj.currentTime = max(0, min(proj.totalDuration, proj.currentTime - 1))
@@ -98,6 +109,8 @@ struct ContentView: View {
             hint("Space", "Play / Pause")
             hint("Return", "Stop & Rewind")
             hint("S", "Split at Playhead")
+            hint("⌘S", "Save Project")
+            hint("⌘O", "Open Project")
             hint("← →", "Scrub ±1s")
             hint("⌘Z / ⇧⌘Z", "Undo / Redo")
         }
@@ -120,6 +133,36 @@ struct ContentView: View {
             Text(label)
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundColor(.white.opacity(0.25))
+        }
+    }
+}
+
+private func saveProject(_ project: MashupProject, _ engine: AudioEngineManager) {
+    let panel = NSSavePanel()
+    panel.allowedContentTypes = [UTType(filenameExtension: "mashup") ?? .json]
+    panel.nameFieldStringValue = "project.mashup"
+    panel.canCreateDirectories = true
+
+    panel.begin { response in
+        guard response == .OK, let url = panel.url else { return }
+        Task {
+            try? ProjectFile.save(project: project, to: url)
+        }
+    }
+}
+
+private func openProject(_ project: MashupProject, _ engine: AudioEngineManager) {
+    let panel = NSOpenPanel()
+    panel.allowedContentTypes = [UTType(filenameExtension: "mashup") ?? .json]
+    panel.allowsMultipleSelection = false
+    panel.canChooseDirectories = false
+    panel.message = "Open a MashupStudio project"
+
+    panel.begin { response in
+        guard response == .OK, let url = panel.url else { return }
+        Task { @MainActor in
+            try? await ProjectFile.load(from: url, into: project, engine: engine)
+            engine.applySettings()
         }
     }
 }

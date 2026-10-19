@@ -7,6 +7,7 @@ struct TransportBar: View {
     @Environment(\.undoManager) var undoManager
 
     @State private var exportProgress = false
+    @State private var saveProgress = false
     @State private var showSettings = false
 
     var body: some View {
@@ -126,6 +127,37 @@ struct TransportBar: View {
 
             Spacer()
 
+            Button(action: { openProject() }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "folder")
+                        .font(.system(size: 11))
+                    Text("Open")
+                        .font(.system(size: 12, weight: .medium))
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("Open Project (⌘O)")
+
+            Button(action: { saveProject() }) {
+                HStack(spacing: 4) {
+                    if saveProgress {
+                        ProgressView()
+                            .scaleEffect(0.5)
+                            .frame(width: 14, height: 14)
+                    } else {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 11))
+                    }
+                    Text("Save")
+                        .font(.system(size: 12, weight: .medium))
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(!project.trackA.isLoaded && !project.trackB.isLoaded)
+            .help("Save Project (⌘S)")
+
             Button(action: { exportMix() }) {
                 HStack(spacing: 4) {
                     if exportProgress {
@@ -136,13 +168,14 @@ struct TransportBar: View {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(size: 11))
                     }
-                    Text("Export")
+                    Text("Export WAV")
                         .font(.system(size: 12, weight: .medium))
                 }
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
             .disabled(!project.trackA.isLoaded && !project.trackB.isLoaded)
+            .help("Export WAV with all effects applied")
 
             Button(action: { showSettings = true }) {
                 Image(systemName: "gearshape")
@@ -183,6 +216,42 @@ struct TransportBar: View {
         let s = Int(t) % 60
         let ms = Int((t - floor(t)) * 100)
         return String(format: "%d:%02d.%02d", m, s, ms)
+    }
+
+    private func saveProject() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "mashup") ?? .json]
+        panel.nameFieldStringValue = "project.mashup"
+        panel.canCreateDirectories = true
+
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            saveProgress = true
+            Task {
+                do {
+                    try ProjectFile.save(project: project, to: url)
+                    await MainActor.run { saveProgress = false }
+                } catch {
+                    await MainActor.run { saveProgress = false }
+                }
+            }
+        }
+    }
+
+    private func openProject() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "mashup") ?? .json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Open a MashupStudio project"
+
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                try? await ProjectFile.load(from: url, into: project, engine: engine)
+                engine.applySettings()
+            }
+        }
     }
 
     private func exportMix() {
