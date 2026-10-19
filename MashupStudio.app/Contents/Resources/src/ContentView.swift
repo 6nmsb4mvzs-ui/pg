@@ -36,7 +36,11 @@ struct ContentView: View {
 
     private var editorView: some View {
         VStack(spacing: 0) {
-            TransportBar(project: project, engine: engine)
+            TransportBar(project: project, engine: engine, onHome: {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showEditor = false
+                }
+            })
 
             Divider().background(Color.white.opacity(0.1))
 

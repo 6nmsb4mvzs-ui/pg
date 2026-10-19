@@ -5,6 +5,7 @@ struct TransportBar: View {
     @ObservedObject var project: MashupProject
     @ObservedObject var engine: AudioEngineManager
     @Environment(\.undoManager) var undoManager
+    var onHome: (() -> Void)?
 
     @State private var exportProgress = false
     @State private var saveProgress = false
@@ -12,6 +13,22 @@ struct TransportBar: View {
 
     var body: some View {
         HStack(spacing: 16) {
+            Button(action: {
+                engine.stop()
+                onHome?()
+            }) {
+                Image(systemName: "house.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.5))
+                    .frame(width: 28, height: 28)
+                    .background(Color.white.opacity(0.05))
+                    .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            .help("Back to Start")
+
+            Divider().frame(height: 20)
+
             HStack(spacing: 8) {
                 transportButton(systemName: "backward.end.fill", tooltip: "Rewind (Return)") {
                     engine.stop()

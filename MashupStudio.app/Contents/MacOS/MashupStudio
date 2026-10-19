@@ -1,19 +1,31 @@
 #!/bin/zsh
 # MashupStudio launcher.
 # Compiles the Swift source on first run (needs Xcode Command Line Tools),
-# caches the binary in Application Support, and exec's it. Subsequent
-# launches are instant unless the source changed.
+# caches the binary inside the .app bundle so macOS associates it with the
+# bundle identity (icon, dock pinning). Falls back to Application Support
+# if the bundle directory is not writable.
 set -u
 
 APP_NAME="MashupStudio"
-SOURCE_BASE="$(cd "$(dirname "$0")/../Resources" && pwd)"
+MACOS_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="$(cd "$MACOS_DIR/.." && pwd)"
+SOURCE_BASE="$APP_DIR/Resources"
 SRC="$SOURCE_BASE/src"
 SUPPORT="$HOME/Library/Application Support/$APP_NAME"
-BUILD_DIR="$SUPPORT/build"
-BINARY="$BUILD_DIR/$APP_NAME"
 LOG="$SUPPORT/build.log"
 
-mkdir -p "$BUILD_DIR"
+mkdir -p "$SUPPORT"
+
+# Prefer compiling into the bundle so the running process belongs to the .app.
+# This is what makes the icon and dock pinning work.
+BINARY="$MACOS_DIR/${APP_NAME}-bin"
+STAMP_FILE="$MACOS_DIR/.source-stamp"
+if [[ ! -w "$MACOS_DIR" ]]; then
+  BUILD_DIR="$SUPPORT/build"
+  mkdir -p "$BUILD_DIR"
+  BINARY="$BUILD_DIR/$APP_NAME"
+  STAMP_FILE="$BUILD_DIR/.source-stamp"
+fi
 
 notify() {
   /usr/bin/osascript -e "display notification \"$1\" with title \"$APP_NAME\"" >/dev/null 2>&1 || true
@@ -27,7 +39,6 @@ fail() {
 
 # Source checksum — recompile only when files changed.
 STAMP="$(/usr/bin/find "$SRC" -name '*.swift' -exec /usr/bin/stat -f '%m %z' {} + 2>/dev/null | /usr/bin/shasum | /usr/bin/cut -d' ' -f1)"
-STAMP_FILE="$BUILD_DIR/.source-stamp"
 
 if [[ ! -x "$BINARY" || ! -f "$STAMP_FILE" || "$(cat "$STAMP_FILE" 2>/dev/null)" != "$STAMP" ]]; then
   notify "Building $APP_NAME (one-time)…"
@@ -40,7 +51,6 @@ if [[ ! -x "$BINARY" || ! -f "$STAMP_FILE" || "$(cat "$STAMP_FILE" 2>/dev/null)"
   ARCH="$(uname -m)"
   TARGET="${ARCH}-apple-macosx14.0"
 
-  # Collect all Swift files from subdirectories.
   SWIFT_FILES=()
   while IFS= read -r -d '' f; do
     SWIFT_FILES+=("$f")
@@ -74,7 +84,11 @@ if [[ ! -x "$BINARY" || ! -f "$STAMP_FILE" || "$(cat "$STAMP_FILE" 2>/dev/null)"
   notify "$APP_NAME is ready."
 fi
 
-APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# Clean up old build location if we're now building into the bundle
+if [[ "$BINARY" == "$MACOS_DIR"/* ]]; then
+  rm -f "$SUPPORT/build/$APP_NAME" "$SUPPORT/build/.source-stamp" 2>/dev/null
+fi
+
 export MASHUP_SOURCE_DIR="$SRC"
 export MASHUP_APP_DIR="$APP_DIR"
 exec "$BINARY"
