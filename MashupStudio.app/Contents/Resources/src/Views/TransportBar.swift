@@ -11,14 +11,15 @@ struct TransportBar: View {
     var body: some View {
         HStack(spacing: 16) {
             HStack(spacing: 8) {
-                transportButton(systemName: "backward.end.fill") {
+                transportButton(systemName: "backward.end.fill", tooltip: "Rewind (Return)") {
                     engine.stop()
                     project.currentTime = 0
                 }
 
                 transportButton(
                     systemName: engine.isPlaying ? "pause.fill" : "play.fill",
-                    accent: true
+                    accent: true,
+                    tooltip: "Play / Pause (Space)"
                 ) {
                     if engine.isPlaying {
                         engine.pause()
@@ -27,7 +28,7 @@ struct TransportBar: View {
                     }
                 }
 
-                transportButton(systemName: "stop.fill") {
+                transportButton(systemName: "stop.fill", tooltip: "Stop (Return)") {
                     engine.stop()
                     project.currentTime = 0
                 }
@@ -131,6 +132,7 @@ struct TransportBar: View {
     private func transportButton(
         systemName: String,
         accent: Bool = false,
+        tooltip: String = "",
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -142,6 +144,7 @@ struct TransportBar: View {
                 .cornerRadius(6)
         }
         .buttonStyle(.plain)
+        .help(tooltip)
     }
 
     private func formatTime(_ t: TimeInterval) -> String {

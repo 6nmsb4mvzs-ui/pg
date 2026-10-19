@@ -10,6 +10,8 @@ struct TrackControlsView: View {
     let color: Color
 
     @State private var showFileImporter = false
+    @State private var isDropTarget = false
+    @State private var showEQ = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -21,6 +23,15 @@ struct TrackControlsView: View {
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white)
                 Spacer()
+                if track.isLoaded {
+                    Button(action: { track.reset() }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.3))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Remove track")
+                }
             }
 
             HStack(spacing: 6) {
@@ -116,31 +127,35 @@ struct TrackControlsView: View {
 
                 Divider().background(Color.white.opacity(0.1))
 
-                Text("EQ")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.4))
-
-                eqSlider("Lo", value: Binding(
-                    get: { track.eqLow },
-                    set: { project.setEQ(track, band: .low, to: $0, undoManager: undoManager) }
-                ))
-                eqSlider("Mid", value: Binding(
-                    get: { track.eqMid },
-                    set: { project.setEQ(track, band: .mid, to: $0, undoManager: undoManager) }
-                ))
-                eqSlider("Hi", value: Binding(
-                    get: { track.eqHigh },
-                    set: { project.setEQ(track, band: .high, to: $0, undoManager: undoManager) }
-                ))
-
-                Button("Reset EQ") {
-                    project.setEQ(track, band: .low, to: 0, undoManager: undoManager)
-                    project.setEQ(track, band: .mid, to: 0, undoManager: undoManager)
-                    project.setEQ(track, band: .high, to: 0, undoManager: undoManager)
+                DisclosureGroup(isExpanded: $showEQ) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        eqSlider("Lo", value: Binding(
+                            get: { track.eqLow },
+                            set: { project.setEQ(track, band: .low, to: $0, undoManager: undoManager) }
+                        ))
+                        eqSlider("Mid", value: Binding(
+                            get: { track.eqMid },
+                            set: { project.setEQ(track, band: .mid, to: $0, undoManager: undoManager) }
+                        ))
+                        eqSlider("Hi", value: Binding(
+                            get: { track.eqHigh },
+                            set: { project.setEQ(track, band: .high, to: $0, undoManager: undoManager) }
+                        ))
+                        Button("Reset") {
+                            project.setEQ(track, band: .low, to: 0, undoManager: undoManager)
+                            project.setEQ(track, band: .mid, to: 0, undoManager: undoManager)
+                            project.setEQ(track, band: .high, to: 0, undoManager: undoManager)
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.3))
+                    }
+                } label: {
+                    Text("EQ")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.4))
                 }
-                .buttonStyle(.plain)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.white.opacity(0.3))
+                .tint(.white.opacity(0.3))
             }
         }
         .padding(12)
@@ -149,9 +164,15 @@ struct TrackControlsView: View {
                 .fill(Color(nsColor: NSColor(white: 0.13, alpha: 1)))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(color.opacity(0.2), lineWidth: 1)
+                        .stroke(
+                            isDropTarget ? color : color.opacity(0.2),
+                            lineWidth: isDropTarget ? 2 : 1
+                        )
                 )
         )
+        .onDrop(of: [.fileURL], isTargeted: $isDropTarget) { providers in
+            handleDrop(providers: providers)
+        }
     }
 
     private func controlRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
@@ -185,5 +206,24 @@ struct TrackControlsView: View {
         let m = Int(t) / 60
         let s = Int(t) % 60
         return String(format: "%d:%02d", m, s)
+    }
+
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first else { return false }
+        provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
+            guard let data = item as? Data,
+                  let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
+            let exts = ["mp3", "wav", "aiff", "aif", "m4a", "flac", "aac", "ogg", "caf"]
+            guard exts.contains(url.pathExtension.lowercased()) else { return }
+            Task { @MainActor in
+                try? await track.loadFile(url)
+                if track.label == "A" {
+                    try? engine.loadTrackA(url: url)
+                } else {
+                    try? engine.loadTrackB(url: url)
+                }
+            }
+        }
+        return true
     }
 }
