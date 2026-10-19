@@ -231,6 +231,7 @@ struct TransportBar: View {
         panel.allowedContentTypes = [UTType(filenameExtension: "mashup") ?? .json]
         panel.nameFieldStringValue = "project.mashup"
         panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
 
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
@@ -238,7 +239,10 @@ struct TransportBar: View {
             Task {
                 do {
                     try ProjectFile.save(project: project, to: url)
-                    await MainActor.run { saveProgress = false }
+                    await MainActor.run {
+                        saveProgress = false
+                        RecentProjectStore.add(url: url)
+                    }
                 } catch {
                     await MainActor.run { saveProgress = false }
                 }
@@ -258,6 +262,7 @@ struct TransportBar: View {
             Task { @MainActor in
                 try? await ProjectFile.load(from: url, into: project, engine: engine)
                 engine.applySettings()
+                RecentProjectStore.add(url: url)
             }
         }
     }

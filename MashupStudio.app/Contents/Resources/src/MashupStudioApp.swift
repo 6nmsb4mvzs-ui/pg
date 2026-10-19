@@ -3,6 +3,8 @@ import UniformTypeIdentifiers
 
 @main
 struct MashupStudioApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -22,6 +24,22 @@ struct MashupStudioApp: App {
                     NSApp.sendAction(Selector(("redo:")), to: nil, from: nil)
                 }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
+            }
+        }
+    }
+}
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        loadAppIcon()
+    }
+
+    private func loadAppIcon() {
+        if let appDir = ProcessInfo.processInfo.environment["MASHUP_APP_DIR"] {
+            let icnsPath = URL(fileURLWithPath: appDir)
+                .appendingPathComponent("Contents/Resources/AppIcon.icns")
+            if let icon = NSImage(contentsOf: icnsPath) {
+                NSApp.applicationIconImage = icon
             }
         }
     }

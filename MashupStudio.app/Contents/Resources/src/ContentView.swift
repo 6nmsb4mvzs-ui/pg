@@ -5,8 +5,36 @@ struct ContentView: View {
     @StateObject private var project = MashupProject()
     @StateObject private var engine = AudioEngineManager()
     @State private var keyMonitor: Any?
+    @State private var showEditor = false
 
     var body: some View {
+        Group {
+            if showEditor {
+                editorView
+            } else {
+                WelcomeView(project: project, engine: engine) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showEditor = true
+                    }
+                }
+            }
+        }
+        .background(Color(nsColor: NSColor(white: 0.1, alpha: 1)))
+        .onAppear {
+            engine.project = project
+            installKeyMonitor()
+            UpdateManager.shared.checkOnLaunch()
+        }
+        .onDisappear {
+            engine.stop()
+            if let monitor = keyMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyMonitor = nil
+            }
+        }
+    }
+
+    private var editorView: some View {
         VStack(spacing: 0) {
             TransportBar(project: project, engine: engine)
 
@@ -39,29 +67,24 @@ struct ContentView: View {
                     .frame(minWidth: 400)
             }
         }
-        .background(Color(nsColor: NSColor(white: 0.1, alpha: 1)))
-        .onAppear {
-            engine.project = project
-            installKeyMonitor()
-            UpdateManager.shared.checkOnLaunch()
-        }
-        .onDisappear {
-            engine.stop()
-            if let monitor = keyMonitor {
-                NSEvent.removeMonitor(monitor)
-                keyMonitor = nil
-            }
-        }
     }
 
     private func installKeyMonitor() {
         let eng = engine
         let proj = project
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if let responder = NSApp.keyWindow?.firstResponder,
-               responder is NSTextView {
-                return event
+            // Pass events through to text fields, panels, and sheets
+            if let w = event.window {
+                if w is NSSavePanel || w is NSOpenPanel { return event }
+                if let resp = w.firstResponder,
+                   resp is NSTextView || resp is NSTextField {
+                    return event
+                }
             }
+
+            // Only handle shortcuts when the editor is visible
+            guard showEditor else { return event }
+
             switch event.keyCode {
             case 49: // space
                 if eng.isPlaying { eng.pause() } else { eng.play(from: proj.currentTime) }
@@ -143,11 +166,15 @@ private func saveProject(_ project: MashupProject, _ engine: AudioEngineManager)
     panel.allowedContentTypes = [UTType(filenameExtension: "mashup") ?? .json]
     panel.nameFieldStringValue = "project.mashup"
     panel.canCreateDirectories = true
+    panel.isExtensionHidden = false
 
     panel.begin { response in
         guard response == .OK, let url = panel.url else { return }
         Task {
             try? ProjectFile.save(project: project, to: url)
+            await MainActor.run {
+                RecentProjectStore.add(url: url)
+            }
         }
     }
 }
@@ -164,6 +191,7 @@ private func openProject(_ project: MashupProject, _ engine: AudioEngineManager)
         Task { @MainActor in
             try? await ProjectFile.load(from: url, into: project, engine: engine)
             engine.applySettings()
+            RecentProjectStore.add(url: url)
         }
     }
 }
