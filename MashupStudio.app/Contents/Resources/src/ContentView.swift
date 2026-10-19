@@ -123,6 +123,12 @@ struct ContentView: View {
                     proj.currentTime = max(0, min(proj.totalDuration, proj.currentTime + 1))
                 }
                 return nil
+            case 18: // 1
+                proj.selectedTrack = proj.selectedTrack == .a ? .none : .a
+                return nil
+            case 19: // 2
+                proj.selectedTrack = proj.selectedTrack == .b ? .none : .b
+                return nil
             default:
                 return event
             }
@@ -140,6 +146,7 @@ struct ContentView: View {
             hint("⌘S", "Save Project")
             hint("⌘O", "Open Project")
             hint("← →", "Scrub ±1s")
+            hint("1 / 2", "Select Track A / B")
             hint("⌘Z / ⇧⌘Z", "Undo / Redo")
         }
         .padding(12)

@@ -20,6 +20,9 @@ class AudioEngineManager: ObservableObject {
     private var startHostTime: TimeInterval = 0
     private var startProjectTime: TimeInterval = 0
 
+    private var activeSegments = 0
+    private var playerClipMap: [(player: AVAudioPlayerNode, clip: AudioClip, rate: Float)] = []
+
     @Published var isPlaying = false
 
     weak var project: MashupProject?
@@ -92,6 +95,9 @@ class AudioEngineManager: ObservableObject {
         } catch { return }
 
         applySettings()
+        activeSegments = 0
+        playerClipMap = []
+
         scheduleTrackClips(pool: poolA, track: project.trackA, from: time)
         scheduleTrackClips(pool: poolB, track: project.trackB, from: time)
 
@@ -112,6 +118,8 @@ class AudioEngineManager: ObservableObject {
         displayLink = nil
         isPlaying = false
         project?.isPlaying = false
+        activeSegments = 0
+        playerClipMap = []
     }
 
     func pause() {
@@ -125,11 +133,11 @@ class AudioEngineManager: ObservableObject {
         }
 
         for (i, clip) in track.clips.prefix(poolSize).enumerated() {
-            scheduleClip(pool[i], clip: clip, from: globalTime)
+            scheduleClip(pool[i], clip: clip, from: globalTime, rate: track.playbackRate)
         }
     }
 
-    private func scheduleClip(_ player: AVAudioPlayerNode, clip: AudioClip, from globalTime: TimeInterval) {
+    private func scheduleClip(_ player: AVAudioPlayerNode, clip: AudioClip, from globalTime: TimeInterval, rate: Float) {
         guard let file = fileCache[clip.sourceURL] else { return }
 
         let clipStart = clip.timelineStart
@@ -138,27 +146,51 @@ class AudioEngineManager: ObservableObject {
 
         let sampleRate = file.processingFormat.sampleRate
 
+        activeSegments += 1
+        playerClipMap.append((player: player, clip: clip, rate: rate))
+
+        let startingInFade = clip.fadeIn > 0 && globalTime <= clipStart
+        player.volume = startingInFade ? 0 : 1.0
+
         if globalTime >= clipStart {
             let sourcePos = globalTime - clip.offset
             let startFrame = AVAudioFramePosition(sourcePos * sampleRate)
             let endFrame = AVAudioFramePosition((clip.sourceDuration - clip.trimEnd) * sampleRate)
             let frameCount = AVAudioFrameCount(max(0, endFrame - startFrame))
-            guard frameCount > 0 else { return }
+            guard frameCount > 0 else {
+                activeSegments -= 1
+                playerClipMap.removeLast()
+                return
+            }
 
-            player.scheduleSegment(file, startingFrame: startFrame, frameCount: frameCount, at: nil)
+            player.scheduleSegment(
+                file, startingFrame: startFrame, frameCount: frameCount,
+                at: nil, completionCallbackType: .dataPlayedBack
+            ) { [weak self] _ in
+                DispatchQueue.main.async { self?.activeSegments -= 1 }
+            }
             player.play()
         } else {
             let delay = clipStart - globalTime
             let startFrame = AVAudioFramePosition(clip.trimStart * sampleRate)
             let endFrame = AVAudioFramePosition((clip.sourceDuration - clip.trimEnd) * sampleRate)
             let frameCount = AVAudioFrameCount(max(0, endFrame - startFrame))
-            guard frameCount > 0 else { return }
+            guard frameCount > 0 else {
+                activeSegments -= 1
+                playerClipMap.removeLast()
+                return
+            }
 
             let outputRate = engine.mainMixerNode.outputFormat(forBus: 0).sampleRate
             let delaySamples = AVAudioFramePosition(delay * outputRate)
             let startTime = AVAudioTime(sampleTime: delaySamples, atRate: outputRate)
 
-            player.scheduleSegment(file, startingFrame: startFrame, frameCount: frameCount, at: startTime)
+            player.scheduleSegment(
+                file, startingFrame: startFrame, frameCount: frameCount,
+                at: startTime, completionCallbackType: .dataPlayedBack
+            ) { [weak self] _ in
+                DispatchQueue.main.async { self?.activeSegments -= 1 }
+            }
             player.play()
         }
     }
@@ -196,12 +228,22 @@ class AudioEngineManager: ObservableObject {
         let elapsed = CACurrentMediaTime() - startHostTime
         let newTime = startProjectTime + elapsed
 
+        updateFadeVolumes(currentTime: newTime)
+
         if project.loopEnabled && newTime >= project.loopEnd {
             play(from: project.loopStart)
             return
         }
 
-        if newTime >= project.totalDuration {
+        let wallEnd = effectiveWallDuration(project)
+        if newTime >= wallEnd && activeSegments <= 0 {
+            stop()
+            project.currentTime = 0
+            return
+        }
+
+        // Safety cutoff: 5s past the computed wall end
+        if newTime >= wallEnd + 5 {
             stop()
             project.currentTime = 0
             return
@@ -209,6 +251,49 @@ class AudioEngineManager: ObservableObject {
 
         DispatchQueue.main.async {
             project.currentTime = newTime
+        }
+    }
+
+    private func effectiveWallDuration(_ project: MashupProject) -> TimeInterval {
+        func wallEnd(_ track: AudioTrack) -> Double {
+            guard !track.isMuted else { return 0 }
+            let rate = Double(max(0.1, track.playbackRate))
+            return track.clips.map {
+                $0.timelineStart + $0.effectiveDuration / rate
+            }.max() ?? 0
+        }
+        var endA = wallEnd(project.trackA)
+        var endB = wallEnd(project.trackB)
+        if project.trackA.isSolo || project.trackB.isSolo {
+            if !project.trackA.isSolo { endA = 0 }
+            if !project.trackB.isSolo { endB = 0 }
+        }
+        return max(endA, endB, 30)
+    }
+
+    private func updateFadeVolumes(currentTime: TimeInterval) {
+        for entry in playerClipMap {
+            let clip = entry.clip
+            let rate = Double(max(0.1, entry.rate))
+            let wallStart = clip.timelineStart
+            let wallDuration = clip.effectiveDuration / rate
+            let wallPos = currentTime - wallStart
+
+            guard wallPos >= -0.1 && wallPos <= wallDuration + 0.1 else { continue }
+
+            let wallFadeIn = clip.fadeIn / rate
+            let wallFadeOut = clip.fadeOut / rate
+
+            var gain: Float = 1.0
+            if wallFadeIn > 0.001 && wallPos < wallFadeIn {
+                gain = Float(max(0, wallPos / wallFadeIn))
+            }
+            if wallFadeOut > 0.001 && wallPos > (wallDuration - wallFadeOut) {
+                let fadeGain = Float(max(0, (wallDuration - wallPos) / wallFadeOut))
+                gain = min(gain, fadeGain)
+            }
+
+            entry.player.volume = max(0, min(1, gain))
         }
     }
 }

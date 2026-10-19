@@ -108,6 +108,20 @@ enum AudioExporter {
         )
         try engine.start()
 
+        let clipPlayerPairs: [(clip: AudioClip, player: AVAudioPlayerNode, rate: Float)]
+        var pairs: [(clip: AudioClip, player: AVAudioPlayerNode, rate: Float)] = []
+        if volA > 0 {
+            for (i, clip) in tA.clips.enumerated() where i < playersA.count {
+                pairs.append((clip: clip, player: playersA[i], rate: tA.playbackRate))
+            }
+        }
+        if volB > 0 {
+            for (i, clip) in tB.clips.enumerated() where i < playersB.count {
+                pairs.append((clip: clip, player: playersB[i], rate: tB.playbackRate))
+            }
+        }
+        clipPlayerPairs = pairs
+
         if volA > 0 { scheduleClips(playersA, clips: tA.clips, outputRate: sampleRate) }
         if volB > 0 { scheduleClips(playersB, clips: tB.clips, outputRate: sampleRate) }
 
@@ -120,9 +134,33 @@ enum AudioExporter {
             throw ExportError.bufferCreationFailed
         }
 
+        var renderedFrames: AVAudioFrameCount = 0
         var framesLeft = totalFrames
         while framesLeft > 0 {
             let toRender = min(chunkSize, framesLeft)
+
+            let currentWallTime = Double(renderedFrames) / sampleRate
+            for pair in clipPlayerPairs {
+                let clip = pair.clip
+                let rate = Double(max(0.1, pair.rate))
+                let wallStart = clip.timelineStart
+                let wallDuration = clip.effectiveDuration / rate
+                let wallPos = currentWallTime - wallStart
+
+                let wallFadeIn = clip.fadeIn / rate
+                let wallFadeOut = clip.fadeOut / rate
+
+                var gain: Float = 1.0
+                if wallFadeIn > 0.001 && wallPos >= 0 && wallPos < wallFadeIn {
+                    gain = Float(wallPos / wallFadeIn)
+                }
+                if wallFadeOut > 0.001 && wallPos > (wallDuration - wallFadeOut) && wallPos <= wallDuration {
+                    let fg = Float((wallDuration - wallPos) / wallFadeOut)
+                    gain = min(gain, fg)
+                }
+                pair.player.volume = max(0, min(1, gain))
+            }
+
             let status = try engine.renderOffline(toRender, to: renderBuffer)
             switch status {
             case .success, .insufficientDataFromInputNode:
@@ -134,6 +172,7 @@ enum AudioExporter {
             @unknown default:
                 break
             }
+            renderedFrames += toRender
             framesLeft -= toRender
         }
 

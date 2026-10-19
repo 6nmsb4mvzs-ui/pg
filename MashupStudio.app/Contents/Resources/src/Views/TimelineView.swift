@@ -43,12 +43,12 @@ struct TimelineView: View {
 
                     Divider().background(Color.white.opacity(0.1))
 
-                    trackLane(track: project.trackA, color: .cyan, width: totalWidth)
+                    trackLane(track: project.trackA, color: .cyan, width: totalWidth, selected: project.selectedTrack == .a)
                         .frame(height: trackHeight)
 
                     Divider().background(Color.white.opacity(0.1))
 
-                    trackLane(track: project.trackB, color: .orange, width: totalWidth)
+                    trackLane(track: project.trackB, color: .orange, width: totalWidth, selected: project.selectedTrack == .b)
                         .frame(height: trackHeight)
 
                     Spacer()
@@ -93,9 +93,20 @@ struct TimelineView: View {
     }
 
     @ViewBuilder
-    private func trackLane(track: AudioTrack, color: Color, width: CGFloat) -> some View {
+    private func trackLane(track: AudioTrack, color: Color, width: CGFloat, selected: Bool = false) -> some View {
         ZStack(alignment: .topLeading) {
+            if selected {
+                Rectangle()
+                    .fill(color.opacity(0.04))
+            }
+
             gridLines(width: width, height: trackHeight)
+
+            if selected {
+                Rectangle()
+                    .stroke(color.opacity(0.3), lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
 
             if track.isLoaded {
                 ForEach(track.clips) { clip in

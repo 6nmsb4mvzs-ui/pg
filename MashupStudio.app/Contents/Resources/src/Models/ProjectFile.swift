@@ -31,6 +31,8 @@ struct ClipFileData: Codable {
     var offset: Double
     var trimStart: Double
     var trimEnd: Double
+    var fadeIn: Double?
+    var fadeOut: Double?
 }
 
 enum ProjectFile {
@@ -81,7 +83,9 @@ enum ProjectFile {
                     sourceDuration: clip.sourceDuration,
                     offset: clip.offset,
                     trimStart: clip.trimStart,
-                    trimEnd: clip.trimEnd
+                    trimEnd: clip.trimEnd,
+                    fadeIn: clip.fadeIn > 0 ? clip.fadeIn : nil,
+                    fadeOut: clip.fadeOut > 0 ? clip.fadeOut : nil
                 )
             },
             volume: track.volume,
@@ -117,7 +121,9 @@ enum ProjectFile {
                 bpm: bpm,
                 offset: clipData.offset,
                 trimStart: clipData.trimStart,
-                trimEnd: clipData.trimEnd
+                trimEnd: clipData.trimEnd,
+                fadeIn: clipData.fadeIn ?? 0,
+                fadeOut: clipData.fadeOut ?? 0
             )
             track.addClipDirect(clip)
         }

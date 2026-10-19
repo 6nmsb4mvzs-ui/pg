@@ -11,6 +11,8 @@ class AudioClip: ObservableObject, Identifiable {
     @Published var offset: TimeInterval
     @Published var trimStart: TimeInterval
     @Published var trimEnd: TimeInterval
+    @Published var fadeIn: TimeInterval
+    @Published var fadeOut: TimeInterval
 
     var effectiveDuration: TimeInterval {
         max(0, sourceDuration - trimStart - trimEnd)
@@ -26,7 +28,8 @@ class AudioClip: ObservableObject, Identifiable {
 
     init(sourceURL: URL, sourceName: String, sourceDuration: TimeInterval,
          fullWaveform: [Float], bpm: Double?,
-         offset: TimeInterval = 0, trimStart: TimeInterval = 0, trimEnd: TimeInterval = 0) {
+         offset: TimeInterval = 0, trimStart: TimeInterval = 0, trimEnd: TimeInterval = 0,
+         fadeIn: TimeInterval = 0, fadeOut: TimeInterval = 0) {
         self.id = UUID()
         self.sourceURL = sourceURL
         self.sourceName = sourceName
@@ -36,6 +39,8 @@ class AudioClip: ObservableObject, Identifiable {
         self.offset = offset
         self.trimStart = trimStart
         self.trimEnd = trimEnd
+        self.fadeIn = fadeIn
+        self.fadeOut = fadeOut
     }
 
     func split(at timelineTime: TimeInterval) -> (AudioClip, AudioClip)? {
@@ -45,13 +50,15 @@ class AudioClip: ObservableObject, Identifiable {
         let left = AudioClip(
             sourceURL: sourceURL, sourceName: sourceName,
             sourceDuration: sourceDuration, fullWaveform: fullWaveform, bpm: bpm,
-            offset: offset, trimStart: trimStart, trimEnd: sourceDuration - localTime
+            offset: offset, trimStart: trimStart, trimEnd: sourceDuration - localTime,
+            fadeIn: fadeIn, fadeOut: 0
         )
 
         let right = AudioClip(
             sourceURL: sourceURL, sourceName: sourceName,
             sourceDuration: sourceDuration, fullWaveform: fullWaveform, bpm: bpm,
-            offset: offset, trimStart: localTime, trimEnd: trimEnd
+            offset: offset, trimStart: localTime, trimEnd: trimEnd,
+            fadeIn: 0, fadeOut: fadeOut
         )
 
         return (left, right)

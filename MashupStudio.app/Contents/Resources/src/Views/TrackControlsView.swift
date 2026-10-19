@@ -12,6 +12,11 @@ struct TrackControlsView: View {
     @State private var isDropTarget = false
     @State private var showEQ = false
 
+    private var isSelected: Bool {
+        (track.label == "A" && project.selectedTrack == .a) ||
+        (track.label == "B" && project.selectedTrack == .b)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -154,11 +159,16 @@ struct TrackControlsView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(
-                            isDropTarget ? color : color.opacity(0.2),
-                            lineWidth: isDropTarget ? 2 : 1
+                            isDropTarget ? color : isSelected ? color.opacity(0.5) : color.opacity(0.2),
+                            lineWidth: isDropTarget ? 2 : isSelected ? 2 : 1
                         )
                 )
         )
+        .contentShape(RoundedRectangle(cornerRadius: 8))
+        .onTapGesture {
+            let target: MashupProject.SelectedTrack = track.label == "A" ? .a : .b
+            project.selectedTrack = project.selectedTrack == target ? .none : target
+        }
         .onDrop(of: [.fileURL], isTargeted: $isDropTarget) { providers in
             handleDrop(providers: providers)
         }

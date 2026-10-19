@@ -14,8 +14,12 @@ struct ClipView: View {
     @State private var isDraggingTrimEnd = false
     @State private var trimDragOrigin: TimeInterval = 0
     @State private var isHovering = false
+    @State private var isDraggingFadeIn = false
+    @State private var isDraggingFadeOut = false
+    @State private var fadeDragOrigin: TimeInterval = 0
 
     private let trimHandleWidth: CGFloat = 8
+    private let fadeHandleSize: CGFloat = 10
 
     var body: some View {
         let pps = project.pixelsPerSecond
@@ -54,6 +58,7 @@ struct ClipView: View {
                     RoundedRectangle(cornerRadius: 5)
                         .fill(color.opacity(isHovering ? 0.16 : 0.08))
                 )
+                .overlay(fadeOverlay(width: visibleWidth, height: height))
                 .clipShape(RoundedRectangle(cornerRadius: 5))
                 .overlay(
                     RoundedRectangle(cornerRadius: 5)
@@ -76,6 +81,28 @@ struct ClipView: View {
                 .offset(x: clipX + trimStartPx + visibleWidth - trimHandleWidth / 2)
                 .gesture(trimEndGesture())
 
+            // Fade-in handle
+            if isHovering || clip.fadeIn > 0 || isDraggingFadeIn {
+                let fadeInPx = CGFloat(clip.fadeIn * pps)
+                fadeHandle()
+                    .offset(
+                        x: clipX + trimStartPx + fadeInPx - fadeHandleSize / 2,
+                        y: -height / 2 + fadeHandleSize / 2 + 2
+                    )
+                    .gesture(fadeInGesture())
+            }
+
+            // Fade-out handle
+            if isHovering || clip.fadeOut > 0 || isDraggingFadeOut {
+                let fadeOutPx = CGFloat(clip.fadeOut * pps)
+                fadeHandle()
+                    .offset(
+                        x: clipX + trimStartPx + visibleWidth - fadeOutPx - fadeHandleSize / 2,
+                        y: -height / 2 + fadeHandleSize / 2 + 2
+                    )
+                    .gesture(fadeOutGesture())
+            }
+
             Text(clip.sourceName)
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
                 .foregroundColor(.white.opacity(0.65))
@@ -96,6 +123,62 @@ struct ClipView: View {
             }
         }
         .frame(height: height)
+    }
+
+    private func fadeOverlay(width: CGFloat, height: CGFloat) -> some View {
+        let pps = project.pixelsPerSecond
+        let fadeInPx = CGFloat(clip.fadeIn * pps)
+        let fadeOutPx = CGFloat(clip.fadeOut * pps)
+
+        return ZStack(alignment: .leading) {
+            if fadeInPx > 1 {
+                Path { p in
+                    p.move(to: CGPoint(x: 0, y: 0))
+                    p.addLine(to: CGPoint(x: fadeInPx, y: 0))
+                    p.addLine(to: CGPoint(x: 0, y: height))
+                    p.closeSubpath()
+                }
+                .fill(Color.black.opacity(0.4))
+
+                Path { p in
+                    p.move(to: CGPoint(x: 0, y: height))
+                    p.addLine(to: CGPoint(x: fadeInPx, y: 0))
+                }
+                .stroke(Color.white.opacity(0.5), lineWidth: 1)
+            }
+
+            if fadeOutPx > 1 {
+                Path { p in
+                    p.move(to: CGPoint(x: width, y: 0))
+                    p.addLine(to: CGPoint(x: width - fadeOutPx, y: 0))
+                    p.addLine(to: CGPoint(x: width, y: height))
+                    p.closeSubpath()
+                }
+                .fill(Color.black.opacity(0.4))
+
+                Path { p in
+                    p.move(to: CGPoint(x: width - fadeOutPx, y: 0))
+                    p.addLine(to: CGPoint(x: width, y: height))
+                }
+                .stroke(Color.white.opacity(0.5), lineWidth: 1)
+            }
+        }
+        .frame(width: width, height: height)
+    }
+
+    private func fadeHandle() -> some View {
+        Circle()
+            .fill(Color.white.opacity(0.8))
+            .frame(width: fadeHandleSize, height: fadeHandleSize)
+            .overlay(
+                Circle().stroke(color, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.4), radius: 2)
+            .contentShape(Rectangle().size(width: fadeHandleSize + 12, height: fadeHandleSize + 12))
+            .onHover { hovering in
+                if hovering { NSCursor.resizeLeftRight.push() }
+                else { NSCursor.pop() }
+            }
     }
 
     private func waveformShape(width: CGFloat, height: CGFloat) -> Path {
@@ -206,6 +289,44 @@ struct ClipView: View {
                 let finalTrim = clip.trimEnd
                 clip.trimEnd = trimDragOrigin
                 project.setClipTrimEnd(clip, to: finalTrim, undoManager: undoManager)
+            }
+    }
+
+    private func fadeInGesture() -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                if !isDraggingFadeIn {
+                    isDraggingFadeIn = true
+                    fadeDragOrigin = clip.fadeIn
+                }
+                let delta = Double(value.translation.width) / project.pixelsPerSecond
+                let maxFade = clip.effectiveDuration - clip.fadeOut
+                clip.fadeIn = max(0, min(fadeDragOrigin + delta, maxFade))
+            }
+            .onEnded { _ in
+                isDraggingFadeIn = false
+                let finalFade = clip.fadeIn
+                clip.fadeIn = fadeDragOrigin
+                project.setClipFadeIn(clip, to: finalFade, undoManager: undoManager)
+            }
+    }
+
+    private func fadeOutGesture() -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                if !isDraggingFadeOut {
+                    isDraggingFadeOut = true
+                    fadeDragOrigin = clip.fadeOut
+                }
+                let delta = -Double(value.translation.width) / project.pixelsPerSecond
+                let maxFade = clip.effectiveDuration - clip.fadeIn
+                clip.fadeOut = max(0, min(fadeDragOrigin + delta, maxFade))
+            }
+            .onEnded { _ in
+                isDraggingFadeOut = false
+                let finalFade = clip.fadeOut
+                clip.fadeOut = fadeDragOrigin
+                project.setClipFadeOut(clip, to: finalFade, undoManager: undoManager)
             }
     }
 }

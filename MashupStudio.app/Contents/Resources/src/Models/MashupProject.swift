@@ -14,6 +14,11 @@ class MashupProject: ObservableObject {
     @Published var crossfadeDuration: TimeInterval = 2.0
     @Published var masterVolume: Float = 1.0
     @Published var scrollOffset: CGFloat = 0
+    @Published var selectedTrack: SelectedTrack = .none
+
+    enum SelectedTrack: Equatable {
+        case a, b, none
+    }
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -77,13 +82,38 @@ class MashupProject: ObservableObject {
         clip.trimEnd = min(max(0, value), clip.sourceDuration - clip.trimStart - 0.1)
     }
 
+    func setClipFadeIn(_ clip: AudioClip, to value: TimeInterval, undoManager: UndoManager?) {
+        let old = clip.fadeIn
+        undoManager?.registerUndo(withTarget: self) { proj in
+            proj.setClipFadeIn(clip, to: old, undoManager: undoManager)
+        }
+        undoManager?.setActionName("Fade In")
+        clip.fadeIn = min(max(0, value), clip.effectiveDuration - clip.fadeOut)
+    }
+
+    func setClipFadeOut(_ clip: AudioClip, to value: TimeInterval, undoManager: UndoManager?) {
+        let old = clip.fadeOut
+        undoManager?.registerUndo(withTarget: self) { proj in
+            proj.setClipFadeOut(clip, to: old, undoManager: undoManager)
+        }
+        undoManager?.setActionName("Fade Out")
+        clip.fadeOut = min(max(0, value), clip.effectiveDuration - clip.fadeIn)
+    }
+
     func splitAtPlayhead(undoManager: UndoManager?) {
         let time = currentTime
         let beforeA = trackA.clips
         let beforeB = trackB.clips
 
+        let tracksToSplit: [AudioTrack]
+        switch selectedTrack {
+        case .a: tracksToSplit = [trackA]
+        case .b: tracksToSplit = [trackB]
+        case .none: tracksToSplit = [trackA, trackB]
+        }
+
         var didSplit = false
-        for track in [trackA, trackB] {
+        for track in tracksToSplit {
             let toSplit = track.clips.filter { $0.timelineStart < time && time < $0.timelineEnd }
             for clip in toSplit {
                 if track.splitClip(id: clip.id, at: time) != nil {
