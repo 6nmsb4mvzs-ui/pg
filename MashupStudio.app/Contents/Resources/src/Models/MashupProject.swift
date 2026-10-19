@@ -18,8 +18,8 @@ class MashupProject: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     var totalDuration: TimeInterval {
-        let endA = trackA.isLoaded ? trackA.timelineEnd : 0
-        let endB = trackB.isLoaded ? trackB.timelineEnd : 0
+        let endA = trackA.timelineEnd
+        let endB = trackB.timelineEnd
         return max(endA, endB, 30)
     }
 
@@ -48,34 +48,68 @@ class MashupProject: ObservableObject {
         Double(x) / pixelsPerSecond
     }
 
-    // MARK: - Undo helpers
+    // MARK: - Clip undo
 
-    func setOffset(_ track: AudioTrack, to value: TimeInterval, undoManager: UndoManager?) {
-        let old = track.offset
+    func setClipOffset(_ clip: AudioClip, to value: TimeInterval, undoManager: UndoManager?) {
+        let old = clip.offset
         undoManager?.registerUndo(withTarget: self) { proj in
-            proj.setOffset(track, to: old, undoManager: undoManager)
+            proj.setClipOffset(clip, to: old, undoManager: undoManager)
         }
-        undoManager?.setActionName("Move Track \(track.label)")
-        track.offset = max(0, value)
+        undoManager?.setActionName("Move Clip")
+        clip.offset = max(-clip.trimStart, value)
     }
 
-    func setTrimStart(_ track: AudioTrack, to value: TimeInterval, undoManager: UndoManager?) {
-        let old = track.trimStart
+    func setClipTrimStart(_ clip: AudioClip, to value: TimeInterval, undoManager: UndoManager?) {
+        let old = clip.trimStart
         undoManager?.registerUndo(withTarget: self) { proj in
-            proj.setTrimStart(track, to: old, undoManager: undoManager)
+            proj.setClipTrimStart(clip, to: old, undoManager: undoManager)
         }
         undoManager?.setActionName("Trim Start")
-        track.trimStart = min(max(0, value), track.duration - track.trimEnd - 0.1)
+        clip.trimStart = min(max(0, value), clip.sourceDuration - clip.trimEnd - 0.1)
     }
 
-    func setTrimEnd(_ track: AudioTrack, to value: TimeInterval, undoManager: UndoManager?) {
-        let old = track.trimEnd
+    func setClipTrimEnd(_ clip: AudioClip, to value: TimeInterval, undoManager: UndoManager?) {
+        let old = clip.trimEnd
         undoManager?.registerUndo(withTarget: self) { proj in
-            proj.setTrimEnd(track, to: old, undoManager: undoManager)
+            proj.setClipTrimEnd(clip, to: old, undoManager: undoManager)
         }
         undoManager?.setActionName("Trim End")
-        track.trimEnd = min(max(0, value), track.duration - track.trimStart - 0.1)
+        clip.trimEnd = min(max(0, value), clip.sourceDuration - clip.trimStart - 0.1)
     }
+
+    func splitAtPlayhead(undoManager: UndoManager?) {
+        let time = currentTime
+        let beforeA = trackA.clips
+        let beforeB = trackB.clips
+
+        var didSplit = false
+        for track in [trackA, trackB] {
+            let toSplit = track.clips.filter { $0.timelineStart < time && time < $0.timelineEnd }
+            for clip in toSplit {
+                if track.splitClip(id: clip.id, at: time) != nil {
+                    didSplit = true
+                }
+            }
+        }
+
+        guard didSplit else { return }
+
+        let afterA = trackA.clips
+        let afterB = trackB.clips
+
+        undoManager?.registerUndo(withTarget: self) { proj in
+            proj.trackA.replaceClips(with: beforeA)
+            proj.trackB.replaceClips(with: beforeB)
+            undoManager?.registerUndo(withTarget: proj) { proj2 in
+                proj2.trackA.replaceClips(with: afterA)
+                proj2.trackB.replaceClips(with: afterB)
+            }
+            undoManager?.setActionName("Split")
+        }
+        undoManager?.setActionName("Split")
+    }
+
+    // MARK: - Track-level undo
 
     func setVolume(_ track: AudioTrack, to value: Float, undoManager: UndoManager?) {
         let old = track.volume
@@ -115,7 +149,7 @@ class MashupProject: ObservableObject {
 
     func toggleMute(_ track: AudioTrack, undoManager: UndoManager?) {
         let old = track.isMuted
-        undoManager?.registerUndo(withTarget: self) { proj in
+        undoManager?.registerUndo(withTarget: self) { _ in
             track.isMuted = old
         }
         undoManager?.setActionName(track.isMuted ? "Unmute" : "Mute")
@@ -124,7 +158,7 @@ class MashupProject: ObservableObject {
 
     func toggleSolo(_ track: AudioTrack, undoManager: UndoManager?) {
         let old = track.isSolo
-        undoManager?.registerUndo(withTarget: self) { proj in
+        undoManager?.registerUndo(withTarget: self) { _ in
             track.isSolo = old
         }
         undoManager?.setActionName(track.isSolo ? "Unsolo" : "Solo")

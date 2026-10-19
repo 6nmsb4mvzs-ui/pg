@@ -206,12 +206,8 @@ struct TrackControlsView: View {
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
-                try? await track.loadFile(url)
-                if track.label == "A" {
-                    try? engine.loadTrackA(url: url)
-                } else {
-                    try? engine.loadTrackB(url: url)
-                }
+                try? await track.addClip(from: url, at: track.timelineEnd)
+                try? engine.cacheFile(url: url)
             }
         }
     }
@@ -224,12 +220,8 @@ struct TrackControlsView: View {
             let exts = ["mp3", "wav", "aiff", "aif", "m4a", "flac", "aac", "ogg", "caf"]
             guard exts.contains(url.pathExtension.lowercased()) else { return }
             Task { @MainActor in
-                try? await track.loadFile(url)
-                if track.label == "A" {
-                    try? engine.loadTrackA(url: url)
-                } else {
-                    try? engine.loadTrackB(url: url)
-                }
+                try? await track.addClip(from: url, at: track.timelineEnd)
+                try? engine.cacheFile(url: url)
             }
         }
         return true

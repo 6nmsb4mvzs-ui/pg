@@ -59,8 +59,21 @@ enum AudioExporter {
         sampleRate: Double,
         channels: AVAudioChannelCount
     ) throws {
-        guard let url = track.url, !track.isMuted else { return }
+        guard !track.isMuted else { return }
 
+        for clip in track.clips {
+            try mixClip(clip, volume: track.volume, into: output, sampleRate: sampleRate, channels: channels)
+        }
+    }
+
+    private static func mixClip(
+        _ clip: AudioClip,
+        volume: Float,
+        into output: AVAudioPCMBuffer,
+        sampleRate: Double,
+        channels: AVAudioChannelCount
+    ) throws {
+        let url = clip.sourceURL
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
@@ -75,16 +88,15 @@ enum AudioExporter {
 
         try file.read(into: fileBuffer)
 
-        let trimStartFrame = Int(track.trimStart * fileFormat.sampleRate)
-        let trimEndFrame = Int(track.trimEnd * fileFormat.sampleRate)
+        let trimStartFrame = Int(clip.trimStart * fileFormat.sampleRate)
+        let trimEndFrame = Int(clip.trimEnd * fileFormat.sampleRate)
         let usableFrames = Int(fileFrameCount) - trimStartFrame - trimEndFrame
         guard usableFrames > 0 else { return }
 
-        let destStartFrame = Int(track.timelineStart * sampleRate)
+        let destStartFrame = Int(clip.timelineStart * sampleRate)
         let framesToCopy = min(usableFrames, Int(output.frameLength) - destStartFrame)
         guard framesToCopy > 0, destStartFrame >= 0 else { return }
 
-        let vol = track.volume
         let srcChannels = Int(fileFormat.channelCount)
         let dstChannels = Int(channels)
 
@@ -94,7 +106,7 @@ enum AudioExporter {
             let dst = output.floatChannelData![dstCh].advanced(by: destStartFrame)
 
             for i in 0..<framesToCopy {
-                dst[i] += src[i] * vol
+                dst[i] += src[i] * volume
             }
         }
     }

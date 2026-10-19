@@ -43,35 +43,13 @@ struct TimelineView: View {
 
                     Divider().background(Color.white.opacity(0.1))
 
-                    ZStack(alignment: .topLeading) {
-                        gridLines(width: totalWidth, height: trackHeight)
-                        WaveformView(
-                            track: project.trackA,
-                            project: project,
-                            color: .cyan,
-                            height: trackHeight
-                        )
-                    }
-                    .frame(height: trackHeight)
-                    .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                        handleDrop(providers: providers, track: project.trackA)
-                    }
+                    trackLane(track: project.trackA, color: .cyan, width: totalWidth)
+                        .frame(height: trackHeight)
 
                     Divider().background(Color.white.opacity(0.1))
 
-                    ZStack(alignment: .topLeading) {
-                        gridLines(width: totalWidth, height: trackHeight)
-                        WaveformView(
-                            track: project.trackB,
-                            project: project,
-                            color: .orange,
-                            height: trackHeight
-                        )
-                    }
-                    .frame(height: trackHeight)
-                    .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                        handleDrop(providers: providers, track: project.trackB)
-                    }
+                    trackLane(track: project.trackB, color: .orange, width: totalWidth)
+                        .frame(height: trackHeight)
 
                     Spacer()
                 }
@@ -114,6 +92,36 @@ struct TimelineView: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
+    @ViewBuilder
+    private func trackLane(track: AudioTrack, color: Color, width: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            gridLines(width: width, height: trackHeight)
+
+            if track.isLoaded {
+                ForEach(track.clips) { clip in
+                    ClipView(
+                        clip: clip,
+                        project: project,
+                        color: color,
+                        height: trackHeight
+                    )
+                }
+            } else {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.white.opacity(0.02))
+                    .frame(height: trackHeight)
+                    .overlay(
+                        Text("Drop audio file or click Open")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.2))
+                    )
+            }
+        }
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            handleDrop(providers: providers, track: track)
+        }
+    }
+
     private func timeRuler(width: CGFloat) -> some View {
         Canvas { ctx, size in
             let pps = project.pixelsPerSecond
@@ -131,14 +139,14 @@ struct TimelineView: View {
                 let isMajor = t.truncatingRemainder(dividingBy: majorInterval) < 0.001
 
                 let lineHeight: CGFloat = isMajor ? 12 : 6
-                let color: Color = isMajor ? .white.opacity(0.5) : .white.opacity(0.2)
+                let lineColor: Color = isMajor ? .white.opacity(0.5) : .white.opacity(0.2)
 
                 ctx.stroke(
                     Path { p in
                         p.move(to: CGPoint(x: x, y: size.height))
                         p.addLine(to: CGPoint(x: x, y: size.height - lineHeight))
                     },
-                    with: .color(color),
+                    with: .color(lineColor),
                     lineWidth: 1
                 )
 
@@ -191,12 +199,8 @@ struct TimelineView: View {
                   let url = URL(dataRepresentation: data, relativeTo: nil),
                   isAudioFile(url) else { return }
             Task { @MainActor in
-                try? await track.loadFile(url)
-                if track === project.trackA {
-                    try? engine.loadTrackA(url: url)
-                } else {
-                    try? engine.loadTrackB(url: url)
-                }
+                try? await track.addClip(from: url)
+                try? engine.cacheFile(url: url)
             }
         }
         return true

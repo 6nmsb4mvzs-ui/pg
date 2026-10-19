@@ -68,6 +68,12 @@ struct ContentView: View {
                 eng.stop()
                 proj.currentTime = 0
                 return nil
+            case 1: // S - split at playhead
+                let wasPlaying = eng.isPlaying
+                if wasPlaying { eng.pause() }
+                proj.splitAtPlayhead(undoManager: NSApp.keyWindow?.undoManager)
+                if wasPlaying { eng.play(from: proj.currentTime) }
+                return nil
             case 123: // left arrow
                 if !eng.isPlaying {
                     proj.currentTime = max(0, min(proj.totalDuration, proj.currentTime - 1))
@@ -91,6 +97,7 @@ struct ContentView: View {
                 .foregroundColor(.white.opacity(0.3))
             hint("Space", "Play / Pause")
             hint("Return", "Stop & Rewind")
+            hint("S", "Split at Playhead")
             hint("← →", "Scrub ±1s")
             hint("⌘Z / ⇧⌘Z", "Undo / Redo")
         }

@@ -3,15 +3,19 @@ import Combine
 
 class AudioEngineManager: ObservableObject {
     private let engine = AVAudioEngine()
-    private let playerA = AVAudioPlayerNode()
-    private let playerB = AVAudioPlayerNode()
+
+    private let mixerA = AVAudioMixerNode()
+    private let mixerB = AVAudioMixerNode()
     private let pitchA = AVAudioUnitTimePitch()
     private let pitchB = AVAudioUnitTimePitch()
     private let eqA = AVAudioUnitEQ(numberOfBands: 3)
     private let eqB = AVAudioUnitEQ(numberOfBands: 3)
 
-    private var fileA: AVAudioFile?
-    private var fileB: AVAudioFile?
+    private var poolA: [AVAudioPlayerNode] = []
+    private var poolB: [AVAudioPlayerNode] = []
+    private let poolSize = 8
+
+    private var fileCache: [URL: AVAudioFile] = [:]
     private var displayLink: Timer?
     private var startHostTime: TimeInterval = 0
     private var startProjectTime: TimeInterval = 0
@@ -21,23 +25,35 @@ class AudioEngineManager: ObservableObject {
     weak var project: MashupProject?
 
     init() {
-        configureEQ(eqA)
-        configureEQ(eqB)
+        for _ in 0..<poolSize {
+            let pA = AVAudioPlayerNode()
+            let pB = AVAudioPlayerNode()
+            poolA.append(pA)
+            poolB.append(pB)
+            engine.attach(pA)
+            engine.attach(pB)
+        }
 
-        engine.attach(playerA)
-        engine.attach(playerB)
+        engine.attach(mixerA)
+        engine.attach(mixerB)
         engine.attach(pitchA)
         engine.attach(pitchB)
         engine.attach(eqA)
         engine.attach(eqB)
 
+        configureEQ(eqA)
+        configureEQ(eqB)
+
         let mainMixer = engine.mainMixerNode
 
-        engine.connect(playerA, to: pitchA, format: nil)
+        for p in poolA { engine.connect(p, to: mixerA, format: nil) }
+        for p in poolB { engine.connect(p, to: mixerB, format: nil) }
+
+        engine.connect(mixerA, to: pitchA, format: nil)
         engine.connect(pitchA, to: eqA, format: nil)
         engine.connect(eqA, to: mainMixer, format: nil)
 
-        engine.connect(playerB, to: pitchB, format: nil)
+        engine.connect(mixerB, to: pitchB, format: nil)
         engine.connect(pitchB, to: eqB, format: nil)
         engine.connect(eqB, to: mainMixer, format: nil)
     }
@@ -60,16 +76,11 @@ class AudioEngineManager: ObservableObject {
         bands[2].bypass = false
     }
 
-    func loadTrackA(url: URL) throws {
+    func cacheFile(url: URL) throws {
+        guard fileCache[url] == nil else { return }
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        fileA = try AVAudioFile(forReading: url)
-    }
-
-    func loadTrackB(url: URL) throws {
-        let accessing = url.startAccessingSecurityScopedResource()
-        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        fileB = try AVAudioFile(forReading: url)
+        fileCache[url] = try AVAudioFile(forReading: url)
     }
 
     func play(from time: TimeInterval) {
@@ -77,16 +88,12 @@ class AudioEngineManager: ObservableObject {
         stop()
 
         do {
-            if !engine.isRunning {
-                try engine.start()
-            }
-        } catch {
-            return
-        }
+            if !engine.isRunning { try engine.start() }
+        } catch { return }
 
         applySettings()
-        scheduleTrack(playerA, file: fileA, track: project.trackA, from: time)
-        scheduleTrack(playerB, file: fileB, track: project.trackB, from: time)
+        scheduleTrackClips(pool: poolA, track: project.trackA, from: time)
+        scheduleTrackClips(pool: poolB, track: project.trackB, from: time)
 
         startHostTime = CACurrentMediaTime()
         startProjectTime = time
@@ -99,8 +106,8 @@ class AudioEngineManager: ObservableObject {
     }
 
     func stop() {
-        playerA.stop()
-        playerB.stop()
+        for p in poolA { p.stop() }
+        for p in poolB { p.stop() }
         displayLink?.invalidate()
         displayLink = nil
         isPlaying = false
@@ -108,64 +115,50 @@ class AudioEngineManager: ObservableObject {
     }
 
     func pause() {
-        if isPlaying {
-            stop()
-        }
+        if isPlaying { stop() }
     }
 
-    private func scheduleTrack(
-        _ player: AVAudioPlayerNode,
-        file: AVAudioFile?,
-        track: AudioTrack,
-        from globalTime: TimeInterval
-    ) {
-        guard let file, track.isLoaded, !track.isMuted else { return }
-
+    private func scheduleTrackClips(pool: [AVAudioPlayerNode], track: AudioTrack, from globalTime: TimeInterval) {
+        guard !track.isMuted else { return }
         if let project, project.trackA.isSolo || project.trackB.isSolo {
             guard track.isSolo else { return }
         }
 
-        let trackStart = track.timelineStart
-        let trackEnd = track.timelineEnd
-        guard globalTime < trackEnd else { return }
+        for (i, clip) in track.clips.prefix(poolSize).enumerated() {
+            scheduleClip(pool[i], clip: clip, from: globalTime)
+        }
+    }
 
-        let format = file.processingFormat
-        let sampleRate = format.sampleRate
+    private func scheduleClip(_ player: AVAudioPlayerNode, clip: AudioClip, from globalTime: TimeInterval) {
+        guard let file = fileCache[clip.sourceURL] else { return }
 
-        if globalTime >= trackStart {
-            let fileOffset = globalTime - track.offset
-            let startFrame = AVAudioFramePosition(fileOffset * sampleRate)
-            let endFrame = AVAudioFramePosition((track.duration - track.trimEnd) * sampleRate)
+        let clipStart = clip.timelineStart
+        let clipEnd = clip.timelineEnd
+        guard globalTime < clipEnd, clip.effectiveDuration > 0 else { return }
+
+        let sampleRate = file.processingFormat.sampleRate
+
+        if globalTime >= clipStart {
+            let sourcePos = globalTime - clip.offset
+            let startFrame = AVAudioFramePosition(sourcePos * sampleRate)
+            let endFrame = AVAudioFramePosition((clip.sourceDuration - clip.trimEnd) * sampleRate)
             let frameCount = AVAudioFrameCount(max(0, endFrame - startFrame))
             guard frameCount > 0 else { return }
 
-            player.scheduleSegment(
-                file,
-                startingFrame: startFrame,
-                frameCount: frameCount,
-                at: nil
-            )
+            player.scheduleSegment(file, startingFrame: startFrame, frameCount: frameCount, at: nil)
             player.play()
         } else {
-            let delay = trackStart - globalTime
-            let startFrame = AVAudioFramePosition(track.trimStart * sampleRate)
-            let endFrame = AVAudioFramePosition((track.duration - track.trimEnd) * sampleRate)
+            let delay = clipStart - globalTime
+            let startFrame = AVAudioFramePosition(clip.trimStart * sampleRate)
+            let endFrame = AVAudioFramePosition((clip.sourceDuration - clip.trimEnd) * sampleRate)
             let frameCount = AVAudioFrameCount(max(0, endFrame - startFrame))
             guard frameCount > 0 else { return }
 
-            let outputSampleRate = engine.mainMixerNode.outputFormat(forBus: 0).sampleRate
-            let delaySamples = AVAudioFramePosition(delay * outputSampleRate)
-            let startTime = AVAudioTime(
-                sampleTime: delaySamples,
-                atRate: outputSampleRate
-            )
+            let outputRate = engine.mainMixerNode.outputFormat(forBus: 0).sampleRate
+            let delaySamples = AVAudioFramePosition(delay * outputRate)
+            let startTime = AVAudioTime(sampleTime: delaySamples, atRate: outputRate)
 
-            player.scheduleSegment(
-                file,
-                startingFrame: startFrame,
-                frameCount: frameCount,
-                at: startTime
-            )
+            player.scheduleSegment(file, startingFrame: startFrame, frameCount: frameCount, at: startTime)
             player.play()
         }
     }
@@ -175,13 +168,16 @@ class AudioEngineManager: ObservableObject {
         let tA = project.trackA
         let tB = project.trackB
 
-        playerA.volume = tA.isMuted ? 0 : tA.volume * project.masterVolume
-        playerB.volume = tB.isMuted ? 0 : tB.volume * project.masterVolume
+        var volA = tA.isMuted ? Float(0) : tA.volume * project.masterVolume
+        var volB = tB.isMuted ? Float(0) : tB.volume * project.masterVolume
 
         if tA.isSolo || tB.isSolo {
-            playerA.volume = tA.isSolo ? tA.volume * project.masterVolume : 0
-            playerB.volume = tB.isSolo ? tB.volume * project.masterVolume : 0
+            volA = tA.isSolo ? tA.volume * project.masterVolume : 0
+            volB = tB.isSolo ? tB.volume * project.masterVolume : 0
         }
+
+        mixerA.outputVolume = volA
+        mixerB.outputVolume = volB
 
         pitchA.rate = tA.playbackRate
         pitchB.rate = tB.playbackRate

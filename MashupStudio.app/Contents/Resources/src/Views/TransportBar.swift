@@ -52,6 +52,25 @@ struct TransportBar: View {
 
             Divider().frame(height: 20)
 
+            Button(action: {
+                let wasPlaying = engine.isPlaying
+                if wasPlaying { engine.pause() }
+                project.splitAtPlayhead(undoManager: undoManager)
+                if wasPlaying { engine.play(from: project.currentTime) }
+            }) {
+                Image(systemName: "scissors")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 28, height: 28)
+                    .background(Color.white.opacity(0.05))
+                    .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            .help("Split at Playhead (S)")
+            .disabled(!project.trackA.isLoaded && !project.trackB.isLoaded)
+
+            Divider().frame(height: 20)
+
             HStack(spacing: 4) {
                 Button(action: { project.loopEnabled.toggle() }) {
                     Image(systemName: "repeat")
