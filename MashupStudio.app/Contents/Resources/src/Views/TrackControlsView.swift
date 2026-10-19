@@ -87,6 +87,12 @@ struct TrackControlsView: View {
 
                     Spacer()
 
+                    if let bpm = track.bpm {
+                        Text("\(String(format: "%.0f", bpm)) BPM")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundColor(color.opacity(0.6))
+                    }
+
                     Text(formatTime(track.effectiveDuration))
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(.white.opacity(0.4))

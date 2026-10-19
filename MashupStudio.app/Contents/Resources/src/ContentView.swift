@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var project = MashupProject()
     @StateObject private var engine = AudioEngineManager()
-    @FocusState private var isFocused: Bool
+    @State private var keyMonitor: Any?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,30 +39,49 @@ struct ContentView: View {
             }
         }
         .background(Color(nsColor: NSColor(white: 0.1, alpha: 1)))
-        .focusable()
-        .focused($isFocused)
-        .onKeyPress(.space) {
-            togglePlayback()
-            return .handled
-        }
-        .onKeyPress(.leftArrow) {
-            nudge(-1)
-            return .handled
-        }
-        .onKeyPress(.rightArrow) {
-            nudge(1)
-            return .handled
-        }
-        .onKeyPress(.return) {
-            engine.stop()
-            project.currentTime = 0
-            return .handled
-        }
         .onAppear {
             engine.project = project
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
+            installKeyMonitor()
         }
-        .onDisappear { engine.stop() }
+        .onDisappear {
+            engine.stop()
+            if let monitor = keyMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyMonitor = nil
+            }
+        }
+    }
+
+    private func installKeyMonitor() {
+        let eng = engine
+        let proj = project
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if let responder = NSApp.keyWindow?.firstResponder,
+               responder is NSTextView {
+                return event
+            }
+            switch event.keyCode {
+            case 49: // space
+                if eng.isPlaying { eng.pause() } else { eng.play(from: proj.currentTime) }
+                return nil
+            case 36: // return
+                eng.stop()
+                proj.currentTime = 0
+                return nil
+            case 123: // left arrow
+                if !eng.isPlaying {
+                    proj.currentTime = max(0, min(proj.totalDuration, proj.currentTime - 1))
+                }
+                return nil
+            case 124: // right arrow
+                if !eng.isPlaying {
+                    proj.currentTime = max(0, min(proj.totalDuration, proj.currentTime + 1))
+                }
+                return nil
+            default:
+                return event
+            }
+        }
     }
 
     private var keyboardHints: some View {
@@ -94,20 +113,6 @@ struct ContentView: View {
             Text(label)
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundColor(.white.opacity(0.25))
-        }
-    }
-
-    private func togglePlayback() {
-        if engine.isPlaying {
-            engine.pause()
-        } else {
-            engine.play(from: project.currentTime)
-        }
-    }
-
-    private func nudge(_ seconds: TimeInterval) {
-        if !engine.isPlaying {
-            project.currentTime = max(0, min(project.totalDuration, project.currentTime + seconds))
         }
     }
 }

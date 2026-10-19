@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @StateObject private var updateManager = UpdateManager.shared
+    @ObservedObject private var updateManager = UpdateManager.shared
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
@@ -124,6 +124,17 @@ struct SettingsView: View {
                         Text("Updates from: github.com/6nmsb4mvzs-ui/mix")
                             .font(.system(size: 10, design: .monospaced))
                             .foregroundColor(.white.opacity(0.25))
+                        if let src = updateManager.sourceDir {
+                            Text("Source: \(src)")
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.15))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        } else {
+                            Text("Source path not found — updates may not install")
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundColor(.red.opacity(0.5))
+                        }
                     }
                     .padding(12)
                     .background(

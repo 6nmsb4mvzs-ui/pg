@@ -20,6 +20,7 @@ class AudioTrack: ObservableObject, Identifiable {
     @Published var eqMid: Float = 0
     @Published var eqHigh: Float = 0
     @Published var playbackRate: Float = 1.0
+    @Published var bpm: Double?
 
     var effectiveDuration: TimeInterval {
         max(0, duration - trimStart - trimEnd)
@@ -58,6 +59,8 @@ class AudioTrack: ObservableObject, Identifiable {
             from: fileURL,
             targetCount: 4000
         )
+
+        bpm = try? await BPMDetector.detect(from: fileURL)
     }
 
     func reset() {
@@ -75,5 +78,6 @@ class AudioTrack: ObservableObject, Identifiable {
         eqMid = 0
         eqHigh = 0
         playbackRate = 1.0
+        bpm = nil
     }
 }

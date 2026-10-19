@@ -45,9 +45,20 @@ class UpdateManager: ObservableObject {
         }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await URLSession.shared.data(from: url)
+            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                isChecking = false
+                statusMessage = "Server returned \(http.statusCode)"
+                return
+            }
             let remote = String(data: data, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            guard !remote.isEmpty, remote.contains(".") else {
+                isChecking = false
+                statusMessage = "Invalid version data from server"
+                return
+            }
 
             remoteVersion = remote
             updateAvailable = Self.isNewer(remote: remote, local: currentVersion)
@@ -55,10 +66,10 @@ class UpdateManager: ObservableObject {
             lastChecked = Date()
             statusMessage = updateAvailable
                 ? "Update available: v\(remote)"
-                : "You're up to date"
+                : "You're up to date (v\(currentVersion))"
         } catch {
             isChecking = false
-            statusMessage = "Could not reach update server"
+            statusMessage = "Connection failed: \(error.localizedDescription)"
         }
     }
 
