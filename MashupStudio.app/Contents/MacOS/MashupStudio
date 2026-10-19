@@ -1,44 +1,33 @@
 #!/bin/zsh
 # MashupStudio launcher.
 # Compiles the Swift source on first run (needs Xcode Command Line Tools),
-# caches the binary inside the .app bundle, and exec's it.
+# caches the binary in Application Support, and exec's it. Subsequent
+# launches are instant unless the source changed.
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="MashupStudio"
-SOURCE_BASE="$(cd "$SCRIPT_DIR/../Resources" && pwd)"
+SOURCE_BASE="$(cd "$(dirname "$0")/../Resources" && pwd)"
 SRC="$SOURCE_BASE/src"
 SUPPORT="$HOME/Library/Application Support/$APP_NAME"
+BUILD_DIR="$SUPPORT/build"
+BINARY="$BUILD_DIR/$APP_NAME"
 LOG="$SUPPORT/build.log"
 
-# Binary goes inside the bundle so macOS resolves Bundle.main correctly.
-BINARY="$SCRIPT_DIR/${APP_NAME}_bin"
-# If the bundle is read-only, fall back to Application Support.
-if [[ ! -w "$SCRIPT_DIR" ]]; then
-  BINARY="$SUPPORT/build/$APP_NAME"
-fi
-
-mkdir -p "$SUPPORT" "$(dirname "$BINARY")"
+mkdir -p "$BUILD_DIR"
 
 notify() {
   /usr/bin/osascript -e "display notification \"$1\" with title \"$APP_NAME\"" >/dev/null 2>&1 || true
 }
 fail() {
-  local msg="$1"
-  if [[ -f "$LOG" ]]; then
-    local tail5
-    tail5="$(tail -5 "$LOG" 2>/dev/null)"
-    [[ -n "$tail5" ]] && msg="$msg\n\n$tail5"
-  fi
   local choice
-  choice="$(/usr/bin/osascript -e "button returned of (display dialog \"$msg\" with title \"$APP_NAME\" buttons {\"Show Log\", \"OK\"} default button \"OK\" with icon caution)" 2>/dev/null)"
+  choice="$(/usr/bin/osascript -e "button returned of (display dialog \"$1\" with title \"$APP_NAME\" buttons {\"Show Log\", \"OK\"} default button \"OK\" with icon caution)" 2>/dev/null)"
   [[ "$choice" == "Show Log" ]] && /usr/bin/open "$LOG"
   exit 1
 }
 
 # Source checksum — recompile only when files changed.
 STAMP="$(/usr/bin/find "$SRC" -name '*.swift' -exec /usr/bin/stat -f '%m %z' {} + 2>/dev/null | /usr/bin/shasum | /usr/bin/cut -d' ' -f1)"
-STAMP_FILE="$SUPPORT/.source-stamp"
+STAMP_FILE="$BUILD_DIR/.source-stamp"
 
 if [[ ! -x "$BINARY" || ! -f "$STAMP_FILE" || "$(cat "$STAMP_FILE" 2>/dev/null)" != "$STAMP" ]]; then
   notify "Building $APP_NAME (one-time)…"
@@ -49,8 +38,9 @@ if [[ ! -x "$BINARY" || ! -f "$STAMP_FILE" || "$(cat "$STAMP_FILE" 2>/dev/null)"
   fi
 
   ARCH="$(uname -m)"
-  TARGET="${ARCH}-apple-macosx13.0"
+  TARGET="${ARCH}-apple-macosx14.0"
 
+  # Collect all Swift files from subdirectories.
   SWIFT_FILES=()
   while IFS= read -r -d '' f; do
     SWIFT_FILES+=("$f")

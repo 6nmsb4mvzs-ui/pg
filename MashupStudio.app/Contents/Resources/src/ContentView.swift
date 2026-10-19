@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var project = MashupProject()
     @StateObject private var engine = AudioEngineManager()
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,19 +38,30 @@ struct ContentView: View {
                     .frame(minWidth: 400)
             }
         }
-        .background(
-            KeyboardMonitor(
-                onSpace: { togglePlayback() },
-                onReturn: {
-                    engine.stop()
-                    project.currentTime = 0
-                },
-                onLeft: { nudge(-1) },
-                onRight: { nudge(1) }
-            )
-        )
         .background(Color(nsColor: NSColor(white: 0.1, alpha: 1)))
-        .onAppear { engine.project = project }
+        .focusable()
+        .focused($isFocused)
+        .onKeyPress(.space) {
+            togglePlayback()
+            return .handled
+        }
+        .onKeyPress(.leftArrow) {
+            nudge(-1)
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            nudge(1)
+            return .handled
+        }
+        .onKeyPress(.return) {
+            engine.stop()
+            project.currentTime = 0
+            return .handled
+        }
+        .onAppear {
+            engine.project = project
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
+        }
         .onDisappear { engine.stop() }
     }
 
@@ -96,58 +108,6 @@ struct ContentView: View {
     private func nudge(_ seconds: TimeInterval) {
         if !engine.isPlaying {
             project.currentTime = max(0, min(project.totalDuration, project.currentTime + seconds))
-        }
-    }
-}
-
-struct KeyboardMonitor: NSViewRepresentable {
-    let onSpace: () -> Void
-    let onReturn: () -> Void
-    let onLeft: () -> Void
-    let onRight: () -> Void
-
-    func makeNSView(context: Context) -> NSView {
-        let view = MonitorView()
-        view.onSpace = onSpace
-        view.onReturn = onReturn
-        view.onLeft = onLeft
-        view.onRight = onRight
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {}
-
-    class MonitorView: NSView {
-        var onSpace: (() -> Void)?
-        var onReturn: (() -> Void)?
-        var onLeft: (() -> Void)?
-        var onRight: (() -> Void)?
-        private var monitor: Any?
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            if window != nil && monitor == nil {
-                monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                    guard let self else { return event }
-                    switch event.keyCode {
-                    case 49: self.onSpace?(); return nil
-                    case 36: self.onReturn?(); return nil
-                    case 123: self.onLeft?(); return nil
-                    case 124: self.onRight?(); return nil
-                    default: return event
-                    }
-                }
-            }
-        }
-
-        override func removeFromSuperview() {
-            if let monitor { NSEvent.removeMonitor(monitor) }
-            monitor = nil
-            super.removeFromSuperview()
-        }
-
-        deinit {
-            if let monitor { NSEvent.removeMonitor(monitor) }
         }
     }
 }

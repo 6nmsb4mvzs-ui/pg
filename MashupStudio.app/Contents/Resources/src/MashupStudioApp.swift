@@ -3,8 +3,6 @@ import UniformTypeIdentifiers
 
 @main
 struct MashupStudioApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
-
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -26,12 +24,5 @@ struct MashupStudioApp: App {
                 .keyboardShortcut("z", modifiers: [.command, .shift])
             }
         }
-    }
-}
-
-class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
     }
 }
