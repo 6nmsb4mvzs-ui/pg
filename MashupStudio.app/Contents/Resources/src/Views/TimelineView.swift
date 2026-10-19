@@ -78,7 +78,7 @@ struct TimelineView: View {
             }
             .frame(width: totalWidth, alignment: .topLeading)
             .contentShape(Rectangle())
-            .onTapGesture { location in
+            .onTapGesture(coordinateSpace: .local) { location in
                 if !engine.isPlaying {
                     project.currentTime = project.xToTime(location.x)
                 }

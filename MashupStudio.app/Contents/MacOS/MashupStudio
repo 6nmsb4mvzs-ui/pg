@@ -59,6 +59,8 @@ if [[ ! -x "$BINARY" || ! -f "$STAMP_FILE" || "$(cat "$STAMP_FILE" 2>/dev/null)"
     -framework AVFoundation \
     -framework Accelerate \
     -framework UniformTypeIdentifiers \
+    -framework AppKit \
+    -framework Cocoa \
     -O \
     -o "$BINARY" \
     "${SWIFT_FILES[@]}" \

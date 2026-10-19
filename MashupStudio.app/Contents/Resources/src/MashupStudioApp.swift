@@ -26,7 +26,3 @@ struct MashupStudioApp: App {
         }
     }
 }
-
-extension UTType {
-    static var wav: UTType { UTType(filenameExtension: "wav")! }
-}

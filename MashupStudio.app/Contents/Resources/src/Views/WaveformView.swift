@@ -143,7 +143,7 @@ struct WaveformView: View {
                     .stroke(Color.yellow, lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.5), radius: 2)
-            .contentShape(Rectangle().size(width: trimHandleWidth + 10, height: height))
+            .contentShape(Rectangle())
             .onHover { hovering in
                 if hovering {
                     NSCursor.resizeLeftRight.push()
