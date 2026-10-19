@@ -5,6 +5,8 @@ struct TimelineView: View {
     @ObservedObject var project: MashupProject
     @ObservedObject var engine: AudioEngineManager
     let trackHeight: CGFloat = 100
+    @State private var isDraggingPlayhead = false
+    @State private var wasPlayingBeforeScrub = false
 
     var body: some View {
         let totalWidth = project.timeToX(project.totalDuration + 10)
@@ -14,6 +16,30 @@ struct TimelineView: View {
                 VStack(spacing: 0) {
                     timeRuler(width: totalWidth)
                         .frame(height: 28)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    let time = max(0, min(project.totalDuration,
+                                        project.xToTime(value.location.x)))
+                                    if engine.isPlaying && !isDraggingPlayhead {
+                                        wasPlayingBeforeScrub = true
+                                        engine.pause()
+                                    }
+                                    isDraggingPlayhead = true
+                                    project.currentTime = time
+                                }
+                                .onEnded { value in
+                                    let time = max(0, min(project.totalDuration,
+                                        project.xToTime(value.location.x)))
+                                    project.currentTime = time
+                                    if wasPlayingBeforeScrub {
+                                        engine.play(from: time)
+                                    }
+                                    isDraggingPlayhead = false
+                                    wasPlayingBeforeScrub = false
+                                }
+                        )
 
                     Divider().background(Color.white.opacity(0.1))
 
@@ -68,9 +94,9 @@ struct TimelineView: View {
                     .allowsHitTesting(false)
 
                 Path { p in
-                    p.move(to: CGPoint(x: playX - 5, y: 0))
-                    p.addLine(to: CGPoint(x: playX + 5, y: 0))
-                    p.addLine(to: CGPoint(x: playX, y: 8))
+                    p.move(to: CGPoint(x: playX - 6, y: 0))
+                    p.addLine(to: CGPoint(x: playX + 6, y: 0))
+                    p.addLine(to: CGPoint(x: playX, y: 10))
                     p.closeSubpath()
                 }
                 .fill(Color.white)
