@@ -99,7 +99,7 @@ class UpdateManager: ObservableObject {
 
     @MainActor
     func downloadAndInstall() async {
-        guard let sourceDir = sourceDir else {
+        guard let bundleSourceDir = sourceDir else {
             statusMessage = "Cannot locate source directory"
             return
         }
@@ -141,31 +141,48 @@ class UpdateManager: ObservableObject {
 
             let remoteSrc = extractedDir
                 .appendingPathComponent("MashupStudio.app/Contents/Resources/src")
-            let sourceDirURL = URL(fileURLWithPath: sourceDir)
-
             guard fm.fileExists(atPath: remoteSrc.path) else {
                 throw UpdateError.badArchive
+            }
+
+            let targetDir: URL
+            if fm.isWritableFile(atPath: bundleSourceDir) {
+                targetDir = URL(fileURLWithPath: bundleSourceDir)
+            } else {
+                let overrideDir = fm.homeDirectoryForCurrentUser
+                    .appendingPathComponent("Library/Application Support/MashupStudio/src")
+                try fm.createDirectory(at: overrideDir, withIntermediateDirectories: true)
+                targetDir = overrideDir
             }
 
             let items = try fm.contentsOfDirectory(
                 at: remoteSrc, includingPropertiesForKeys: nil
             )
             for item in items {
-                let dest = sourceDirURL.appendingPathComponent(item.lastPathComponent)
+                let dest = targetDir.appendingPathComponent(item.lastPathComponent)
                 try? fm.removeItem(at: dest)
                 try fm.copyItem(at: item, to: dest)
             }
 
-            let support = fm.homeDirectoryForCurrentUser
+            let buildDir = fm.homeDirectoryForCurrentUser
                 .appendingPathComponent("Library/Application Support/MashupStudio/build")
-            try? fm.removeItem(at: support.appendingPathComponent(".source-stamp"))
+            try? fm.removeItem(at: buildDir.appendingPathComponent(".source-stamp"))
+            if let appDir = ProcessInfo.processInfo.environment["MASHUP_APP_DIR"] {
+                let bundleStamp = URL(fileURLWithPath: appDir)
+                    .appendingPathComponent("Contents/MacOS/.source-stamp")
+                try? fm.removeItem(at: bundleStamp)
+            }
 
             try? fm.removeItem(at: tempDir)
             try? fm.removeItem(at: tempURL)
 
             downloadProgress = 1.0
             isDownloading = false
-            loadCurrentVersion()
+            let newVersion = targetDir.appendingPathComponent("version.txt")
+            if let v = try? String(contentsOf: newVersion, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines) {
+                currentVersion = v
+            }
             updateAvailable = false
             statusMessage = "Update installed — restart the app to apply."
         } catch {

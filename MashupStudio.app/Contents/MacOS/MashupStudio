@@ -16,6 +16,33 @@ LOG="$SUPPORT/build.log"
 
 mkdir -p "$SUPPORT"
 
+# If auto-updater installed source to Application Support (read-only bundle),
+# use that if it's at least as new as the bundle's source.
+_ver_ge() {
+    local -a a b
+    a=( ${(s:.:)1} )
+    b=( ${(s:.:)2} )
+    (( ${a[1]:-0} > ${b[1]:-0} )) && return 0
+    (( ${a[1]:-0} < ${b[1]:-0} )) && return 1
+    (( ${a[2]:-0} > ${b[2]:-0} )) && return 0
+    (( ${a[2]:-0} < ${b[2]:-0} )) && return 1
+    (( ${a[3]:-0} >= ${b[3]:-0} )) && return 0
+    return 1
+}
+
+OVERRIDE_SRC="$SUPPORT/src"
+if [[ -d "$OVERRIDE_SRC" && -f "$OVERRIDE_SRC/version.txt" ]]; then
+    _OV="$(<"$OVERRIDE_SRC/version.txt")"
+    _OV="${_OV//[[:space:]]/}"
+    _BV="$(<"$SRC/version.txt" 2>/dev/null)"
+    _BV="${_BV//[[:space:]]/}"
+    if _ver_ge "$_OV" "$_BV"; then
+        SRC="$OVERRIDE_SRC"
+    else
+        rm -rf "$OVERRIDE_SRC"
+    fi
+fi
+
 # Prefer compiling into the bundle so the running process belongs to the .app.
 # This is what makes the icon and dock pinning work.
 BINARY="$MACOS_DIR/${APP_NAME}-bin"
