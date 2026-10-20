@@ -95,6 +95,7 @@ class AudioEngineManager: ObservableObject {
         } catch { return }
 
         applySettings()
+        engine.mainMixerNode.outputVolume = 1.0
         activeSegments = 0
         playerClipMap = []
 
@@ -116,6 +117,7 @@ class AudioEngineManager: ObservableObject {
         for p in poolB { p.stop() }
         displayLink?.invalidate()
         displayLink = nil
+        engine.mainMixerNode.outputVolume = 1.0
         isPlaying = false
         project?.isPlaying = false
         activeSegments = 0
@@ -236,13 +238,19 @@ class AudioEngineManager: ObservableObject {
         }
 
         let wallEnd = effectiveWallDuration(project)
+
+        let masterFade: TimeInterval = 3.0
+        if wallEnd > masterFade && newTime > wallEnd - masterFade {
+            let gain = Float(max(0, (wallEnd - newTime) / masterFade))
+            engine.mainMixerNode.outputVolume = gain
+        }
+
         if newTime >= wallEnd && activeSegments <= 0 {
             stop()
             project.currentTime = 0
             return
         }
 
-        // Safety cutoff: 5s past the computed wall end
         if newTime >= wallEnd + 5 {
             stop()
             project.currentTime = 0

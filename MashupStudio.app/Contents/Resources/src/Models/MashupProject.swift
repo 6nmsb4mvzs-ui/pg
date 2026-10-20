@@ -15,6 +15,7 @@ class MashupProject: ObservableObject {
     @Published var masterVolume: Float = 1.0
     @Published var scrollOffset: CGFloat = 0
     @Published var selectedTrack: SelectedTrack = .none
+    @Published var selectedClipID: UUID?
 
     enum SelectedTrack: Equatable {
         case a, b, none
@@ -139,6 +140,12 @@ class MashupProject: ObservableObject {
         undoManager?.setActionName("Split")
     }
 
+    func trackForClip(_ clipID: UUID) -> AudioTrack? {
+        if trackA.clips.contains(where: { $0.id == clipID }) { return trackA }
+        if trackB.clips.contains(where: { $0.id == clipID }) { return trackB }
+        return nil
+    }
+
     func deleteClip(_ clip: AudioClip, from track: AudioTrack, undoManager: UndoManager?) {
         let oldClips = track.clips
         track.removeClip(id: clip.id)
@@ -176,6 +183,14 @@ class MashupProject: ObservableObject {
     }
 
     func deleteAtPlayhead(undoManager: UndoManager?) {
+        if let sid = selectedClipID,
+           let track = trackForClip(sid),
+           let clip = track.clips.first(where: { $0.id == sid }) {
+            selectedClipID = nil
+            deleteClip(clip, from: track, undoManager: undoManager)
+            return
+        }
+
         let time = currentTime
         let tracksToCheck: [AudioTrack]
         switch selectedTrack {
@@ -213,6 +228,13 @@ class MashupProject: ObservableObject {
     }
 
     func duplicateAtPlayhead(undoManager: UndoManager?) {
+        if let sid = selectedClipID,
+           let track = trackForClip(sid),
+           let clip = track.clips.first(where: { $0.id == sid }) {
+            duplicateClip(clip, in: track, undoManager: undoManager)
+            return
+        }
+
         let time = currentTime
         let tracksToCheck: [AudioTrack]
         switch selectedTrack {

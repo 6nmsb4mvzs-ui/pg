@@ -64,14 +64,18 @@ struct ClipView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 5)
                         .stroke(
+                            project.selectedClipID == clip.id ? Color.white :
                             isDragging ? Color.white.opacity(0.7) :
                             isHovering ? color.opacity(0.6) : color.opacity(0.3),
-                            lineWidth: isDragging ? 1.5 : 1
+                            lineWidth: project.selectedClipID == clip.id ? 2 : isDragging ? 1.5 : 1
                         )
                 )
                 .shadow(color: color.opacity(isDragging ? 0.25 : 0), radius: 8)
                 .offset(x: clipX + trimStartPx)
                 .gesture(dragGesture())
+                .onTapGesture {
+                    project.selectedClipID = project.selectedClipID == clip.id ? nil : clip.id
+                }
                 .onHover { isHovering = $0 }
                 .contextMenu {
                     Button("Duplicate") {
