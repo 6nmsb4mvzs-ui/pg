@@ -268,7 +268,7 @@ class AudioEngineManager: ObservableObject {
             if !project.trackA.isSolo { endA = 0 }
             if !project.trackB.isSolo { endB = 0 }
         }
-        return max(endA, endB, 30)
+        return max(endA, endB)
     }
 
     private func updateFadeVolumes(currentTime: TimeInterval) {

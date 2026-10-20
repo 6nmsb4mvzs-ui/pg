@@ -79,12 +79,20 @@ struct ContentView: View {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             // Pass events through to text fields, panels, and sheets
             if let w = event.window {
-                if w is NSSavePanel || w is NSOpenPanel { return event }
-                if let resp = w.firstResponder,
-                   resp is NSTextView || resp is NSTextField {
+                let wClass = String(describing: type(of: w))
+                if w is NSSavePanel || w is NSOpenPanel
+                    || wClass.contains("SavePanel") || wClass.contains("OpenPanel") {
                     return event
                 }
+                if let resp = w.firstResponder {
+                    let rClass = String(describing: type(of: resp))
+                    if resp is NSTextView || resp is NSTextField
+                        || rClass.contains("TextField") || rClass.contains("TextEditor") {
+                        return event
+                    }
+                }
             }
+            if NSApp.keyWindow?.attachedSheet != nil { return event }
 
             // Only handle shortcuts when the editor is visible
             guard showEditor else { return event }
@@ -123,6 +131,18 @@ struct ContentView: View {
                     proj.currentTime = max(0, min(proj.totalDuration, proj.currentTime + 1))
                 }
                 return nil
+            case 51: // Backspace — delete clip at playhead
+                let wasPlaying = eng.isPlaying
+                if wasPlaying { eng.pause() }
+                proj.deleteAtPlayhead(undoManager: NSApp.keyWindow?.undoManager)
+                if wasPlaying { eng.play(from: proj.currentTime) }
+                return nil
+            case 2: // D — duplicate clip at playhead
+                let wasPlaying = eng.isPlaying
+                if wasPlaying { eng.pause() }
+                proj.duplicateAtPlayhead(undoManager: NSApp.keyWindow?.undoManager)
+                if wasPlaying { eng.play(from: proj.currentTime) }
+                return nil
             case 18: // 1
                 proj.selectedTrack = proj.selectedTrack == .a ? .none : .a
                 return nil
@@ -146,6 +166,8 @@ struct ContentView: View {
             hint("⌘S", "Save Project")
             hint("⌘O", "Open Project")
             hint("← →", "Scrub ±1s")
+            hint("D", "Duplicate Clip")
+            hint("⌫", "Delete Clip")
             hint("1 / 2", "Select Track A / B")
             hint("⌘Z / ⇧⌘Z", "Undo / Redo")
         }
@@ -173,13 +195,14 @@ struct ContentView: View {
 }
 
 private func saveProject(_ project: MashupProject, _ engine: AudioEngineManager) {
+    guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
     let panel = NSSavePanel()
     panel.allowedContentTypes = [UTType(filenameExtension: "mashup") ?? .json]
     panel.nameFieldStringValue = "project.mashup"
     panel.canCreateDirectories = true
     panel.isExtensionHidden = false
 
-    panel.begin { response in
+    panel.beginSheetModal(for: window) { response in
         guard response == .OK, let url = panel.url else { return }
         Task {
             try? ProjectFile.save(project: project, to: url)
@@ -191,13 +214,14 @@ private func saveProject(_ project: MashupProject, _ engine: AudioEngineManager)
 }
 
 private func openProject(_ project: MashupProject, _ engine: AudioEngineManager) {
+    guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
     let panel = NSOpenPanel()
     panel.allowedContentTypes = [UTType(filenameExtension: "mashup") ?? .json]
     panel.allowsMultipleSelection = false
     panel.canChooseDirectories = false
     panel.message = "Open a MashupStudio project"
 
-    panel.begin { response in
+    panel.beginSheetModal(for: window) { response in
         guard response == .OK, let url = panel.url else { return }
         Task { @MainActor in
             try? await ProjectFile.load(from: url, into: project, engine: engine)

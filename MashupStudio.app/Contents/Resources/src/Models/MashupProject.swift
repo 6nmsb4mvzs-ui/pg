@@ -139,6 +139,124 @@ class MashupProject: ObservableObject {
         undoManager?.setActionName("Split")
     }
 
+    func deleteClip(_ clip: AudioClip, from track: AudioTrack, undoManager: UndoManager?) {
+        let oldClips = track.clips
+        track.removeClip(id: clip.id)
+        let newClips = track.clips
+        undoManager?.registerUndo(withTarget: self) { proj in
+            track.replaceClips(with: oldClips)
+            undoManager?.registerUndo(withTarget: proj) { proj2 in
+                track.replaceClips(with: newClips)
+            }
+            undoManager?.setActionName("Delete Clip")
+        }
+        undoManager?.setActionName("Delete Clip")
+    }
+
+    func duplicateClip(_ clip: AudioClip, in track: AudioTrack, undoManager: UndoManager?) {
+        let dup = AudioClip(
+            sourceURL: clip.sourceURL, sourceName: clip.sourceName,
+            sourceDuration: clip.sourceDuration, fullWaveform: clip.fullWaveform,
+            bpm: clip.bpm,
+            offset: clip.timelineEnd - clip.trimStart,
+            trimStart: clip.trimStart, trimEnd: clip.trimEnd,
+            fadeIn: clip.fadeIn, fadeOut: clip.fadeOut
+        )
+        let oldClips = track.clips
+        track.addClipDirect(dup)
+        let newClips = track.clips
+        undoManager?.registerUndo(withTarget: self) { proj in
+            track.replaceClips(with: oldClips)
+            undoManager?.registerUndo(withTarget: proj) { proj2 in
+                track.replaceClips(with: newClips)
+            }
+            undoManager?.setActionName("Duplicate Clip")
+        }
+        undoManager?.setActionName("Duplicate Clip")
+    }
+
+    func deleteAtPlayhead(undoManager: UndoManager?) {
+        let time = currentTime
+        let tracksToCheck: [AudioTrack]
+        switch selectedTrack {
+        case .a: tracksToCheck = [trackA]
+        case .b: tracksToCheck = [trackB]
+        case .none: tracksToCheck = [trackA, trackB]
+        }
+
+        let beforeA = trackA.clips
+        let beforeB = trackB.clips
+        var didDelete = false
+
+        for track in tracksToCheck {
+            let hits = track.clips.filter { $0.timelineStart <= time && time < $0.timelineEnd }
+            for clip in hits {
+                track.removeClip(id: clip.id)
+                didDelete = true
+            }
+        }
+
+        guard didDelete else { return }
+
+        let afterA = trackA.clips
+        let afterB = trackB.clips
+        undoManager?.registerUndo(withTarget: self) { proj in
+            proj.trackA.replaceClips(with: beforeA)
+            proj.trackB.replaceClips(with: beforeB)
+            undoManager?.registerUndo(withTarget: proj) { proj2 in
+                proj2.trackA.replaceClips(with: afterA)
+                proj2.trackB.replaceClips(with: afterB)
+            }
+            undoManager?.setActionName("Delete")
+        }
+        undoManager?.setActionName("Delete")
+    }
+
+    func duplicateAtPlayhead(undoManager: UndoManager?) {
+        let time = currentTime
+        let tracksToCheck: [AudioTrack]
+        switch selectedTrack {
+        case .a: tracksToCheck = [trackA]
+        case .b: tracksToCheck = [trackB]
+        case .none: tracksToCheck = [trackA, trackB]
+        }
+
+        let beforeA = trackA.clips
+        let beforeB = trackB.clips
+        var didDuplicate = false
+
+        for track in tracksToCheck {
+            let hits = track.clips.filter { $0.timelineStart <= time && time < $0.timelineEnd }
+            for clip in hits {
+                let dup = AudioClip(
+                    sourceURL: clip.sourceURL, sourceName: clip.sourceName,
+                    sourceDuration: clip.sourceDuration, fullWaveform: clip.fullWaveform,
+                    bpm: clip.bpm,
+                    offset: clip.timelineEnd - clip.trimStart,
+                    trimStart: clip.trimStart, trimEnd: clip.trimEnd,
+                    fadeIn: clip.fadeIn, fadeOut: clip.fadeOut
+                )
+                track.addClipDirect(dup)
+                didDuplicate = true
+            }
+        }
+
+        guard didDuplicate else { return }
+
+        let afterA = trackA.clips
+        let afterB = trackB.clips
+        undoManager?.registerUndo(withTarget: self) { proj in
+            proj.trackA.replaceClips(with: beforeA)
+            proj.trackB.replaceClips(with: beforeB)
+            undoManager?.registerUndo(withTarget: proj) { proj2 in
+                proj2.trackA.replaceClips(with: afterA)
+                proj2.trackB.replaceClips(with: afterB)
+            }
+            undoManager?.setActionName("Duplicate")
+        }
+        undoManager?.setActionName("Duplicate")
+    }
+
     // MARK: - Track-level undo
 
     func setVolume(_ track: AudioTrack, to value: Float, undoManager: UndoManager?) {

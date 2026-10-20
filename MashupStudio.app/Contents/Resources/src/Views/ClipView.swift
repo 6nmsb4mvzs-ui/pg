@@ -5,6 +5,7 @@ struct ClipView: View {
     @ObservedObject var project: MashupProject
     @Environment(\.undoManager) var undoManager
 
+    let track: AudioTrack
     let color: Color
     let height: CGFloat
 
@@ -72,6 +73,15 @@ struct ClipView: View {
                 .offset(x: clipX + trimStartPx)
                 .gesture(dragGesture())
                 .onHover { isHovering = $0 }
+                .contextMenu {
+                    Button("Duplicate") {
+                        project.duplicateClip(clip, in: track, undoManager: undoManager)
+                    }
+                    Divider()
+                    Button("Delete") {
+                        project.deleteClip(clip, from: track, undoManager: undoManager)
+                    }
+                }
 
             trimHandle(isStart: true)
                 .offset(x: clipX + trimStartPx - trimHandleWidth / 2)

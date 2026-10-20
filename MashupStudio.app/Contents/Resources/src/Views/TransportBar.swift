@@ -244,13 +244,14 @@ struct TransportBar: View {
     }
 
     private func saveProject() {
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "mashup") ?? .json]
         panel.nameFieldStringValue = "project.mashup"
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
 
-        panel.begin { response in
+        panel.beginSheetModal(for: window) { response in
             guard response == .OK, let url = panel.url else { return }
             saveProgress = true
             Task {
@@ -268,13 +269,14 @@ struct TransportBar: View {
     }
 
     private func openProject() {
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "mashup") ?? .json]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.message = "Open a MashupStudio project"
 
-        panel.begin { response in
+        panel.beginSheetModal(for: window) { response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
                 try? await ProjectFile.load(from: url, into: project, engine: engine)
@@ -285,12 +287,13 @@ struct TransportBar: View {
     }
 
     private func exportMix() {
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.wav]
         panel.nameFieldStringValue = "mashup_export.wav"
         panel.canCreateDirectories = true
 
-        panel.begin { response in
+        panel.beginSheetModal(for: window) { response in
             guard response == .OK, let url = panel.url else { return }
             exportProgress = true
             Task {

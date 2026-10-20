@@ -113,6 +113,7 @@ struct TimelineView: View {
                     ClipView(
                         clip: clip,
                         project: project,
+                        track: track,
                         color: color,
                         height: trackHeight
                     )
