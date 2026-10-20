@@ -20,7 +20,7 @@ struct ClipView: View {
     @State private var fadeDragOrigin: TimeInterval = 0
 
     private let trimHandleWidth: CGFloat = 8
-    private let fadeHandleSize: CGFloat = 10
+    private let fadeHandleSize: CGFloat = 12
 
     var body: some View {
         let pps = project.pixelsPerSecond
@@ -95,27 +95,23 @@ struct ClipView: View {
                 .offset(x: clipX + trimStartPx + visibleWidth - trimHandleWidth / 2)
                 .gesture(trimEndGesture())
 
-            // Fade-in handle
-            if isHovering || clip.fadeIn > 0 || isDraggingFadeIn {
-                let fadeInPx = CGFloat(clip.fadeIn * pps)
-                fadeHandle()
-                    .offset(
-                        x: clipX + trimStartPx + fadeInPx - fadeHandleSize / 2,
-                        y: -height / 2 + fadeHandleSize / 2 + 2
-                    )
-                    .gesture(fadeInGesture())
-            }
+            // Fade-in handle (always visible)
+            let fadeInPx = CGFloat(clip.fadeIn * pps)
+            fadeHandle()
+                .offset(
+                    x: clipX + trimStartPx + fadeInPx - fadeHandleSize / 2,
+                    y: -height / 2 + fadeHandleSize / 2 + 2
+                )
+                .gesture(fadeInGesture())
 
-            // Fade-out handle
-            if isHovering || clip.fadeOut > 0 || isDraggingFadeOut {
-                let fadeOutPx = CGFloat(clip.fadeOut * pps)
-                fadeHandle()
-                    .offset(
-                        x: clipX + trimStartPx + visibleWidth - fadeOutPx - fadeHandleSize / 2,
-                        y: -height / 2 + fadeHandleSize / 2 + 2
-                    )
-                    .gesture(fadeOutGesture())
-            }
+            // Fade-out handle (always visible)
+            let fadeOutPx = CGFloat(clip.fadeOut * pps)
+            fadeHandle()
+                .offset(
+                    x: clipX + trimStartPx + visibleWidth - fadeOutPx - fadeHandleSize / 2,
+                    y: -height / 2 + fadeHandleSize / 2 + 2
+                )
+                .gesture(fadeOutGesture())
 
             Text(clip.sourceName)
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
@@ -182,13 +178,13 @@ struct ClipView: View {
 
     private func fadeHandle() -> some View {
         Circle()
-            .fill(Color.white.opacity(0.8))
+            .fill(color.opacity(0.9))
             .frame(width: fadeHandleSize, height: fadeHandleSize)
             .overlay(
-                Circle().stroke(color, lineWidth: 1)
+                Circle().stroke(Color.white.opacity(0.7), lineWidth: 1.5)
             )
-            .shadow(color: .black.opacity(0.4), radius: 2)
-            .contentShape(Rectangle().size(width: fadeHandleSize + 12, height: fadeHandleSize + 12))
+            .shadow(color: .black.opacity(0.5), radius: 3)
+            .contentShape(Rectangle().size(width: fadeHandleSize + 16, height: fadeHandleSize + 16))
             .onHover { hovering in
                 if hovering { NSCursor.resizeLeftRight.push() }
                 else { NSCursor.pop() }
