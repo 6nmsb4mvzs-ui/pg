@@ -2838,6 +2838,15 @@ def hide_account(steamid64):
     return {"ok": True}
 
 
+def unhide_all_accounts():
+    prefs = read_json(PREFS_JSON, {})
+    count = len(prefs.get("hidden_accounts", []))
+    prefs.pop("hidden_accounts", None)
+    write_json(PREFS_JSON, prefs)
+    invalidate("steam_accounts")
+    return {"ok": True, "restored": count}
+
+
 def set_account_nickname(steamid64, nickname):
     info = steam_accounts()
     if steamid64 not in {a["steamid64"] for a in info.get("accounts", [])}:
@@ -3873,6 +3882,9 @@ def run_trace_cleaner():
 
 def _setup_cheats_env(env, dylibs):
     """Load the cheats dylib and write its config file. Returns the updated dylib string."""
+    prefs = read_json(PREFS_JSON, {})
+    if prefs.get("hacks_disabled"):
+        return dylibs
     cheats = ember_client.cheats_config()
     if not CHEATS_DYLIB.is_file():
         return dylibs
@@ -8071,6 +8083,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(remove_account_credentials(str(data.get("steamid64", ""))))
             if path == "/api/account/hide":
                 return self.send_json(hide_account(str(data.get("steamid64", ""))))
+            if path == "/api/account/unhide-all":
+                return self.send_json(unhide_all_accounts())
             if path == "/api/account/guard":
                 return self.send_json(submit_steam_guard_code(data.get("code", "")))
             if path == "/api/account/refresh":
@@ -8206,6 +8220,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(ember_client.load_credentials())
             if path == "/api/cheats/save":
                 return self.send_json(ember_client.save_cheats(data))
+            if path == "/api/prefs/hacks":
+                prefs = read_json(PREFS_JSON, {})
+                prefs["hacks_disabled"] = bool(data.get("disabled"))
+                write_json(PREFS_JSON, prefs)
+                return self.send_json({"ok": True, "hacks_disabled": prefs["hacks_disabled"]})
             return self.send_json({"error": "Unknown endpoint"}, 404)
         except Exception as e:
             log(traceback.format_exc())

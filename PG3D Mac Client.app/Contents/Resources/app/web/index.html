@@ -972,6 +972,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="accountStrip" id="selectedAccount"></div>
           <div class="playRow">
             <div class="playFps"><div class="xLabel">FPS target</div><select class="select" id="fpsSelect"><option value="uncapped">Uncapped</option><option value="auto" id="fpsAutoOpt">Auto-detect</option><option>60</option><option>90</option><option>120</option><option>144</option><option>165</option><option>240</option><option>360</option><option>500</option></select></div>
+            <button class="xSwitch" id="hacksToggle" role="switch" aria-checked="true" style="margin:4px 0"><div><b>Hacks</b><small>Inject cheats &amp; aimbot on launch</small></div><span class="pillToggle"></span></button>
             <div class="launchButtons" style="grid-template-columns:1fr">
               <button class="launchBtn launchFps" id="startFps"><b>Start</b></button>
             </div>
@@ -1013,7 +1014,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <section class="page" id="page-accounts">
       <div class="xPage">
         <div class="crCard">
-          <div class="crCardHead"><div><h3>Steam accounts</h3><p class="xNote" style="margin-top:4px">Click an account to play on it. Save its Steam login and the client switches accounts for you.</p></div><button class="btn" id="refreshAccounts">Refresh</button></div>
+          <div class="crCardHead"><div><h3>Steam accounts</h3><p class="xNote" style="margin-top:4px">Click an account to play on it. Save its Steam login and the client switches accounts for you.</p></div><div style="display:flex;gap:8px"><button class="btn" id="unhideAccounts">Add back removed</button><button class="btn" id="refreshAccounts">Refresh</button></div></div>
           <div class="accGrid" id="accountGrid"></div>
         </div>
       </div>
@@ -1421,7 +1422,7 @@ function setState(id,text,kind=''){const e=$(id);if(!e)return;e.textContent=text
 function renderStatus(){if(!statusData)return;
   $('#launchMessage').textContent=statusData.launch_error||'';
   $('#startFps').disabled=statusData.game_running||!statusData.fps_bundle_present;
-  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderGameUpdate();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
+  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();syncHacksToggle();renderUpdateBanner();renderRankChip();renderGameUpdate();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
   if(statusData.overlay && (!overlayConfig || !overlayDirty)){overlayConfig=structuredClone(statusData.overlay.config);renderOverlayEditor()}
 }
 async function restoreGameFiles(){if(!confirm('Put every game file the client changed back to the original? Your cursor, sky, loading screen and font are taken out; you can apply them again afterwards.'))return;try{await post('/api/game/restore-files',{});toast('Restoring the original game files…');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}}
@@ -1475,6 +1476,8 @@ function renderLaunch(){const s=statusData;if(!s)return;const busy=LAUNCH_BUSY.i
   else if(lpWasBusy){if(!s.launch_error&&s.launch_progress===100){box.hidden=false;box.classList.add('done');$('#lpFill').style.width='100%';$('#lpPct').textContent='100%';$('#lpMsg').textContent=s.launch_message||'PG3D is running.';$('#lpEta').textContent='Have fun!';setTimeout(()=>{if(!LAUNCH_BUSY.includes(statusData?.launch_phase))$('#launchProg').hidden=true},5000)}else box.hidden=true}
   lpWasBusy=busy}
 $('#startFps').onclick=()=>launch();
+$('#hacksToggle').onclick=async function(){const on=this.classList.toggle('on');this.setAttribute('aria-checked',on);try{await post('/api/prefs/hacks',{disabled:!on})}catch(e){toast(e.message,true)}};
+function syncHacksToggle(){if(!statusData?.prefs)return;setSwitch('#hacksToggle',!statusData.prefs.hacks_disabled)}
 
 // Cursor
 function renderCursorGrid(){if(curTarget!=='cursor')return renderRoleGrid();const q=($('#cursorSearch').value||'').toLowerCase();const grid=$('#cursorGrid');grid.innerHTML='';const list=cursorCatalog.filter(x=>(x.name+' '+x.category).toLowerCase().includes(q));for(const x of list){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor===x.id?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/${x.file}"></div><div class="cursorName"></div>`;b.querySelector('.cursorName').textContent=x.name;b.onclick=()=>{selectedCursor=x.id;localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}if(statusData?.custom_cursor){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor==='custom'?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/api/custom-cursor.png?t=${Date.now()}"></div><div class="cursorName">Custom</div>`;b.onclick=()=>{selectedCursor='custom';localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}}
@@ -1563,6 +1566,7 @@ function renderAccounts(){const info=statusData?.accounts;if(!info)return;const 
     c.onkeydown=e=>{if(e.target!==c)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();c.click()}};grid.append(c)}
   if(!(info.accounts||[]).length)grid.append(el('div','xEmpty','No remembered Steam accounts. Sign in to Steam once and they show up here.'))}
 $('#refreshAccounts').onclick=async()=>{await refreshStatus();toast('Accounts refreshed.')};
+$('#unhideAccounts').onclick=async()=>{try{const d=await post('/api/account/unhide-all');await refreshStatus();toast(d.restored?`${d.restored} account${d.restored>1?'s':''} added back.`:'No removed accounts to restore.')}catch(e){toast(e.message,true)}};
 
 let overlayConfig=null,hotkeyRecording=false,overlayDirty=false,overlaySaving=false,overlayDebounce=null;
 const widgetNames={fps:'FPS',ping:'Ping',music:'Music',clock:'Clock',rank:'Rank'};
