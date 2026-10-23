@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>title</key>
+	<string>AuraBG</string>
+	<key>items</key>
+	<array>
+		<!-- Header -->
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>AuraBG — Apple Music Backgrounds</string>
+			<key>footerText</key>
+			<string>Customizes the Now Playing background in Apple Music.</string>
+		</dict>
+
+		<!-- Enable toggle -->
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Enabled</string>
+			<key>key</key>
+			<string>enabled</string>
+			<key>default</key>
+			<true/>
+		</dict>
+
+		<!-- Background mode -->
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Background Mode</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSegmentCell</string>
+			<key>label</key>
+			<string>Mode</string>
+			<key>key</key>
+			<string>mode</string>
+			<key>default</key>
+			<integer>1</integer>
+			<key>validValues</key>
+			<array>
+				<integer>0</integer>
+				<integer>1</integer>
+				<integer>2</integer>
+				<integer>3</integer>
+			</array>
+			<key>validTitles</key>
+			<array>
+				<string>Tint</string>
+				<string>Gradient</string>
+				<string>Solid</string>
+				<string>Blur+</string>
+			</array>
+		</dict>
+
+		<!-- Tint settings -->
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Tint Overlay</string>
+			<key>footerText</key>
+			<string>Adds a colored layer over the default album blur. Enter hex colors like #7c3aed.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>label</key>
+			<string>Color</string>
+			<key>key</key>
+			<string>tintColor</string>
+			<key>default</key>
+			<string>#7c3aed</string>
+			<key>placeholder</key>
+			<string>#7c3aed</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>label</key>
+			<string>Opacity</string>
+			<key>key</key>
+			<string>tintAlpha</string>
+			<key>default</key>
+			<real>0.35</real>
+			<key>min</key>
+			<real>0.05</real>
+			<key>max</key>
+			<real>0.9</real>
+			<key>showValue</key>
+			<true/>
+		</dict>
+
+		<!-- Gradient settings -->
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Gradient</string>
+			<key>footerText</key>
+			<string>Three-color gradient that replaces the default background.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>label</key>
+			<string>Color 1</string>
+			<key>key</key>
+			<string>gradC1</string>
+			<key>default</key>
+			<string>#1a1a2e</string>
+			<key>placeholder</key>
+			<string>#1a1a2e</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>label</key>
+			<string>Color 2</string>
+			<key>key</key>
+			<string>gradC2</string>
+			<key>default</key>
+			<string>#16213e</string>
+			<key>placeholder</key>
+			<string>#16213e</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>label</key>
+			<string>Color 3</string>
+			<key>key</key>
+			<string>gradC3</string>
+			<key>default</key>
+			<string>#0f3460</string>
+			<key>placeholder</key>
+			<string>#0f3460</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>label</key>
+			<string>Angle</string>
+			<key>key</key>
+			<string>gradAngle</string>
+			<key>default</key>
+			<real>135</real>
+			<key>min</key>
+			<real>0</real>
+			<key>max</key>
+			<real>360</real>
+			<key>showValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Animate Colors</string>
+			<key>key</key>
+			<string>gradAnim</string>
+			<key>default</key>
+			<false/>
+		</dict>
+
+		<!-- Solid settings -->
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Solid Color</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>label</key>
+			<string>Color</string>
+			<key>key</key>
+			<string>solidColor</string>
+			<key>default</key>
+			<string>#0a0a0f</string>
+			<key>placeholder</key>
+			<string>#0a0a0f</string>
+		</dict>
+
+		<!-- Enhanced blur settings -->
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Enhanced Blur</string>
+			<key>footerText</key>
+			<string>Modifies the intensity of the default album art blur.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>label</key>
+			<string>Intensity</string>
+			<key>key</key>
+			<string>blurAlpha</string>
+			<key>default</key>
+			<real>0.9</real>
+			<key>min</key>
+			<real>0.2</real>
+			<key>max</key>
+			<real>1.0</real>
+			<key>showValue</key>
+			<true/>
+		</dict>
+
+		<!-- Mini player -->
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Mini Player</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSwitchCell</string>
+			<key>label</key>
+			<string>Tint Mini Player</string>
+			<key>key</key>
+			<string>miniPlayer</string>
+			<key>default</key>
+			<true/>
+		</dict>
+
+		<!-- Presets -->
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
+			<string>Presets</string>
+			<key>footerText</key>
+			<string>Quick-apply a preset theme. Overrides gradient/solid settings.</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Midnight</string>
+			<key>action</key>
+			<string>applyPreset:</string>
+			<key>presetIndex</key>
+			<integer>0</integer>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Sunset</string>
+			<key>action</key>
+			<string>applyPreset:</string>
+			<key>presetIndex</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Ocean</string>
+			<key>action</key>
+			<string>applyPreset:</string>
+			<key>presetIndex</key>
+			<integer>2</integer>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Neon</string>
+			<key>action</key>
+			<string>applyPreset:</string>
+			<key>presetIndex</key>
+			<integer>3</integer>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Forest</string>
+			<key>action</key>
+			<string>applyPreset:</string>
+			<key>presetIndex</key>
+			<integer>4</integer>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Lavender</string>
+			<key>action</key>
+			<string>applyPreset:</string>
+			<key>presetIndex</key>
+			<integer>5</integer>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Ember</string>
+			<key>action</key>
+			<string>applyPreset:</string>
+			<key>presetIndex</key>
+			<integer>6</integer>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Void</string>
+			<key>action</key>
+			<string>applyPreset:</string>
+			<key>presetIndex</key>
+			<integer>7</integer>
+		</dict>
+
+		<!-- Reset -->
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>label</key>
+			<string>Reset All Settings</string>
+			<key>action</key>
+			<string>resetPrefs:</string>
+			<key>confirmation</key>
+			<dict>
+				<key>prompt</key>
+				<string>Reset all AuraBG settings to defaults?</string>
+				<key>okTitle</key>
+				<string>Reset</string>
+				<key>cancelTitle</key>
+				<string>Cancel</string>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

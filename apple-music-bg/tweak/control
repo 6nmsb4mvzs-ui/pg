@@ -1,0 +1,9 @@
+Package: com.aura.musicbg
+Name: AuraBG
+Depends: mobilesubstrate, preferenceloader
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: Customize Apple Music Now Playing backgrounds — gradients, solid colors, tint overlays, and enhanced blur.
+Maintainer: spraxy
+Author: spraxy
+Section: Tweaks
