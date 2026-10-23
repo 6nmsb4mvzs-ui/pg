@@ -1,0 +1,894 @@
+<title>Aura Player</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap">
+
+<style>
+/* Dark-only immersive music player — single-theme by design */
+:root {
+  --bg: #09090b;
+  --surface: rgba(255,255,255,0.07);
+  --surface-hover: rgba(255,255,255,0.12);
+  --fg: #fafafa;
+  --fg-dim: rgba(250,250,250,0.5);
+  --fg-muted: rgba(250,250,250,0.25);
+  --accent: #a78bfa;
+  --glass: rgba(12,12,16,0.78);
+  --glass-border: rgba(255,255,255,0.08);
+  --radius: 16px;
+  --radius-sm: 10px;
+  color-scheme: dark;
+
+  --grad-c1: #1a1a2e; --grad-c2: #16213e; --grad-c3: #0f3460; --grad-angle: 135deg;
+  --aurora-c1: #22d3ee; --aurora-c2: #a78bfa;
+  --mesh-c1: #7c3aed; --mesh-c2: #2563eb; --mesh-c3: #06b6d4;
+  --particle-color: #a78bfa;
+  --solid-color: #1a1a2e;
+}
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  color: var(--fg);
+  background: var(--bg);
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+  padding-block: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px); z-index: 20;
+  background: rgba(0,0,0,0.3);
+}
+
+/* ── Background layers ── */
+#bg-layer { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+#bg-layer > * { position: absolute; inset: 0; transition: opacity 0.8s ease; }
+.bg-off { opacity: 0 !important; pointer-events: none; }
+
+#bg-gradient { background: linear-gradient(var(--grad-angle), var(--grad-c1), var(--grad-c2), var(--grad-c3)); }
+#bg-gradient.anim { animation: ghue 20s linear infinite; }
+@keyframes ghue { to { filter: hue-rotate(360deg); } }
+
+#bg-solid { background: var(--solid-color); }
+
+#bg-albumblur img {
+  width: 160%; height: 160%; object-fit: cover;
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  filter: blur(60px) brightness(0.55) saturate(1.3);
+  transition: filter 0.5s;
+}
+
+#bg-mesh {
+  background:
+    radial-gradient(ellipse at 25% 25%, var(--mesh-c1), transparent 55%),
+    radial-gradient(ellipse at 75% 75%, var(--mesh-c2), transparent 55%),
+    radial-gradient(ellipse at 55% 10%, var(--mesh-c3), transparent 55%);
+  background-size: 80% 80%, 70% 70%, 90% 90%;
+  animation: mdrift 18s ease-in-out infinite alternate;
+}
+@keyframes mdrift {
+  0%   { background-position: 0% 0%, 100% 100%, 50% 0%; }
+  50%  { background-position: 30% 60%, 60% 20%, 20% 80%; }
+  100% { background-position: 70% 10%, 30% 90%, 80% 50%; }
+}
+
+#bg-aurora { background: #080812; }
+.aurora-blob {
+  position: absolute; border-radius: 50%;
+  filter: blur(90px); opacity: 0.55; mix-blend-mode: screen;
+}
+.aurora-blob:nth-child(1) {
+  width: 65%; height: 55%; top: 5%; left: 5%;
+  background: var(--aurora-c1);
+  animation: a1 11s ease-in-out infinite alternate;
+}
+.aurora-blob:nth-child(2) {
+  width: 55%; height: 65%; bottom: 5%; right: 0;
+  background: var(--aurora-c2);
+  animation: a2 14s ease-in-out infinite alternate;
+}
+.aurora-blob:nth-child(3) {
+  width: 45%; height: 45%; top: 35%; left: 30%;
+  background: color-mix(in srgb, var(--aurora-c1), var(--aurora-c2));
+  animation: a3 9s ease-in-out infinite alternate;
+}
+@keyframes a1 { to { transform: translate(25%,35%) scale(1.2); } }
+@keyframes a2 { to { transform: translate(-30%,-25%) scale(0.8); } }
+@keyframes a3 { to { transform: translate(-20%,30%) scale(1.3); } }
+
+#bg-particles { z-index: 1; }
+
+#bg-overlay {
+  z-index: 2; pointer-events: none;
+  background: linear-gradient(to bottom,
+    rgba(0,0,0,0.3) 0%, transparent 20%,
+    transparent 60%, rgba(0,0,0,0.55) 100%);
+}
+
+/* ── Content ── */
+#content {
+  position: relative; z-index: 3; height: 100%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 20px;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
+}
+
+#art-wrap {
+  width: min(260px, 60vw); aspect-ratio: 1;
+  border-radius: 18px; overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  flex-shrink: 0; position: relative; cursor: pointer;
+  transition: transform 0.3s;
+}
+#art-wrap:active { transform: scale(0.97); }
+#art-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#art-wrap::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: 18px; border: 1px solid rgba(255,255,255,0.1);
+  pointer-events: none;
+}
+
+#track-info { text-align: center; width: 100%; max-width: 300px; }
+#track-name {
+  font-size: 19px; font-weight: 600; margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#track-artist {
+  font-size: 13px; color: var(--fg-dim); margin: 3px 0 0; font-weight: 300;
+}
+
+#progress-wrap { width: 100%; max-width: 300px; }
+#progress-times {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--fg-muted);
+  font-variant-numeric: tabular-nums; margin-top: 4px;
+}
+
+#controls { display: flex; align-items: center; justify-content: center; gap: 24px; }
+
+.cb {
+  background: none; border: none; color: var(--fg); cursor: pointer;
+  padding: 8px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center;
+  transition: transform 0.12s, opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.cb:active { transform: scale(0.88); }
+.cb svg { fill: currentColor; }
+.cb.lg svg { width: 48px; height: 48px; }
+.cb.md svg { width: 28px; height: 28px; }
+.cb.sm { opacity: 0.55; }
+.cb.sm svg { width: 20px; height: 20px; }
+.cb.on { color: var(--accent); opacity: 1; }
+
+#vol-wrap {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; max-width: 260px;
+}
+#vol-wrap svg { width: 16px; height: 16px; fill: var(--fg-muted); flex-shrink: 0; }
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px;
+  background: var(--surface); border-radius: 2px;
+  outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  background: var(--fg); border-radius: 50%; border: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px; background: var(--fg);
+  border-radius: 50%; border: none;
+}
+#progress { height: 3px; }
+
+#actions { display: flex; gap: 10px; }
+.ab {
+  background: var(--surface); border: 1px solid var(--glass-border);
+  color: var(--fg-dim); font-family: inherit; font-size: 12px;
+  font-weight: 500; padding: 8px 14px; border-radius: 20px;
+  cursor: pointer; display: flex; align-items: center; gap: 5px;
+  transition: background 0.2s; -webkit-tap-highlight-color: transparent;
+}
+.ab:active { background: var(--surface-hover); }
+.ab svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* ── Customizer ── */
+#cust-bk {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+#cust-bk.open { opacity: 1; pointer-events: auto; }
+
+#cust {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 11;
+  background: var(--glass); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+  border-top: 1px solid var(--glass-border); border-radius: 20px 20px 0 0;
+  padding: 12px max(16px, env(safe-area-inset-left, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
+  max-height: 62vh; overflow-y: auto; overscroll-behavior: contain;
+}
+#cust.open { transform: translateY(0); }
+
+#cust-handle { width: 36px; height: 4px; background: var(--fg-muted); border-radius: 2px; margin: 0 auto 14px; }
+#cust h3 { font-size: 16px; font-weight: 600; margin: 0 0 14px; }
+#cust h4 {
+  font-size: 11px; font-weight: 500; color: var(--fg-dim); margin: 16px 0 8px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+#modes { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+#modes::-webkit-scrollbar { display: none; }
+.mp {
+  background: var(--surface); border: 1px solid transparent;
+  color: var(--fg-dim); font-family: inherit; font-size: 12px; font-weight: 500;
+  padding: 6px 12px; border-radius: 18px; white-space: nowrap;
+  cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent;
+}
+.mp.on { background: rgba(167,139,250,0.15); border-color: var(--accent); color: var(--accent); }
+
+.cr { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.cr label { font-size: 12px; color: var(--fg-dim); min-width: 64px; flex-shrink: 0; }
+.cr input[type="range"] { flex: 1; }
+.cr input[type="color"] {
+  -webkit-appearance: none; appearance: none; width: 30px; height: 30px;
+  border: 2px solid var(--glass-border); border-radius: 50%;
+  padding: 0; cursor: pointer; background: none; flex-shrink: 0;
+}
+.cr input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.cr input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+.cr input[type="color"]::-moz-color-swatch { border: none; border-radius: 50%; }
+
+.tr { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
+.tr label { font-size: 12px; color: var(--fg-dim); }
+.tg {
+  width: 42px; height: 24px; background: var(--surface);
+  border-radius: 12px; position: relative; cursor: pointer;
+  border: none; transition: background 0.2s; -webkit-tap-highlight-color: transparent;
+}
+.tg.on { background: var(--accent); }
+.tg::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px; background: var(--fg);
+  border-radius: 50%; transition: transform 0.2s;
+}
+.tg.on::after { transform: translateX(18px); }
+
+#presets { display: flex; gap: 10px; flex-wrap: wrap; }
+.pi { display: flex; flex-direction: column; align-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pd {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 2px solid transparent; transition: border-color 0.2s, transform 0.12s;
+}
+.pd:active { transform: scale(0.9); }
+.pi.on .pd { border-color: var(--fg); }
+.pn { font-size: 9px; color: var(--fg-muted); margin-top: 3px; text-align: center; }
+
+#audio-in, #art-in { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+
+<div id="bg-layer">
+  <div id="bg-solid" class="bg-off"></div>
+  <div id="bg-gradient"></div>
+  <div id="bg-albumblur" class="bg-off"><img id="blur-img" alt=""></div>
+  <div id="bg-mesh" class="bg-off"></div>
+  <div id="bg-aurora" class="bg-off"><div class="aurora-blob"></div><div class="aurora-blob"></div><div class="aurora-blob"></div></div>
+  <canvas id="bg-particles" class="bg-off"></canvas>
+  <div id="bg-overlay"></div>
+</div>
+
+<div id="content">
+  <div id="art-wrap"><img id="album-art" alt="Album art"></div>
+  <div id="track-info">
+    <h2 id="track-name">Starfall</h2>
+    <p id="track-artist">Aura</p>
+  </div>
+  <div id="progress-wrap">
+    <input type="range" id="progress" min="0" max="1000" value="0" step="1">
+    <div id="progress-times"><span id="t-cur">0:00</span><span id="t-tot">3:24</span></div>
+  </div>
+  <div id="controls">
+    <button class="cb sm" id="b-shuf" aria-label="Shuffle"></button>
+    <button class="cb md" id="b-prev" aria-label="Previous"></button>
+    <button class="cb lg" id="b-play" aria-label="Play"></button>
+    <button class="cb md" id="b-next" aria-label="Next"></button>
+    <button class="cb sm" id="b-rep" aria-label="Repeat"></button>
+  </div>
+  <div id="vol-wrap">
+    <svg viewBox="0 0 24 24"><path d="M7 9v6h4l5 5V4l-5 5H7z"/></svg>
+    <input type="range" id="volume" min="0" max="100" value="80">
+    <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0014 8.5v7a4.47 4.47 0 002.5-3.5zM14 3.23v2.06a6.5 6.5 0 010 13.42v2.06c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z"/></svg>
+  </div>
+  <div id="actions">
+    <button class="ab" id="btn-cust">
+      <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9a1.5 1.5 0 001.05-2.57c-.27-.28-.45-.66-.45-1.08 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm3-4a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm3 4a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/></svg>
+      Backgrounds
+    </button>
+    <button class="ab" id="btn-music">
+      <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+      Add Music
+    </button>
+  </div>
+</div>
+
+<div id="cust-bk"></div>
+<div id="cust">
+  <div id="cust-handle"></div>
+  <h3>Background Style</h3>
+  <div id="modes"></div>
+  <div id="mctrls"></div>
+  <h4>Presets</h4>
+  <div id="presets"></div>
+</div>
+
+<input type="file" id="audio-in" accept="audio/*" multiple>
+<input type="file" id="art-in" accept="image/*">
+
+<script>
+const $ = id => document.getElementById(id);
+const R = document.documentElement;
+
+// ── SVG paths ──
+const IC = {
+  play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>',
+  prev: '<svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>',
+  next: '<svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6z"/></svg>',
+  shuf: '<svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>',
+  rep: '<svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>',
+};
+
+$('b-play').innerHTML = IC.play;
+$('b-prev').innerHTML = IC.prev;
+$('b-next').innerHTML = IC.next;
+$('b-shuf').innerHTML = IC.shuf;
+$('b-rep').innerHTML = IC.rep;
+
+// ── State ──
+const S = {
+  mode: 'gradient',
+  playing: false,
+  shuffle: false,
+  repeat: false,
+  trackIdx: 0,
+  demo: true,
+  demoT: 0,
+  gradient: { c1: '#1a1a2e', c2: '#16213e', c3: '#0f3460', angle: 135, animate: false },
+  albumBlur: { blur: 60, brightness: 55, saturation: 130 },
+  mesh: { c1: '#7c3aed', c2: '#2563eb', c3: '#06b6d4' },
+  aurora: { c1: '#22d3ee', c2: '#a78bfa' },
+  particles: { color: '#a78bfa', count: 80, size: 3, speed: 2, lines: false },
+  solid: { color: '#1a1a2e' },
+};
+
+// ── Demo tracks ──
+const DEMO = [
+  { name: 'Starfall', artist: 'Aura', hue: 260, dur: 204 },
+  { name: 'Neon Pulse', artist: 'Voltage', hue: 320, dur: 187 },
+  { name: 'Still Waters', artist: 'Echo', hue: 180, dur: 235 },
+  { name: 'Solar Flare', artist: 'Nova', hue: 30, dur: 198 },
+  { name: 'Midnight Drive', artist: 'Drift', hue: 230, dur: 222 },
+];
+
+const PRESETS = [
+  { name: 'Midnight', mode: 'gradient', bg: 'linear-gradient(135deg,#0f0c29,#302b63,#24243e)',
+    s: { gradient: { c1:'#0f0c29', c2:'#302b63', c3:'#24243e', angle:135, animate:false }}},
+  { name: 'Sunset', mode: 'gradient', bg: 'linear-gradient(160deg,#833ab4,#f12711,#f5af19)',
+    s: { gradient: { c1:'#833ab4', c2:'#f12711', c3:'#f5af19', angle:160, animate:false }}},
+  { name: 'Ocean', mode: 'aurora', bg: 'linear-gradient(135deg,#00b4d8,#0077b6)',
+    s: { aurora: { c1:'#00b4d8', c2:'#0077b6' }}},
+  { name: 'Neon', mode: 'particles', bg: 'linear-gradient(135deg,#ff006e,#8338ec)',
+    s: { particles: { color:'#ff006e', count:120, size:3, speed:3, lines:true }}},
+  { name: 'Forest', mode: 'mesh', bg: 'linear-gradient(135deg,#134e5e,#71b280)',
+    s: { mesh: { c1:'#134e5e', c2:'#71b280', c3:'#0b3d0b' }}},
+  { name: 'Lavender', mode: 'gradient', bg: 'linear-gradient(135deg,#667eea,#764ba2)',
+    s: { gradient: { c1:'#667eea', c2:'#764ba2', c3:'#f093fb', angle:135, animate:true }}},
+  { name: 'Ember', mode: 'aurora', bg: 'linear-gradient(135deg,#ff4e00,#ec9f05)',
+    s: { aurora: { c1:'#ff4e00', c2:'#ec9f05' }}},
+  { name: 'Void', mode: 'solid', bg: 'radial-gradient(circle,#18182b,#09090b)',
+    s: { solid: { color:'#0d0d14' }}},
+];
+
+// ── Album art generator ──
+function genArt(hue) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 400;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 400, 400);
+  g.addColorStop(0, `hsl(${hue},55%,22%)`);
+  g.addColorStop(0.5, `hsl(${hue + 30},65%,28%)`);
+  g.addColorStop(1, `hsl(${hue + 60},50%,18%)`);
+  x.fillStyle = g;
+  x.fillRect(0, 0, 400, 400);
+  x.globalAlpha = 0.15;
+  for (let i = 0; i < 5; i++) {
+    x.beginPath();
+    x.arc(80 + i * 70, 120 + Math.sin(i) * 100, 40 + i * 15, 0, Math.PI * 2);
+    x.fillStyle = `hsl(${hue + i * 25},70%,55%)`;
+    x.fill();
+  }
+  x.globalAlpha = 0.08;
+  for (let i = 0; i < 3; i++) {
+    x.fillStyle = '#fff';
+    x.fillRect(0, 130 + i * 90, 400, 2);
+  }
+  return c.toDataURL();
+}
+
+// ── Color extraction ──
+function extractColors(img) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 8;
+  const x = c.getContext('2d');
+  try { x.drawImage(img, 0, 0, 8, 8); } catch { return null; }
+  const d = x.getImageData(0, 0, 8, 8).data;
+  const cols = [];
+  for (let i = 0; i < d.length; i += 4) cols.push([d[i], d[i+1], d[i+2]]);
+  cols.sort((a, b) => {
+    const sa = Math.max(...a) - Math.min(...a);
+    const sb = Math.max(...b) - Math.min(...b);
+    return sb - sa;
+  });
+  const toHex = ([r,g,b]) => '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+  return { vibrant: toHex(cols[0]), mid: toHex(cols[Math.floor(cols.length/2)]), dark: toHex(cols[cols.length-1]) };
+}
+
+function hexToRgb(h) {
+  const v = parseInt(h.replace('#',''), 16);
+  return [(v>>16)&255, (v>>8)&255, v&255];
+}
+
+// ── Background engine ──
+let pRAF = null;
+let particles = [];
+
+const BG = {
+  layers: ['solid','gradient','albumblur','mesh','aurora','particles'],
+  ids: { solid:'bg-solid', gradient:'bg-gradient', albumblur:'bg-albumblur', mesh:'bg-mesh', aurora:'bg-aurora', particles:'bg-particles' },
+
+  setMode(m) {
+    S.mode = m;
+    for (const l of this.layers) {
+      const el = $(this.ids[l]);
+      if (l === m) el.classList.remove('bg-off');
+      else el.classList.add('bg-off');
+    }
+    if (m === 'particles') this.startParticles();
+    else this.stopParticles();
+    this.apply();
+    save();
+  },
+
+  apply() {
+    const m = S.mode;
+    if (m === 'gradient') {
+      R.style.setProperty('--grad-c1', S.gradient.c1);
+      R.style.setProperty('--grad-c2', S.gradient.c2);
+      R.style.setProperty('--grad-c3', S.gradient.c3);
+      R.style.setProperty('--grad-angle', S.gradient.angle + 'deg');
+      $('bg-gradient').classList.toggle('anim', !!S.gradient.animate);
+    }
+    if (m === 'solid') R.style.setProperty('--solid-color', S.solid.color);
+    if (m === 'albumblur') {
+      const img = $('blur-img');
+      img.style.filter = `blur(${S.albumBlur.blur}px) brightness(${S.albumBlur.brightness/100}) saturate(${S.albumBlur.saturation/100})`;
+    }
+    if (m === 'mesh') {
+      R.style.setProperty('--mesh-c1', S.mesh.c1);
+      R.style.setProperty('--mesh-c2', S.mesh.c2);
+      R.style.setProperty('--mesh-c3', S.mesh.c3);
+    }
+    if (m === 'aurora') {
+      R.style.setProperty('--aurora-c1', S.aurora.c1);
+      R.style.setProperty('--aurora-c2', S.aurora.c2);
+    }
+    if (m === 'particles') {
+      R.style.setProperty('--particle-color', S.particles.color);
+      this.resetParticles();
+    }
+  },
+
+  startParticles() {
+    if (pRAF) return;
+    const cv = $('bg-particles');
+    const cx = cv.getContext('2d');
+    const resize = () => { cv.width = innerWidth; cv.height = innerHeight; };
+    resize();
+    window._pResize = resize;
+    window.addEventListener('resize', resize);
+    this.resetParticles();
+    const draw = () => {
+      cx.clearRect(0, 0, cv.width, cv.height);
+      const [r,g,b] = hexToRgb(S.particles.color);
+      for (const p of particles) {
+        cx.beginPath();
+        cx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        cx.fillStyle = `rgba(${r},${g},${b},${p.a})`;
+        cx.fill();
+        p.x += p.vx; p.y += p.vy;
+        if (p.y < -10) { p.y = cv.height + 10; p.x = Math.random() * cv.width; }
+        if (p.x < -10) p.x = cv.width + 10;
+        if (p.x > cv.width + 10) p.x = -10;
+      }
+      if (S.particles.lines) {
+        cx.lineWidth = 0.5;
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const d = dx*dx + dy*dy;
+            if (d < 10000) {
+              cx.beginPath();
+              cx.moveTo(particles[i].x, particles[i].y);
+              cx.lineTo(particles[j].x, particles[j].y);
+              cx.strokeStyle = `rgba(${r},${g},${b},${0.12*(1-Math.sqrt(d)/100)})`;
+              cx.stroke();
+            }
+          }
+        }
+      }
+      pRAF = requestAnimationFrame(draw);
+    };
+    draw();
+  },
+
+  resetParticles() {
+    const cv = $('bg-particles');
+    particles = Array.from({ length: S.particles.count }, () => ({
+      x: Math.random() * (cv.width || innerWidth),
+      y: Math.random() * (cv.height || innerHeight),
+      vx: (Math.random() - 0.5) * S.particles.speed * 0.3,
+      vy: -Math.random() * S.particles.speed * 0.4 - 0.15,
+      r: Math.random() * S.particles.size + 0.5,
+      a: Math.random() * 0.5 + 0.15,
+    }));
+  },
+
+  stopParticles() {
+    if (pRAF) { cancelAnimationFrame(pRAF); pRAF = null; }
+    if (window._pResize) { window.removeEventListener('resize', window._pResize); window._pResize = null; }
+  },
+};
+
+// ── Audio ──
+const audio = new Audio();
+audio.volume = 0.8;
+let fileList = [];
+let fileArts = [];
+
+function loadTrack(idx) {
+  S.trackIdx = idx;
+  if (S.demo) {
+    const t = DEMO[idx % DEMO.length];
+    $('track-name').textContent = t.name;
+    $('track-artist').textContent = t.artist;
+    $('t-tot').textContent = fmt(t.dur);
+    const art = genArt(t.hue);
+    $('album-art').src = art;
+    $('blur-img').src = art;
+    $('album-art').onload = () => {
+      const c = extractColors($('album-art'));
+      if (c) applyExtracted(c);
+    };
+    S.demoT = 0;
+    $('progress').value = 0;
+    $('t-cur').textContent = '0:00';
+    updateMediaSession(t.name, t.artist, art);
+  } else if (fileList[idx]) {
+    const f = fileList[idx];
+    audio.src = URL.createObjectURL(f);
+    $('track-name').textContent = f.name.replace(/\.[^.]+$/, '');
+    $('track-artist').textContent = 'Local file';
+    if (fileArts[idx]) {
+      $('album-art').src = fileArts[idx];
+      $('blur-img').src = fileArts[idx];
+    } else {
+      const art = genArt((idx * 67) % 360);
+      $('album-art').src = art;
+      $('blur-img').src = art;
+    }
+    $('album-art').onload = () => {
+      const c = extractColors($('album-art'));
+      if (c) applyExtracted(c);
+    };
+    updateMediaSession(f.name, 'Local file', $('album-art').src);
+  }
+}
+
+function applyExtracted(c) {
+  if (S.mode === 'albumblur') BG.apply();
+}
+
+function updateMediaSession(title, artist, art) {
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title, artist, artwork: [{ src: art, sizes: '400x400', type: 'image/png' }]
+    });
+  }
+}
+
+function playPause() {
+  S.playing = !S.playing;
+  $('b-play').innerHTML = S.playing ? IC.pause : IC.play;
+  if (!S.demo) { S.playing ? audio.play().catch(()=>{}) : audio.pause(); }
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = S.playing ? 'playing' : 'paused';
+}
+
+function nextTrack() {
+  const max = S.demo ? DEMO.length : fileList.length;
+  if (!max) return;
+  let idx = S.shuffle ? Math.floor(Math.random() * max) : (S.trackIdx + 1) % max;
+  loadTrack(idx);
+  if (S.playing && !S.demo) audio.play().catch(()=>{});
+}
+
+function prevTrack() {
+  const max = S.demo ? DEMO.length : fileList.length;
+  if (!max) return;
+  let idx = S.trackIdx - 1;
+  if (idx < 0) idx = max - 1;
+  loadTrack(idx);
+  if (S.playing && !S.demo) audio.play().catch(()=>{});
+}
+
+audio.addEventListener('timeupdate', () => {
+  if (!audio.duration) return;
+  $('progress').value = (audio.currentTime / audio.duration) * 1000;
+  $('t-cur').textContent = fmt(audio.currentTime);
+  $('t-tot').textContent = fmt(audio.duration);
+});
+
+audio.addEventListener('ended', () => {
+  if (S.repeat) { audio.currentTime = 0; audio.play().catch(()=>{}); }
+  else nextTrack();
+});
+
+$('progress').addEventListener('input', e => {
+  if (S.demo) {
+    const t = DEMO[S.trackIdx % DEMO.length];
+    S.demoT = (e.target.value / 1000) * t.dur;
+    $('t-cur').textContent = fmt(S.demoT);
+  } else if (audio.duration) {
+    audio.currentTime = (e.target.value / 1000) * audio.duration;
+  }
+});
+
+$('volume').addEventListener('input', e => { audio.volume = e.target.value / 100; });
+
+function fmt(s) {
+  s = Math.floor(s);
+  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+}
+
+// Demo animation
+let demoRAF;
+function demoTick(ts) {
+  if (!S.playing || !S.demo) { demoRAF = requestAnimationFrame(demoTick); return; }
+  if (!demoTick._last) demoTick._last = ts;
+  const dt = (ts - demoTick._last) / 1000;
+  demoTick._last = ts;
+  const t = DEMO[S.trackIdx % DEMO.length];
+  S.demoT += dt;
+  if (S.demoT >= t.dur) {
+    if (S.repeat) S.demoT = 0;
+    else { nextTrack(); S.demoT = 0; }
+  }
+  $('progress').value = (S.demoT / t.dur) * 1000;
+  $('t-cur').textContent = fmt(S.demoT);
+  demoRAF = requestAnimationFrame(demoTick);
+}
+
+// ── Customizer ──
+const modes = [
+  { id: 'gradient', label: 'Gradient' },
+  { id: 'albumblur', label: 'Album Blur' },
+  { id: 'mesh', label: 'Mesh' },
+  { id: 'aurora', label: 'Aurora' },
+  { id: 'particles', label: 'Particles' },
+  { id: 'solid', label: 'Solid' },
+];
+
+function openCust() { $('cust-bk').classList.add('open'); $('cust').classList.add('open'); }
+function closeCust() { $('cust-bk').classList.remove('open'); $('cust').classList.remove('open'); }
+
+function renderModes() {
+  $('modes').innerHTML = modes.map(m =>
+    `<button class="mp${m.id===S.mode?' on':''}" data-m="${m.id}">${m.label}</button>`
+  ).join('');
+  $('modes').querySelectorAll('.mp').forEach(b => {
+    b.addEventListener('click', () => {
+      BG.setMode(b.dataset.m);
+      renderModes();
+      renderControls();
+    });
+  });
+}
+
+function renderControls() {
+  const m = S.mode;
+  let h = '';
+  if (m === 'gradient') {
+    h = colorRow('Color 1','gc1',S.gradient.c1) + colorRow('Color 2','gc2',S.gradient.c2) +
+        colorRow('Color 3','gc3',S.gradient.c3) + rangeRow('Angle','gangle',0,360,S.gradient.angle) +
+        toggleRow('Animate','ganim',S.gradient.animate);
+  } else if (m === 'albumblur') {
+    h = rangeRow('Blur','ab-blur',10,100,S.albumBlur.blur) +
+        rangeRow('Brightness','ab-bri',20,100,S.albumBlur.brightness) +
+        rangeRow('Saturation','ab-sat',50,200,S.albumBlur.saturation);
+  } else if (m === 'mesh') {
+    h = colorRow('Color 1','mc1',S.mesh.c1) + colorRow('Color 2','mc2',S.mesh.c2) + colorRow('Color 3','mc3',S.mesh.c3);
+  } else if (m === 'aurora') {
+    h = colorRow('Color 1','ac1',S.aurora.c1) + colorRow('Color 2','ac2',S.aurora.c2);
+  } else if (m === 'particles') {
+    h = colorRow('Color','pc',S.particles.color) + rangeRow('Count','pcnt',10,200,S.particles.count) +
+        rangeRow('Size','psz',1,8,S.particles.size) + rangeRow('Speed','psp',1,10,S.particles.speed) +
+        toggleRow('Connect','pln',S.particles.lines);
+  } else if (m === 'solid') {
+    h = colorRow('Color','sc',S.solid.color);
+  }
+  $('mctrls').innerHTML = h;
+  bindControls();
+}
+
+function colorRow(label, id, val) {
+  return `<div class="cr"><label>${label}</label><input type="color" id="c-${id}" value="${val}"></div>`;
+}
+function rangeRow(label, id, min, max, val) {
+  return `<div class="cr"><label>${label}</label><input type="range" id="c-${id}" min="${min}" max="${max}" value="${val}"></div>`;
+}
+function toggleRow(label, id, val) {
+  return `<div class="tr"><label>${label}</label><button class="tg${val?' on':''}" id="c-${id}"></button></div>`;
+}
+
+function bindControls() {
+  const m = S.mode;
+  const on = (id, ev, fn) => { const el = document.getElementById('c-'+id); if (el) el.addEventListener(ev, fn); };
+
+  if (m === 'gradient') {
+    on('gc1','input',e=>{ S.gradient.c1=e.target.value; BG.apply(); save(); });
+    on('gc2','input',e=>{ S.gradient.c2=e.target.value; BG.apply(); save(); });
+    on('gc3','input',e=>{ S.gradient.c3=e.target.value; BG.apply(); save(); });
+    on('gangle','input',e=>{ S.gradient.angle=+e.target.value; BG.apply(); save(); });
+    on('ganim','click',e=>{ S.gradient.animate=!S.gradient.animate; e.currentTarget.classList.toggle('on'); BG.apply(); save(); });
+  } else if (m === 'albumblur') {
+    on('ab-blur','input',e=>{ S.albumBlur.blur=+e.target.value; BG.apply(); save(); });
+    on('ab-bri','input',e=>{ S.albumBlur.brightness=+e.target.value; BG.apply(); save(); });
+    on('ab-sat','input',e=>{ S.albumBlur.saturation=+e.target.value; BG.apply(); save(); });
+  } else if (m === 'mesh') {
+    on('mc1','input',e=>{ S.mesh.c1=e.target.value; BG.apply(); save(); });
+    on('mc2','input',e=>{ S.mesh.c2=e.target.value; BG.apply(); save(); });
+    on('mc3','input',e=>{ S.mesh.c3=e.target.value; BG.apply(); save(); });
+  } else if (m === 'aurora') {
+    on('ac1','input',e=>{ S.aurora.c1=e.target.value; BG.apply(); save(); });
+    on('ac2','input',e=>{ S.aurora.c2=e.target.value; BG.apply(); save(); });
+  } else if (m === 'particles') {
+    on('pc','input',e=>{ S.particles.color=e.target.value; BG.apply(); save(); });
+    on('pcnt','input',e=>{ S.particles.count=+e.target.value; BG.resetParticles(); save(); });
+    on('psz','input',e=>{ S.particles.size=+e.target.value; BG.resetParticles(); save(); });
+    on('psp','input',e=>{ S.particles.speed=+e.target.value; BG.resetParticles(); save(); });
+    on('pln','click',e=>{ S.particles.lines=!S.particles.lines; e.currentTarget.classList.toggle('on'); save(); });
+  } else if (m === 'solid') {
+    on('sc','input',e=>{ S.solid.color=e.target.value; BG.apply(); save(); });
+  }
+}
+
+function renderPresets() {
+  $('presets').innerHTML = PRESETS.map((p, i) =>
+    `<div class="pi" data-i="${i}"><div class="pd" style="background:${p.bg}"></div><span class="pn">${p.name}</span></div>`
+  ).join('');
+  $('presets').querySelectorAll('.pi').forEach(el => {
+    el.addEventListener('click', () => {
+      const p = PRESETS[+el.dataset.i];
+      Object.assign(S[p.mode], p.s[p.mode]);
+      BG.setMode(p.mode);
+      renderModes();
+      renderControls();
+    });
+  });
+}
+
+// ── Persistence ──
+function save() {
+  try {
+    localStorage.setItem('aura-state', JSON.stringify({
+      mode: S.mode, gradient: S.gradient, albumBlur: S.albumBlur,
+      mesh: S.mesh, aurora: S.aurora, particles: S.particles, solid: S.solid,
+    }));
+  } catch {}
+}
+
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem('aura-state'));
+    if (!d) return;
+    if (d.mode) S.mode = d.mode;
+    if (d.gradient) Object.assign(S.gradient, d.gradient);
+    if (d.albumBlur) Object.assign(S.albumBlur, d.albumBlur);
+    if (d.mesh) Object.assign(S.mesh, d.mesh);
+    if (d.aurora) Object.assign(S.aurora, d.aurora);
+    if (d.particles) Object.assign(S.particles, d.particles);
+    if (d.solid) Object.assign(S.solid, d.solid);
+  } catch {}
+}
+
+// ── Events ──
+$('b-play').addEventListener('click', playPause);
+$('b-next').addEventListener('click', nextTrack);
+$('b-prev').addEventListener('click', prevTrack);
+$('b-shuf').addEventListener('click', () => { S.shuffle = !S.shuffle; $('b-shuf').classList.toggle('on'); });
+$('b-rep').addEventListener('click', () => { S.repeat = !S.repeat; $('b-rep').classList.toggle('on'); });
+
+$('btn-cust').addEventListener('click', openCust);
+$('cust-bk').addEventListener('click', closeCust);
+$('cust-handle').addEventListener('click', closeCust);
+
+$('btn-music').addEventListener('click', () => $('audio-in').click());
+$('art-wrap').addEventListener('click', () => $('art-in').click());
+
+$('audio-in').addEventListener('change', e => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  fileList = files;
+  fileArts = new Array(files.length).fill(null);
+  S.demo = false;
+  S.trackIdx = 0;
+  loadTrack(0);
+  if (!S.playing) playPause();
+  else audio.play().catch(()=>{});
+});
+
+$('art-in').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const url = URL.createObjectURL(f);
+  $('album-art').src = url;
+  $('blur-img').src = url;
+  if (!S.demo && fileList[S.trackIdx]) fileArts[S.trackIdx] = url;
+  $('album-art').onload = () => {
+    const c = extractColors($('album-art'));
+    if (c) applyExtracted(c);
+  };
+});
+
+// Swipe-down to close customizer
+let touchY = 0;
+$('cust').addEventListener('touchstart', e => { touchY = e.touches[0].clientY; }, { passive: true });
+$('cust').addEventListener('touchend', e => {
+  if (e.changedTouches[0].clientY - touchY > 60) closeCust();
+}, { passive: true });
+
+// MediaSession handlers
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.setActionHandler('play', playPause);
+  navigator.mediaSession.setActionHandler('pause', playPause);
+  navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+  navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
+}
+
+// ── Init ──
+load();
+BG.setMode(S.mode);
+loadTrack(0);
+renderModes();
+renderControls();
+renderPresets();
+requestAnimationFrame(demoTick);
+</script>
