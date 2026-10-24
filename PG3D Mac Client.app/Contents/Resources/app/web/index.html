@@ -972,7 +972,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="accountStrip" id="selectedAccount"></div>
           <div class="playRow">
             <div class="playFps"><div class="xLabel">FPS target</div><select class="select" id="fpsSelect"><option value="uncapped">Uncapped</option><option value="auto" id="fpsAutoOpt">Auto-detect</option><option>60</option><option>90</option><option>120</option><option>144</option><option>165</option><option>240</option><option>360</option><option>500</option></select></div>
-            <button class="xSwitch" id="hacksToggle" role="switch" aria-checked="true" style="margin:4px 0"><div><b>Hacks</b><small>Inject cheats &amp; aimbot on launch</small></div><span class="pillToggle"></span></button>
             <div class="launchButtons" style="grid-template-columns:1fr">
               <button class="launchBtn launchFps" id="startFps"><b>Start</b></button>
             </div>
@@ -1422,7 +1421,7 @@ function setState(id,text,kind=''){const e=$(id);if(!e)return;e.textContent=text
 function renderStatus(){if(!statusData)return;
   $('#launchMessage').textContent=statusData.launch_error||'';
   $('#startFps').disabled=statusData.game_running||!statusData.fps_bundle_present;
-  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();syncHacksToggle();renderUpdateBanner();renderRankChip();renderGameUpdate();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
+  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderGameUpdate();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
   if(statusData.overlay && (!overlayConfig || !overlayDirty)){overlayConfig=structuredClone(statusData.overlay.config);renderOverlayEditor()}
 }
 async function restoreGameFiles(){if(!confirm('Put every game file the client changed back to the original? Your cursor, sky, loading screen and font are taken out; you can apply them again afterwards.'))return;try{await post('/api/game/restore-files',{});toast('Restoring the original game files…');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}}
@@ -1476,8 +1475,6 @@ function renderLaunch(){const s=statusData;if(!s)return;const busy=LAUNCH_BUSY.i
   else if(lpWasBusy){if(!s.launch_error&&s.launch_progress===100){box.hidden=false;box.classList.add('done');$('#lpFill').style.width='100%';$('#lpPct').textContent='100%';$('#lpMsg').textContent=s.launch_message||'PG3D is running.';$('#lpEta').textContent='Have fun!';setTimeout(()=>{if(!LAUNCH_BUSY.includes(statusData?.launch_phase))$('#launchProg').hidden=true},5000)}else box.hidden=true}
   lpWasBusy=busy}
 $('#startFps').onclick=()=>launch();
-$('#hacksToggle').onclick=async function(){const on=this.classList.toggle('on');this.setAttribute('aria-checked',on);try{await post('/api/prefs/hacks',{disabled:!on})}catch(e){toast(e.message,true)}};
-function syncHacksToggle(){if(!statusData?.prefs)return;setSwitch('#hacksToggle',!statusData.prefs.hacks_disabled)}
 
 // Cursor
 function renderCursorGrid(){if(curTarget!=='cursor')return renderRoleGrid();const q=($('#cursorSearch').value||'').toLowerCase();const grid=$('#cursorGrid');grid.innerHTML='';const list=cursorCatalog.filter(x=>(x.name+' '+x.category).toLowerCase().includes(q));for(const x of list){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor===x.id?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/${x.file}"></div><div class="cursorName"></div>`;b.querySelector('.cursorName').textContent=x.name;b.onclick=()=>{selectedCursor=x.id;localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}if(statusData?.custom_cursor){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor==='custom'?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/api/custom-cursor.png?t=${Date.now()}"></div><div class="cursorName">Custom</div>`;b.onclick=()=>{selectedCursor='custom';localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}}
@@ -1556,7 +1553,7 @@ function renderAccounts(){const info=statusData?.accounts;if(!info)return;const 
     const c=el('div','accCard'+(sel?' sel':''));c.setAttribute('role','button');c.tabIndex=0;c.title=sel?'Used for Play':'Click to play on this account';
     const av=el('div','avatar',(name[0]||'?').toUpperCase());const who=el('div','accWho');who.append(el('b',null,name),el('small',null,a.nickname?`${a.persona_name} · ${a.account_name}`:a.account_name));
     const head=el('div','accHead');head.append(av,who);c.append(head);
-    const badges=el('div','accBadges');if(sel)badges.append(el('span','lkBadge acc','Playing as'));if(a.active)badges.append(el('span','lkBadge good','Signed in to Steam'));if(a.credentials_saved)badges.append(el('span','lkBadge','Login saved'));if(badges.children.length)c.append(badges);
+    const badges=el('div','accBadges');if(pg?.banned)badges.append(el('span','lkBadge bad','Banned'));if(sel)badges.append(el('span','lkBadge acc','Playing as'));if(a.active)badges.append(el('span','lkBadge good','Signed in to Steam'));if(a.credentials_saved)badges.append(el('span','lkBadge','Login saved'));if(badges.children.length)c.append(badges);
     const pgl=el('div','accPg');if(pg?.player_id){pgl.append(el('span',null,'PG3D'),el('b',null,pg.name||`ID ${pg.player_id}`));const lk=el('button','accLink','Look up ›');lk.type='button';lk.onclick=e=>{e.stopPropagation();setTab('lookup');runLookup(pg.player_id)};pgl.append(lk)}
     else pgl.append(el('span',null,'PG3D'),el('em',null,'Play once on this account to link it'));c.append(pgl);
     const act=el('div','accActions');const login=el('button','btn',a.credentials_saved?'Edit login':'Save login');login.type='button';login.onclick=e=>openCredentials(a,e);

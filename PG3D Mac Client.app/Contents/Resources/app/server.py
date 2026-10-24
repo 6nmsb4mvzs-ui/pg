@@ -3882,9 +3882,6 @@ def run_trace_cleaner():
 
 def _setup_cheats_env(env, dylibs):
     """Load the cheats dylib and write its config file. Returns the updated dylib string."""
-    prefs = read_json(PREFS_JSON, {})
-    if prefs.get("hacks_disabled"):
-        return dylibs
     cheats = ember_client.cheats_config()
     if not CHEATS_DYLIB.is_file():
         return dylibs
@@ -7410,19 +7407,25 @@ def lookup_suggestions():
         info = steam_accounts()
     except Exception:
         info = {"accounts": []}
-    ids = wins_data().get("pg3d_ids", {})
+    data = wins_data()
+    ids = data.get("pg3d_ids", {})
+    accs = data.get("accounts", {})
     out = []
     for a in info.get("accounts", []):
         known = ids.get(a["steamid64"]) or {}
+        ember = (accs.get(a["steamid64"]) or {}).get("ember") or {}
         out.append({
             "steamid64": a["steamid64"], "steam_name": a.get("display_name") or a.get("account_name"),
             "active": bool(a.get("active")), "player_id": known.get("player_id"), "name": known.get("name"),
+            "banned": ember.get("banned"),
         })
     listed = {x["steamid64"] for x in out}
-    for sid, known in ids.items():  # accounts no longer in Steam's list
+    for sid, known in ids.items():
         if sid not in listed:
+            ember = (accs.get(sid) or {}).get("ember") or {}
             out.append({"steamid64": sid, "steam_name": None, "active": False,
-                        "player_id": known.get("player_id"), "name": known.get("name")})
+                        "player_id": known.get("player_id"), "name": known.get("name"),
+                        "banned": ember.get("banned")})
     out.sort(key=lambda x: (not x["active"], x["player_id"] is None, (x["steam_name"] or "").lower()))
     return {"ok": True, "accounts": out}
 
@@ -8220,11 +8223,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(ember_client.load_credentials())
             if path == "/api/cheats/save":
                 return self.send_json(ember_client.save_cheats(data))
-            if path == "/api/prefs/hacks":
-                prefs = read_json(PREFS_JSON, {})
-                prefs["hacks_disabled"] = bool(data.get("disabled"))
-                write_json(PREFS_JSON, prefs)
-                return self.send_json({"ok": True, "hacks_disabled": prefs["hacks_disabled"]})
             return self.send_json({"error": "Unknown endpoint"}, 404)
         except Exception as e:
             log(traceback.format_exc())
