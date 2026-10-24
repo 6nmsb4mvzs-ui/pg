@@ -833,9 +833,7 @@ class Overlay(NSObject):
 
     def _update_data(self):
         fps_on=any(x.get('id')=='fps' and x.get('enabled',True) for x in self.config.get('items',[]))
-        try:allowed=bool(Quartz.CGPreflightScreenCaptureAccess())  # never trigger the prompt from here
-        except Exception:allowed=False
-        ensure_fps_helper(bool(self.config.get('enabled',True) and fps_on and allowed and pg3d_pid()))
+        ensure_fps_helper(bool(self.config.get('enabled',True) and fps_on and pg3d_pid()))
         self.values={'fps':fps_value(),'ping':ping_value(),'rank':rank_value()}; self.music=music_metadata(); self._layout()
 
     def tick_(self,timer):
