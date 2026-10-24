@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.4"
+APP_VERSION = "1.77.5"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3922,7 +3922,6 @@ def fps_launch(game: Path, fps: str):
     use_mouse_fix = mouse_fix_usable(binary)
     dylibs = f"{FPS_DYLIB}:{MOUSEFIX_DYLIB}" if use_mouse_fix else str(FPS_DYLIB)
     env = os.environ.copy()
-    dylibs = _setup_cheats_env(env, dylibs)
     result = subprocess.run(
         [str(FPS_LAUNCHER), str(binary), dylibs, fps, str(log_path), "0"],
         cwd=str(game.parent), capture_output=True, text=True, timeout=10, env=env
