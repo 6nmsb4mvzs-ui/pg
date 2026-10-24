@@ -162,10 +162,16 @@ def brand_process():
 def set_app_icon(app):
     try:
         from Cocoa import NSImage
-        icon = Path(__file__).resolve().parent.parent / "AppIcon.icns"
-        image = NSImage.alloc().initWithContentsOfFile_(str(icon))
-        if image is not None:
-            app.setApplicationIconImage_(image)
+        candidates = [Path(__file__).resolve().parent.parent / "AppIcon.icns"]
+        bundle = os.environ.get("PG3D_APP_BUNDLE")
+        if bundle:
+            candidates.insert(0, Path(bundle) / "Contents" / "Resources" / "AppIcon.icns")
+        for icon in candidates:
+            if icon.is_file():
+                image = NSImage.alloc().initWithContentsOfFile_(str(icon))
+                if image is not None:
+                    app.setApplicationIconImage_(image)
+                    break
     except Exception:
         pass
 
