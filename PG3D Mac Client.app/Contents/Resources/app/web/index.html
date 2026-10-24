@@ -950,6 +950,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="rank" hidden><span class="ico">♛</span><span class="label">Rank</span></button>
       <button data-tab="clips"><span class="ico">◉</span><span class="label">Clips</span></button>
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
+      <button data-tab="hud"><span class="ico">⊞</span><span class="label">HUD</span></button>
       <button data-tab="cheats"><span class="ico">⊘</span><span class="label">Cheats</span></button>
     </nav>
     <nav class="nav navBottom">
@@ -1380,7 +1381,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings',cheats:'Cheats'};
+const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',clips:'Clips',settings:'Settings',cheats:'Cheats'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 let netFails=0;
 async function netLost(){// "Load failed" is WebKit's word for "no answer": find out whose fault it is
