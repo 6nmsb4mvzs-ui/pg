@@ -2290,8 +2290,6 @@ function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekl
   const show=k=>{lkTab=k;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));body.innerHTML='';body.append(panes[k].node)};
   for(const [k,v] of Object.entries(panes)){const b=el('button',null,v.label);b.type='button';b.dataset.k=k;b.onclick=()=>show(k);tabs.append(b)}
   show(panes[lkTab]?lkTab:'profile')}
-$('#lkForm').onsubmit=e=>{e.preventDefault();runLookup($('#lkId').value)};
-
 // Client appearance (Settings > Appearance)
 const UI_THEMES=[
   {id:'ember',name:'Ember',desc:'Orange on near-black. The default.',c:['#050506','#0a0a0d','#ff6600','#ff8833']},
