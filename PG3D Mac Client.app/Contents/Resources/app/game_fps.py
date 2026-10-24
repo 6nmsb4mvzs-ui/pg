@@ -31,6 +31,8 @@ try:
     import CoreMedia
     import ScreenCaptureKit as SCK
     from Foundation import NSObject, NSRunLoop, NSDate, NSWorkspace
+    from AppKit import NSApplication
+    NSApplication.sharedApplication().setActivationPolicy_(2)  # Prohibited — no Dock icon
 except Exception as e:  # missing framework or macOS older than 13
     log(f"ScreenCaptureKit unavailable: {e}")
     sys.exit(3)
