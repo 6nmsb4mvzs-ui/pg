@@ -31,7 +31,7 @@ def _ember_request(method, endpoint, body=None, timeout=15):
     url = EMBER_BASE + endpoint
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "PG3D-Mac-Client/1.77.0",
+        "User-Agent": "PG3D-Mac-Client/1.77.1",
         "Accept": "application/json",
     }
     data = json.dumps(body).encode("utf-8") if body is not None else None

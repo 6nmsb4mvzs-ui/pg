@@ -948,7 +948,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <nav class="nav">
       <button class="active" data-tab="play"><span class="ico">▶</span><span class="label">Play</span></button>
       <button data-tab="rank" hidden><span class="ico">♛</span><span class="label">Rank</span></button>
-      <button data-tab="lookup"><span class="ico">⌕</span><span class="label">Lookup</span></button>
       <button data-tab="clips"><span class="ico">◉</span><span class="label">Clips</span></button>
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
       <button data-tab="cheats"><span class="ico">⊘</span><span class="label">Cheats</span></button>
@@ -1191,24 +1190,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <section class="page" id="page-lookup">
-      <div class="xPage">
-        <div class="crCard lkTop">
-          <form class="lkSearch" id="lkForm"><input class="search" id="lkId" inputmode="numeric" placeholder="Player ID" spellcheck="false" autocomplete="off"><button class="btn primary" type="submit">Look up</button></form>
-          <div class="lkPicks" id="lkAccounts"></div>
-          <div class="lkPicks" id="lkRecentWrap" hidden><span class="lkPickLabel">Recent</span><span id="lkRecent" class="lkPickList"></span></div>
-        </div>
-        <div class="crCard lkCard" id="lkResult" hidden>
-          <div class="lkHead">
-            <canvas class="lkAvatar" id="lkAvatar" width="64" height="64"></canvas>
-            <div class="lkWho"><div class="lkNameRow"><b id="lkName">—</b><span id="lkBadges"></span></div><small id="lkMeta"></small></div>
-            <button class="btn ghost" id="lkCopy" title="Copy player ID">Copy ID</button>
-          </div>
-          <div class="lkTabs" id="lkTabs"></div>
-          <div id="lkBody"></div>
-        </div>
-      </div>
-    </section>
+    <!-- Lookup tab removed in 1.77.1 -->
 
     <section class="page" id="page-hud">
       <div class="xPage">
@@ -1398,7 +1380,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings',cheats:'Cheats'};
+const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings',cheats:'Cheats'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 let netFails=0;
 async function netLost(){// "Load failed" is WebKit's word for "no answer": find out whose fault it is
@@ -1413,7 +1395,7 @@ function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Mat
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
 const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already applied stay); its code stays
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='cheats')chInit()}
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='cheats')chInit()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -1554,7 +1536,7 @@ function renderAccounts(){const info=statusData?.accounts;if(!info)return;const 
     const av=el('div','avatar',(name[0]||'?').toUpperCase());const who=el('div','accWho');who.append(el('b',null,name),el('small',null,a.nickname?`${a.persona_name} · ${a.account_name}`:a.account_name));
     const head=el('div','accHead');head.append(av,who);c.append(head);
     const badges=el('div','accBadges');if(pg?.banned)badges.append(el('span','lkBadge bad','Banned'));if(sel)badges.append(el('span','lkBadge acc','Playing as'));if(a.active)badges.append(el('span','lkBadge good','Signed in to Steam'));if(a.credentials_saved)badges.append(el('span','lkBadge','Login saved'));if(badges.children.length)c.append(badges);
-    const pgl=el('div','accPg');if(pg?.player_id){pgl.append(el('span',null,'PG3D'),el('b',null,pg.name||`ID ${pg.player_id}`));const lk=el('button','accLink','Look up ›');lk.type='button';lk.onclick=e=>{e.stopPropagation();setTab('lookup');runLookup(pg.player_id)};pgl.append(lk)}
+    const pgl=el('div','accPg');if(pg?.player_id){pgl.append(el('span',null,'PG3D'),el('b',null,pg.name||`ID ${pg.player_id}`))}
     else pgl.append(el('span',null,'PG3D'),el('em',null,'Play once on this account to link it'));c.append(pgl);
     const act=el('div','accActions');const login=el('button','btn',a.credentials_saved?'Edit login':'Save login');login.type='button';login.onclick=e=>openCredentials(a,e);
     const ren=el('button','btn ghost','Rename');ren.type='button';ren.onclick=e=>editNickname(a,e);
