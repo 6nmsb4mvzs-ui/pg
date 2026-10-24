@@ -933,12 +933,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .emStealItem img{width:28px;height:28px;object-fit:contain;flex-shrink:0;border-radius:4px}
 .emStealItem.busy{opacity:.5;pointer-events:none}
 /* cheats */
-.chRow{display:flex;align-items:center;gap:10px;margin:8px 0 0;padding:0 12px}
-.chRow .xLabel{margin:0;font-size:11px;white-space:nowrap;min-width:48px}
-.chKeyBtn{flex:1;padding:7px 14px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);color:var(--fg);font:inherit;font-size:12px;cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
-.chKeyBtn:hover{border-color:var(--accent)}
-.chKeyBtn.listening{border-color:var(--accent);background:hsl(var(--nh) var(--ns) 8%);animation:chPulse 1.2s ease-in-out infinite}
-@keyframes chPulse{0%,100%{opacity:1}50%{opacity:.6}}
 </style>
 </head>
 <body>
@@ -951,7 +945,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="clips"><span class="ico">◉</span><span class="label">Clips</span></button>
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
       <button data-tab="hud"><span class="ico">⊞</span><span class="label">HUD</span></button>
-      <button data-tab="cheats"><span class="ico">⊘</span><span class="label">Cheats</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1262,51 +1255,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 
 
 
-    <section class="page" id="page-cheats">
-      <div class="crCard">
-        <div class="crCardHead"><div><h3>Cheats</h3><p class="xNote" style="margin-top:4px">Injected on game launch. Toggle features in-game with their hotkeys.</p></div></div>
-
-        <button class="xSwitch" id="chAimbotToggle" role="switch" aria-checked="false"><div><b>Aimbot</b><small>Locks aim onto the nearest enemy.</small></div><span class="pillToggle"></span></button>
-        <div class="chRow"><div class="xLabel">Hotkey</div><button class="chKeyBtn" id="chAimbotBind" type="button" data-key="97">F6</button></div>
-
-        <div style="height:8px"></div>
-        <button class="xSwitch" id="chTriggerbotToggle" role="switch" aria-checked="false"><div><b>Triggerbot</b><small>Auto-fires when your crosshair is over an enemy.</small></div><span class="pillToggle"></span></button>
-        <div class="chRow"><div class="xLabel">Hotkey</div><button class="chKeyBtn" id="chTriggerbotBind" type="button" data-key="98">F7</button></div>
-
-        <div class="divider"></div>
-
-        <div class="chRow"><div class="xLabel">Legitimacy (1–10)</div>
-          <div class="rangeRow"><input type="range" id="chLegitimacy" min="1" max="10" value="1"><span class="rangeVal" id="chLegitVal">1</span></div>
-          <small class="sub">1 = snappy, 10 = slow and human-like</small>
-        </div>
-
-        <div class="chRow"><div class="xLabel">FOV (degrees)</div>
-          <div class="rangeRow"><input type="range" id="chFov" min="1" max="90" step="0.5" value="12"><span class="rangeVal" id="chFovVal">12.0</span></div>
-          <small class="sub">How far from your crosshair the aimbot searches for targets</small>
-        </div>
-
-        <div style="height:4px"></div>
-        <button class="xSwitch" id="chWholePlayer" role="switch" aria-checked="false"><div><b>Whole Player</b><small>Aim at body center instead of head</small></div><span class="pillToggle"></span></button>
-
-        <div class="divider"></div>
-        <div class="crCardHead"><div><h3>3-Cat Spam</h3><p class="xNote" style="margin-top:4px">Automatic weapon category cycling</p></div></div>
-
-        <button class="xSwitch" id="chCategoryToggle" role="switch" aria-checked="false"><div><b>Enable 3-Cat</b><small>Cycles weapon categories on the assigned keys</small></div><span class="pillToggle"></span></button>
-
-        <div class="chRow"><div class="xLabel">Delay (ms)</div><input class="xInput" id="chCatDelay" type="number" value="100" min="0" max="1000" style="width:100px"></div>
-
-        <div class="chRow" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-          <div><div class="xLabel">Cat 1 key</div><button class="chKeyBtn chCatKey" id="chCatKey1" type="button" data-key="19">2</button></div>
-          <div><div class="xLabel">Cat 2 key</div><button class="chKeyBtn chCatKey" id="chCatKey2" type="button" data-key="20">3</button></div>
-          <div><div class="xLabel">Cat 3 key</div><button class="chKeyBtn chCatKey" id="chCatKey3" type="button" data-key="23">5</button></div>
-        </div>
-
-        <div class="divider"></div>
-        <div class="crCardHead"><div><h3>In-Game GUI</h3><p class="xNote" style="margin-top:4px">Toggle the cheat overlay shown inside the game</p></div></div>
-
-        <button class="xSwitch" id="chGuiVisible" role="switch" aria-checked="true"><div><b>Show Feedback</b><small>Aimbot/triggerbot status text in-game</small></div><span class="pillToggle"></span></button>
-      </div>
-    </section>
 
   </main>
 </div>
@@ -1381,7 +1329,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',clips:'Clips',settings:'Settings',cheats:'Cheats'};
+const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 let netFails=0;
 async function netLost(){// "Load failed" is WebKit's word for "no answer": find out whose fault it is
@@ -1396,7 +1344,7 @@ function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Mat
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
 const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already applied stay); its code stays
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='cheats')chInit()}
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -2391,104 +2339,7 @@ function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',pick
   return F}
 const TX=makeFinder('tx',['cursor']);
 
-/* ── Cheats ── */
-let _chInited=false;
-const CH_KEY_NAMES={mouse4:'Mouse 4',mouse5:'Mouse 5',shift:'Shift',ctrl:'Ctrl',alt:'Alt',capslock:'Caps Lock',
-  tab:'Tab',space:'Space',enter:'Enter',backspace:'Backspace',escape:'Esc',
-  arrowup:'Up',arrowdown:'Down',arrowleft:'Left',arrowright:'Right'};
-function chKeyLabel(k){if(!k&&k!==0)return'—';const s=String(k);return CH_KEY_NAMES[s]||s.replace(/^key/i,'').toUpperCase()||s}
-async function chInit(){
-  if(_chInited)return;_chInited=true;
-  try{
-    const d=await api('/api/cheats/config');
-    setSwitch('#chAimbotToggle',!!d.aimbot);
-    setSwitch('#chTriggerbotToggle',!!d.triggerbot);
-    setSwitch('#chWholePlayer',!!d.whole_player);
-    setSwitch('#chCategoryToggle',!!d.category_enabled);
-    setSwitch('#chGuiVisible',d.gui_visible!==false);
-    $('#chAimbotBind').dataset.key=d.aim_key||97;$('#chAimbotBind').textContent=d.aim_key_label||chKeyLabel(d.aim_key||97);
-    $('#chTriggerbotBind').dataset.key=d.trigger_key||98;$('#chTriggerbotBind').textContent=d.trigger_key_label||chKeyLabel(d.trigger_key||98);
-    $('#chLegitimacy').value=d.legitimacy||1;$('#chLegitVal').textContent=d.legitimacy||1;
-    $('#chFov').value=d.fov||12;$('#chFovVal').textContent=Number(d.fov||12).toFixed(1);
-    $('#chCatDelay').value=d.category_delay_ms||100;
-    $('#chCatKey1').dataset.key=d.category_key_1||19;$('#chCatKey1').textContent=d.category_label_1||chKeyLabel(d.category_key_1||19);
-    $('#chCatKey2').dataset.key=d.category_key_2||20;$('#chCatKey2').textContent=d.category_label_2||chKeyLabel(d.category_key_2||20);
-    $('#chCatKey3').dataset.key=d.category_key_3||23;$('#chCatKey3').textContent=d.category_label_3||chKeyLabel(d.category_key_3||23);
-  }catch{}
-}
-function chToggle(id){
-  const btn=$('#'+id);
-  const on=btn.classList.toggle('on');
-  btn.setAttribute('aria-checked',on?'true':'false');
-  chSave();
-}
-let _chListening=null;
-function chStartCapture(btnId){
-  if(_chListening){_chStopCapture(_chListening)}
-  const btn=$('#'+btnId);
-  _chListening=btnId;
-  btn.classList.add('listening');
-  btn.textContent='Press a key…';
-  btn._prevKey=btn.dataset.key;
-}
-function _chStopCapture(btnId,newKey){
-  const btn=$('#'+btnId);
-  btn.classList.remove('listening');
-  if(newKey){btn.dataset.key=newKey;btn.textContent=chKeyLabel(newKey)}
-  else{btn.textContent=chKeyLabel(btn.dataset.key)}
-  _chListening=null;
-}
-document.addEventListener('keydown',e=>{
-  if(!_chListening)return;
-  e.preventDefault();e.stopPropagation();
-  const key=e.key.toLowerCase()===' '?'space':e.key.length===1?e.key.toLowerCase():e.key.toLowerCase();
-  _chStopCapture(_chListening,key);
-  chSave();
-},{capture:true});
-document.addEventListener('mousedown',e=>{
-  if(!_chListening)return;
-  if(e.button>=3){e.preventDefault();e.stopPropagation();
-    const key='mouse'+(e.button===3?'4':e.button===4?'5':String(e.button+1));
-    _chStopCapture(_chListening,key);chSave();return}
-  const btn=$('#'+_chListening);
-  if(!btn.contains(e.target)){_chStopCapture(_chListening);return}
-},{capture:true});
-$('#chAimbotToggle').onclick=()=>chToggle('chAimbotToggle');
-$('#chTriggerbotToggle').onclick=()=>chToggle('chTriggerbotToggle');
-$('#chWholePlayer').onclick=()=>chToggle('chWholePlayer');
-$('#chCategoryToggle').onclick=()=>chToggle('chCategoryToggle');
-$('#chGuiVisible').onclick=()=>chToggle('chGuiVisible');
-$('#chAimbotBind').onclick=()=>chStartCapture('chAimbotBind');
-$('#chTriggerbotBind').onclick=()=>chStartCapture('chTriggerbotBind');
-$('#chCatKey1').onclick=()=>chStartCapture('chCatKey1');
-$('#chCatKey2').onclick=()=>chStartCapture('chCatKey2');
-$('#chCatKey3').onclick=()=>chStartCapture('chCatKey3');
-$('#chLegitimacy').oninput=e=>{$('#chLegitVal').textContent=e.target.value;chSave()};
-$('#chFov').oninput=e=>{$('#chFovVal').textContent=Number(e.target.value).toFixed(1);chSave()};
-$('#chCatDelay').onchange=()=>chSave();
 (function(){try{const hz=window.screen?.refreshRate||window.screen?.mozRefreshRate;if(hz&&hz>60){const o=$('#fpsAutoOpt');if(o)o.textContent=`Auto (${hz} Hz)`}}catch{}})();
-async function chSave(){
-  try{await post('/api/cheats/save',{
-    aimbot:$('#chAimbotToggle').classList.contains('on'),
-    triggerbot:$('#chTriggerbotToggle').classList.contains('on'),
-    aim_key:Number($('#chAimbotBind').dataset.key)||97,
-    trigger_key:Number($('#chTriggerbotBind').dataset.key)||98,
-    aim_key_label:$('#chAimbotBind').textContent,
-    trigger_key_label:$('#chTriggerbotBind').textContent,
-    legitimacy:Number($('#chLegitimacy').value)||1,
-    fov:Number($('#chFov').value)||12,
-    whole_player:$('#chWholePlayer').classList.contains('on'),
-    category_enabled:$('#chCategoryToggle').classList.contains('on'),
-    category_delay_ms:Number($('#chCatDelay').value)||100,
-    category_key_1:Number($('#chCatKey1').dataset.key)||19,
-    category_key_2:Number($('#chCatKey2').dataset.key)||20,
-    category_key_3:Number($('#chCatKey3').dataset.key)||23,
-    category_label_1:$('#chCatKey1').textContent,
-    category_label_2:$('#chCatKey2').textContent,
-    category_label_3:$('#chCatKey3').textContent,
-    gui_visible:$('#chGuiVisible').classList.contains('on'),
-  })}catch{}
-}
 </script>
 </body>
 </html>
