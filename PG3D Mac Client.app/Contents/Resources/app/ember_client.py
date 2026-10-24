@@ -31,7 +31,7 @@ def _ember_request(method, endpoint, body=None, timeout=15):
     url = EMBER_BASE + endpoint
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "PG3D-Mac-Client/1.76.3",
+        "User-Agent": "PG3D-Mac-Client/1.77.1",
         "Accept": "application/json",
     }
     data = json.dumps(body).encode("utf-8") if body is not None else None
@@ -198,20 +198,85 @@ def items(category: str) -> dict:
 
 # ── cheats config (persistent) ──
 
+_CHEATS_DEFAULTS = {
+    "aimbot": False,
+    "triggerbot": False,
+    "aim_key": 97,          # F6
+    "trigger_key": 98,      # F7
+    "aim_key_label": "F6",
+    "trigger_key_label": "F7",
+    "legitimacy": 1,
+    "fov": 12.0,
+    "whole_player": False,
+    "category_enabled": False,
+    "category_delay_ms": 100,
+    "category_key_1": 19,
+    "category_key_2": 20,
+    "category_key_3": 23,
+    "category_label_1": "2",
+    "category_label_2": "3",
+    "category_label_3": "5",
+    "gui_visible": True,
+    "gui_enabled": False,
+}
+
+_CHEATS_ALLOWED = set(_CHEATS_DEFAULTS.keys())
+
+
 def cheats_config() -> dict:
     _ensure_dirs()
     if CHEATS_FILE.is_file():
         try:
-            return {"ok": True, **json.loads(CHEATS_FILE.read_text(encoding="utf-8"))}
+            stored = json.loads(CHEATS_FILE.read_text(encoding="utf-8"))
+            merged = dict(_CHEATS_DEFAULTS)
+            merged.update({k: v for k, v in stored.items() if k in _CHEATS_ALLOWED})
+            return {"ok": True, **merged}
         except Exception:
             pass
-    return {"ok": True, "aimbot": False, "triggerbot": False,
-            "aimbot_key": "mouse4", "triggerbot_key": "mouse5"}
+    return {"ok": True, **_CHEATS_DEFAULTS}
 
 
 def save_cheats(config: dict) -> dict:
     _ensure_dirs()
-    allowed = {"aimbot", "triggerbot", "aimbot_key", "triggerbot_key"}
-    clean = {k: v for k, v in config.items() if k in allowed}
-    CHEATS_FILE.write_text(json.dumps(clean, indent=2), encoding="utf-8")
-    return {"ok": True, **clean}
+    clean = {k: v for k, v in config.items() if k in _CHEATS_ALLOWED}
+    current = cheats_config()
+    current.update(clean)
+    current.pop("ok", None)
+    CHEATS_FILE.write_text(json.dumps(current, indent=2), encoding="utf-8")
+    return {"ok": True, **current}
+
+
+def write_aim_config(config_path: str, cheats: dict, fps_target: int = -1):
+    """Write the config file in the format the PG3DAimAutoFire dylib reads."""
+    lines = [
+        f"enabled=1",
+        f"aim_enabled={1 if cheats.get('aimbot') else 0}",
+        f"auto_fire={1 if cheats.get('triggerbot') else 0}",
+        f"fov={cheats.get('fov', 12.0):.3f}",
+        f"smoothing=6.000",
+        f"max_degrees_per_second=90.000",
+        f"fire_acquire_ms=0.000",
+        f"fire_hold_ms=50.000",
+        f"fire_gap_ms=15.000",
+        f"fire_max_distance=500.000",
+        f"aim_key={cheats.get('aim_key', 97)}",
+        f"trigger_key={cheats.get('trigger_key', 98)}",
+        f"aim_modifiers=0",
+        f"trigger_modifiers=0",
+        f"aim_label={cheats.get('aim_key_label', 'F6')}",
+        f"trigger_label={cheats.get('trigger_key_label', 'F7')}",
+        f"feedback_visible={1 if cheats.get('gui_visible', True) else 0}",
+        f"legitimacy={cheats.get('legitimacy', 1)}",
+        f"fps_unlock=0",
+        f"fps_target={fps_target}",
+        f"whole_player={1 if cheats.get('whole_player') else 0}",
+        f"category_enabled={1 if cheats.get('category_enabled') else 0}",
+        f"category_switch_delay_ms={cheats.get('category_delay_ms', 100)}",
+        f"category_key_1={cheats.get('category_key_1', 19)}",
+        f"category_key_2={cheats.get('category_key_2', 20)}",
+        f"category_key_3={cheats.get('category_key_3', 23)}",
+        f"category_label_1={cheats.get('category_label_1', '2')}",
+        f"category_label_2={cheats.get('category_label_2', '3')}",
+        f"category_label_3={cheats.get('category_label_3', '5')}",
+    ]
+    Path(config_path).write_text("\n".join(lines) + "\n", encoding="utf-8")

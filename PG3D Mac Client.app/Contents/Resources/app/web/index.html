@@ -948,17 +948,9 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <nav class="nav">
       <button class="active" data-tab="play"><span class="ico">▶</span><span class="label">Play</span></button>
       <button data-tab="rank" hidden><span class="ico">♛</span><span class="label">Rank</span></button>
-      <button data-tab="lookup"><span class="ico">⌕</span><span class="label">Lookup</span></button>
       <button data-tab="clips"><span class="ico">◉</span><span class="label">Clips</span></button>
-      <div class="navLabel">Customize</div>
-      <button data-tab="cursor"><span class="ico">＋</span><span class="label">Cursor</span></button>
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
-      <button data-tab="theme"><span class="ico">Aa</span><span class="label">Font</span></button>
-      <button data-tab="hud"><span class="ico">⊞</span><span class="label">HUD</span></button>
-      <button data-tab="sky" hidden><span class="ico">☁</span><span class="label">Sky</span></button>
-      <div class="navLabel">Modding</div>
-      <button data-tab="mods"><span class="ico">⚙</span><span class="label">Mods</span></button>
-      <button data-tab="cheats"><span class="ico">⊘</span><span class="label">Cheating</span></button>
+      <button data-tab="cheats"><span class="ico">⊘</span><span class="label">Cheats</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -978,10 +970,9 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="xLabel">Playing as</div>
           <div class="accountStrip" id="selectedAccount"></div>
           <div class="playRow">
-            <div class="playFps"><div class="xLabel">FPS target</div><select class="select" id="fpsSelect"><option value="uncapped">Uncapped</option><option>60</option><option>90</option><option>120</option><option>144</option><option>165</option><option>240</option><option>360</option><option>500</option></select></div>
-            <div class="launchButtons">
-              <button class="launchBtn launchNormal" id="startNormal"><b>Start</b></button>
-              <button class="launchBtn launchFps" id="startFps"><b>Start with FPS Unlocker</b></button>
+            <div class="playFps"><div class="xLabel">FPS target</div><select class="select" id="fpsSelect"><option value="uncapped">Uncapped</option><option value="auto" id="fpsAutoOpt">Auto-detect</option><option>60</option><option>90</option><option>120</option><option>144</option><option>165</option><option>240</option><option>360</option><option>500</option></select></div>
+            <div class="launchButtons" style="grid-template-columns:1fr">
+              <button class="launchBtn launchFps" id="startFps"><b>Start</b></button>
             </div>
           </div>
           <div class="launchProg" id="launchProg" hidden>
@@ -996,7 +987,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="pStat"><b id="steamPlayerCount">—</b><span>Players online (Steam)</span></div>
         </div>
         <div class="rkChip" id="rankChip" hidden onclick="setTab('rank')" title="Open Rank"><img src="/ranks/iron.png" alt=""><div style="flex:1;min-width:0"><b>—</b><small></small><div class="mini"><i style="width:0"></i></div></div><span class="rkChipGo">View rank ›</span></div>
-        <div class="lastSess" id="lastSession" hidden></div>
       </div>
     </section>
 
@@ -1022,7 +1012,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <section class="page" id="page-accounts">
       <div class="xPage">
         <div class="crCard">
-          <div class="crCardHead"><div><h3>Steam accounts</h3><p class="xNote" style="margin-top:4px">Click an account to play on it. Save its Steam login and the client switches accounts for you.</p></div><button class="btn" id="refreshAccounts">Refresh</button></div>
+          <div class="crCardHead"><div><h3>Steam accounts</h3><p class="xNote" style="margin-top:4px">Click an account to play on it. Save its Steam login and the client switches accounts for you.</p></div><div style="display:flex;gap:8px"><button class="btn" id="unhideAccounts">Add back removed</button><button class="btn" id="refreshAccounts">Refresh</button></div></div>
           <div class="accGrid" id="accountGrid"></div>
         </div>
       </div>
@@ -1200,24 +1190,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <section class="page" id="page-lookup">
-      <div class="xPage">
-        <div class="crCard lkTop">
-          <form class="lkSearch" id="lkForm"><input class="search" id="lkId" inputmode="numeric" placeholder="Player ID" spellcheck="false" autocomplete="off"><button class="btn primary" type="submit">Look up</button></form>
-          <div class="lkPicks" id="lkAccounts"></div>
-          <div class="lkPicks" id="lkRecentWrap" hidden><span class="lkPickLabel">Recent</span><span id="lkRecent" class="lkPickList"></span></div>
-        </div>
-        <div class="crCard lkCard" id="lkResult" hidden>
-          <div class="lkHead">
-            <canvas class="lkAvatar" id="lkAvatar" width="64" height="64"></canvas>
-            <div class="lkWho"><div class="lkNameRow"><b id="lkName">—</b><span id="lkBadges"></span></div><small id="lkMeta"></small></div>
-            <button class="btn ghost" id="lkCopy" title="Copy player ID">Copy ID</button>
-          </div>
-          <div class="lkTabs" id="lkTabs"></div>
-          <div id="lkBody"></div>
-        </div>
-      </div>
-    </section>
+    <!-- Lookup tab removed in 1.77.1 -->
 
     <section class="page" id="page-hud">
       <div class="xPage">
@@ -1285,199 +1258,52 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <section class="page" id="page-mods">
-      <div class="crCard" id="emLoginCard">
-        <div class="crCardHead"><div><h3>Ember Login</h3><p class="xNote" style="margin-top:4px">Sign in with your Ember PG3D account to access modding features.</p></div></div>
-        <div class="xStack">
-          <div><div class="xLabel">Username</div><input class="xInput" id="emUser" placeholder="Username" autocomplete="username"></div>
-          <div><div class="xLabel">Password</div><input class="xInput" id="emPass" type="password" placeholder="Password" autocomplete="current-password"></div>
-          <div class="xRow" style="gap:8px">
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="emRemember" checked> Remember me</label>
-          </div>
-          <div class="xRow">
-            <button class="btn primary" id="emLogin">Sign in</button>
-            <span class="emState" id="emLoginState"></span>
-          </div>
-        </div>
-      </div>
 
-      <div class="crCard" id="emUserCard" hidden>
-        <div class="crCardHead"><div><h3 id="emUserName">Ember Account</h3><p class="xNote" id="emUserTier" style="margin-top:4px"></p></div><button class="btn ghost danger" id="emLogout" style="font-size:11px">Sign out</button></div>
-      </div>
 
-      <div class="crCard" id="emAccountCard" hidden>
-        <div class="crCardHead"><div><h3>Game Accounts</h3><p class="xNote" style="margin-top:4px">Select a game account to mod.</p></div></div>
-        <div class="emAccGrid" id="emAccGrid"></div>
-      </div>
-
-      <div class="crCard" id="emSessionCard" hidden>
-        <div class="crCardHead"><div><h3>Connected</h3><p class="xNote" id="emSessionInfo" style="margin-top:4px"></p></div><button class="btn danger" id="emDisconnect" style="font-size:11px">Disconnect</button></div>
-      </div>
-
-      <div class="crCard" id="emMaxCard" hidden>
-        <div class="crCardHead"><div><h3>Max Account</h3><p class="xNote" style="margin-top:4px">One click to max out your account.</p></div></div>
-        <div class="emMaxGrid" id="emMaxGrid"></div>
-        <div class="xRow" style="margin-top:14px"><button class="btn primary" id="emMaxGo">Max Selected</button></div>
-      </div>
-
-      <div class="crCard" id="emCmdCard" hidden>
-        <div class="crCardHead"><div><h3>Commands</h3><p class="xNote" style="margin-top:4px">Send individual mod commands to the connected account.</p></div></div>
-
-        <div class="emCmdSection"><h4>Level &amp; Currency</h4>
-          <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
-            <div style="flex:1;min-width:80px"><div class="xLabel">Level</div><input class="xInput" id="emLevel" type="number" value="65" min="1" max="65"></div>
-            <button class="btn primary" id="emLevelSet">Set</button>
-          </div>
-          <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:10px">
-            <div style="flex:1;min-width:100px"><div class="xLabel"><img class="emCurIco" id="emCurIcon" src="/api/ember-icon/Currency/Coin.png" onerror="this.style.display='none'" alt=""> Currency</div><select class="select" id="emCurType" style="width:100%"><option value="Coins">Coins</option><option value="GemsCurrency">Gems</option><option value="Coupons">Coupons</option><option value="PixelPassCurrency">Pixel Pass</option><option value="ClanSilver">Clan Silver</option><option value="ClanLootBoxPoints">Clan Loot Box Points</option><option value="RouletteAdsCurrency">Roulette Ads Currency</option><option value="RouletteAdsSpin">Roulette Spins</option><option value="PixelBucks">Pixel Bucks</option><option value="BattlePassCurrency">Battle Pass Currency</option><option value="CurrencyCompetitionTier1">Competition Tier 1</option><option value="CurrencyCompetitionTier2">Competition Tier 2</option></select></div>
-            <div style="flex:1;min-width:80px"><div class="xLabel">Amount</div><input class="xInput" id="emCurAmt" type="number" value="999999"></div>
-            <button class="btn primary" id="emCurAdd">Add</button>
-          </div>
-        </div>
-
-        <div class="emCmdSection"><h4>Consumables</h4>
-          <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
-            <div style="flex:1;min-width:140px"><div class="xLabel">Consumable</div><select class="select" id="emConsType" style="width:100%"><option value="0">Novice Chest</option><option value="1">Fighter Chest</option><option value="2">Winner Chest</option><option value="9">War Hero Chest</option><option value="3">25% Booster</option><option value="4">50% Booster</option><option value="5">100% Booster</option><option value="6">200% Booster</option><option value="7">Event Booster</option><option value="8">VIP</option><option value="10">Primary Free Upgrade</option><option value="11">Backup Free Upgrade</option><option value="12">Melee Free Upgrade</option><option value="13">Special Free Upgrade</option><option value="14">Sniper Free Upgrade</option><option value="15">Heavy Free Upgrade</option><option value="16">Event Data Chips</option></select></div>
-            <div style="flex:0 0 80px"><div class="xLabel">Amount</div><input class="xInput" id="emConsAmt" type="number" value="100" min="1"></div>
-            <button class="btn primary" id="emConsAdd">Add</button>
-          </div>
-        </div>
-
-        <div class="emCmdSection"><h4>Weapons</h4>
-          <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_all_weapons" data-params='{"level":65,"rarity":5}'>All Weapons</div>
-            <div class="emCmd" data-cmd="add_primary" data-params='{"level":65}'>Primary</div>
-            <div class="emCmd" data-cmd="add_backup" data-params='{"level":65}'>Backup</div>
-            <div class="emCmd" data-cmd="add_melee" data-params='{"level":65}'>Melee</div>
-            <div class="emCmd" data-cmd="add_special" data-params='{"level":65}'>Special</div>
-            <div class="emCmd" data-cmd="add_sniper" data-params='{"level":65}'>Sniper</div>
-            <div class="emCmd" data-cmd="add_heavy" data-params='{"level":65}'>Heavy</div>
-            <div class="emCmd" data-cmd="add_all_weapon_skins">Weapon Skins</div>
-            <div class="emCmd" data-cmd="add_all_weapon_parts">Weapon Parts</div>
-            <div class="emCmd" data-cmd="upgrade_all_weapons" data-params='{"level":65,"rarity":5}'>Upgrade All</div>
-          </div>
-        </div>
-
-        <div class="emCmdSection"><h4>Individual Weapon</h4>
-          <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:8px">
-            <div style="flex:1;min-width:120px"><input class="xInput" id="emWepSearch" placeholder="Search weapons…"></div>
-            <div style="flex:0 0 70px"><div class="xLabel">Level</div><input class="xInput" id="emWepLevel" type="number" value="65" min="1" max="65"></div>
-          </div>
-          <div class="emWepCats" id="emWepCats"></div>
-          <div class="emWepList" id="emWepList"></div>
-          <div class="xNote" id="emWepStatus" style="margin-top:6px"></div>
-        </div>
-
-        <div class="emCmdSection"><h4>Weapon Parts</h4>
-          <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
-            <div style="flex:1;min-width:140px"><div class="xLabel">Weapon</div><select class="select" id="emPartWep" style="width:100%"><option value="">Connect to load weapons…</option></select></div>
-            <div style="flex:0 0 80px"><div class="xLabel">Parts</div><input class="xInput" id="emPartAmt" type="number" value="250" min="1"></div>
-            <button class="btn primary" id="emPartAdd">Add</button>
-            <button class="btn ghost danger" id="emPartRemove">Remove</button>
-          </div>
-        </div>
-
-        <div class="emCmdSection"><h4>Wear &amp; Armor</h4>
-          <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_all_wear">All Wear</div>
-            <div class="emCmd" data-cmd="add_all_armor">All Armor</div>
-            <div class="emCmd" data-cmd="add_all_hats">Hats</div>
-            <div class="emCmd" data-cmd="add_all_masks">Masks</div>
-            <div class="emCmd" data-cmd="add_all_capes">Capes</div>
-            <div class="emCmd" data-cmd="add_all_boots">Boots</div>
-          </div>
-        </div>
-
-        <div class="emCmdSection"><h4>Gadgets, Pets &amp; Modules</h4>
-          <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_all_gadgets">All Gadgets</div>
-            <div class="emCmd" data-cmd="add_all_pets">All Pets</div>
-            <div class="emCmd" data-cmd="upgrade_all_modules" data-params='{"cap":10}'>Upgrade Modules</div>
-            <div class="emCmd" data-cmd="upgrade_all_gadgets">Upgrade Gadgets</div>
-            <div class="emCmd" data-cmd="upgrade_all_pets">Upgrade Pets</div>
-            <div class="emCmd" data-cmd="add_pet_parts">Pet Parts</div>
-          </div>
-        </div>
-
-        <div class="emCmdSection"><h4>Royale</h4>
-          <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_all_royale">All Royale</div>
-            <div class="emCmd" data-cmd="add_all_vehicles" data-params='{"level":5}'>Vehicles</div>
-            <div class="emCmd" data-cmd="add_all_gliders" data-params='{"level":5}'>Gliders</div>
-            <div class="emCmd" data-cmd="add_all_trails">Trails</div>
-            <div class="emCmd" data-cmd="add_all_avatars">Avatars</div>
-            <div class="emCmd" data-cmd="add_all_shovels">Shovels</div>
-          </div>
-        </div>
-
-        <div class="emCmdSection"><h4>Profile</h4>
-          <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_all_portraits">Portraits</div>
-            <div class="emCmd" data-cmd="add_all_frames">Frames</div>
-            <div class="emCmd" data-cmd="add_all_backgrounds">Backgrounds</div>
-            <div class="emCmd" data-cmd="add_all_lobby">Lobby Items</div>
-          </div>
-        </div>
-
-        <div class="emCmdSection"><h4>Account</h4>
-          <div class="emCmdGrid">
-            <div class="emCmd" data-cmd="add_veteran_badge">Veteran Badge</div>
-            <div class="emCmd" data-cmd="add_dlc_sets">DLC Sets</div>
-            <div class="emCmd" data-cmd="set_paying_user">Set Paying User</div>
-            <div class="emCmd" data-cmd="add_goblins" data-params='{"days":30,"negative":false}'>Goblins</div>
-            <div class="emCmd" data-cmd="add_pixel_pass">Pixel Pass</div>
-          </div>
-        </div>
-
-        <div class="emCmdSection"><h4>DLC Weapons</h4>
-          <div class="xRow" style="margin-top:8px"><button class="btn ghost danger" id="emDlcRemoveParts">Remove 250 Parts (DLC Weapons)</button></div>
-          <p class="xNote" style="margin-top:6px;font-size:11px">Removes 250 weapon parts from each of the 3 DLC weapons.</p>
-        </div>
-
-        <details class="xDetails" style="margin-top:18px">
-          <summary>Custom command</summary>
-          <div class="xStack" style="margin-top:10px">
-            <div><div class="xLabel">Action name</div><input class="xInput" id="emCustomCmd" placeholder="e.g. add_currency"></div>
-            <div><div class="xLabel">Params (JSON)</div><textarea class="xInput" id="emCustomParams" rows="3" placeholder='{"currency_type":"Coins","amount":999999}'></textarea></div>
-            <div class="xRow"><button class="btn primary" id="emCustomSend">Send</button></div>
-          </div>
-        </details>
-      </div>
-
-      <div class="crCard" id="emStealCard" hidden>
-        <div class="crCardHead"><div><h3>Skin &amp; Cape Stealer</h3><p class="xNote" style="margin-top:4px">Look up a player and copy their skin or cape to your account.</p></div></div>
-        <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
-          <div style="flex:1;min-width:100px"><div class="xLabel">Player ID</div><input class="xInput" id="emStealId" placeholder="Enter player ID"></div>
-          <button class="btn primary" id="emStealLookup">Lookup</button>
-        </div>
-        <div class="xNote" id="emStealStatus" style="margin-top:6px"></div>
-        <div id="emStealResult" hidden>
-          <div class="xNote" id="emStealName" style="margin-top:8px;font-weight:600;font-size:13px"></div>
-          <div class="emStealGrid" id="emStealItems"></div>
-        </div>
-      </div>
-
-      <div class="crCard" id="emStatsCard" hidden>
-        <div class="crCardHead"><div><h3>Stats Editor</h3><p class="xNote" style="margin-top:4px">Edit weekly stats and global wins by mode.</p></div></div>
-        <div class="emCmdSection"><h4>Weekly Stats</h4>
-          <div class="emStatGrid" id="emWeeklyGrid"></div>
-          <div class="xRow" style="margin-top:10px"><button class="btn primary" id="emWeeklySet">Set Weekly Stats</button><button class="btn ghost" id="emWeeklyReset">Reset to 0</button></div>
-        </div>
-        <div class="emCmdSection"><h4>Global Wins by Mode</h4>
-          <div class="emStatGrid" id="emGlobalGrid"></div>
-          <div class="xRow" style="margin-top:10px"><button class="btn primary" id="emGlobalSet">Set Global Wins</button><button class="btn ghost" id="emGlobalReset">Reset to 0</button></div>
-        </div>
-      </div>
-    </section>
 
     <section class="page" id="page-cheats">
       <div class="crCard">
-        <div class="crCardHead"><div><h3>Cheats</h3><p class="xNote" style="margin-top:4px">Enable cheats to inject on next game launch. Press the hotkey in-game to toggle on/off.</p></div></div>
-        <button class="xSwitch" id="chAimbotToggle" role="switch" aria-checked="false"><div><b>Aimbot</b><small>Locks aim onto the nearest enemy. Press the hotkey to toggle on/off in-game.</small></div><span class="pillToggle"></span></button>
-        <div class="chRow"><div class="xLabel">Hotkey</div><button class="chKeyBtn" id="chAimbotBind" type="button" data-key="mouse4">Mouse 4</button></div>
+        <div class="crCardHead"><div><h3>Cheats</h3><p class="xNote" style="margin-top:4px">Injected on game launch. Toggle features in-game with their hotkeys.</p></div></div>
+
+        <button class="xSwitch" id="chAimbotToggle" role="switch" aria-checked="false"><div><b>Aimbot</b><small>Locks aim onto the nearest enemy.</small></div><span class="pillToggle"></span></button>
+        <div class="chRow"><div class="xLabel">Hotkey</div><button class="chKeyBtn" id="chAimbotBind" type="button" data-key="97">F6</button></div>
+
         <div style="height:8px"></div>
-        <button class="xSwitch" id="chTriggerbotToggle" role="switch" aria-checked="false"><div><b>Triggerbot</b><small>Auto-fires when your crosshair is over an enemy. Press the hotkey to toggle on/off in-game.</small></div><span class="pillToggle"></span></button>
-        <div class="chRow"><div class="xLabel">Hotkey</div><button class="chKeyBtn" id="chTriggerbotBind" type="button" data-key="mouse5">Mouse 5</button></div>
+        <button class="xSwitch" id="chTriggerbotToggle" role="switch" aria-checked="false"><div><b>Triggerbot</b><small>Auto-fires when your crosshair is over an enemy.</small></div><span class="pillToggle"></span></button>
+        <div class="chRow"><div class="xLabel">Hotkey</div><button class="chKeyBtn" id="chTriggerbotBind" type="button" data-key="98">F7</button></div>
+
+        <div class="divider"></div>
+
+        <div class="chRow"><div class="xLabel">Legitimacy (1–10)</div>
+          <div class="rangeRow"><input type="range" id="chLegitimacy" min="1" max="10" value="1"><span class="rangeVal" id="chLegitVal">1</span></div>
+          <small class="sub">1 = snappy, 10 = slow and human-like</small>
+        </div>
+
+        <div class="chRow"><div class="xLabel">FOV (degrees)</div>
+          <div class="rangeRow"><input type="range" id="chFov" min="1" max="90" step="0.5" value="12"><span class="rangeVal" id="chFovVal">12.0</span></div>
+          <small class="sub">How far from your crosshair the aimbot searches for targets</small>
+        </div>
+
+        <div style="height:4px"></div>
+        <button class="xSwitch" id="chWholePlayer" role="switch" aria-checked="false"><div><b>Whole Player</b><small>Aim at body center instead of head</small></div><span class="pillToggle"></span></button>
+
+        <div class="divider"></div>
+        <div class="crCardHead"><div><h3>3-Cat Spam</h3><p class="xNote" style="margin-top:4px">Automatic weapon category cycling</p></div></div>
+
+        <button class="xSwitch" id="chCategoryToggle" role="switch" aria-checked="false"><div><b>Enable 3-Cat</b><small>Cycles weapon categories on the assigned keys</small></div><span class="pillToggle"></span></button>
+
+        <div class="chRow"><div class="xLabel">Delay (ms)</div><input class="xInput" id="chCatDelay" type="number" value="100" min="0" max="1000" style="width:100px"></div>
+
+        <div class="chRow" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div><div class="xLabel">Cat 1 key</div><button class="chKeyBtn chCatKey" id="chCatKey1" type="button" data-key="19">2</button></div>
+          <div><div class="xLabel">Cat 2 key</div><button class="chKeyBtn chCatKey" id="chCatKey2" type="button" data-key="20">3</button></div>
+          <div><div class="xLabel">Cat 3 key</div><button class="chKeyBtn chCatKey" id="chCatKey3" type="button" data-key="23">5</button></div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="crCardHead"><div><h3>In-Game GUI</h3><p class="xNote" style="margin-top:4px">Toggle the cheat overlay shown inside the game</p></div></div>
+
+        <button class="xSwitch" id="chGuiVisible" role="switch" aria-checked="true"><div><b>Show Feedback</b><small>Aimbot/triggerbot status text in-game</small></div><span class="pillToggle"></span></button>
       </div>
     </section>
 
@@ -1554,7 +1380,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',lookup:'Player Lookup',cursor:'Cursor',theme:'Game font',hud:'HUD',sky:'Sky',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings',mods:'Mods',cheats:'Cheating'};
+const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',clips:'Clips',settings:'Settings',cheats:'Cheats'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 let netFails=0;
 async function netLost(){// "Load failed" is WebKit's word for "no answer": find out whose fault it is
@@ -1569,27 +1395,23 @@ function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Mat
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
 const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already applied stay); its code stays
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='lookup')loadLookup();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='mods')emInit();if(tab==='cheats')chInit()}
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='cheats')chInit()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
 function setState(id,text,kind=''){const e=$(id);if(!e)return;e.textContent=text;e.className='state '+kind}
 function renderStatus(){if(!statusData)return;
   $('#launchMessage').textContent=statusData.launch_error||'';
-  $('#startNormal').disabled=statusData.game_running;$('#startFps').disabled=statusData.game_running||!statusData.fps_bundle_present;
-  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderLastSession();renderGameUpdate();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
+  $('#startFps').disabled=statusData.game_running||!statusData.fps_bundle_present;
+  const accSig=JSON.stringify(statusData.accounts||null);if(accSig!==window.__accSig){window.__accSig=accSig;renderSelectedAccount();renderAccounts()}updateCursorPanel();renderBuildBadge();renderPlaytime();renderUpdateBanner();renderRankChip();renderGameUpdate();hudTick();renderJob();renderLaunch();if(!_uiThemeSynced&&statusData.prefs){_uiThemeSynced=true;const t=statusData.prefs.ui_theme;if(t&&t!==currentUiTheme())applyUiTheme(t);if(statusData.prefs.ui_style)applyUiPrefs(statusData.prefs.ui_style,statusData.prefs.animations!==false);if(statusData.prefs.sound){delete SND.custom_rankup;delete SND.custom_rankup_name;Object.assign(SND,statusData.prefs.sound);try{localStorage.pg3dSound=JSON.stringify(SND)}catch{}}}
   if(statusData.overlay && (!overlayConfig || !overlayDirty)){overlayConfig=structuredClone(statusData.overlay.config);renderOverlayEditor()}
 }
 async function restoreGameFiles(){if(!confirm('Put every game file the client changed back to the original? Your cursor, sky, loading screen and font are taken out; you can apply them again afterwards.'))return;try{await post('/api/game/restore-files',{});toast('Restoring the original game files…');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}}
 $('#restoreFiles').onclick=restoreGameFiles;$('#quickExit button').onclick=restoreGameFiles;
 $('#gameStuck button').onclick=async()=>{try{await post('/api/game/quit',{});toast('PG3D was closed.');await refreshStatus()}catch(e){toast(e.message,true)}};
 function renderQuickExit(){$('#gameStuck').classList.toggle('show',!!statusData?.game_stuck);const q=statusData?.quick_exit,b=$('#quickExit');const show=!!(q&&q.mods&&!statusData.game_running);b.classList.toggle('show',show);if(show)b.querySelector('span').textContent=`PG3D closed ${q.seconds}s after starting. Changed game files can cause that. `}
-function renderBuildBadge(){renderQuickExit();const b=$('#buildBadge');if(!b||!statusData)return;const m=statusData.fps_build_match,build=statusData.game_build;if(m===false){b.className='buildBadge show warn';b.textContent=`The FPS unlocker couldn't attach to PG3D build ${build}. Start still works.`}else if(m===true){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build} · FPS unlocker compatible`}else{b.className='buildBadge'}}
+function renderBuildBadge(){renderQuickExit();const b=$('#buildBadge');if(!b||!statusData)return;const build=statusData.game_build;if(build&&build!=='unknown'){b.className='buildBadge show';b.textContent=`PG3D ${statusData.game_version} · build ${build}`}else{b.className='buildBadge'}}
 function renderPlaytime(){const el=$('#playtime'),p=statusData?.playtime;if(!el||!p)return;const cells=[];if(p.live)cells.push(['live','This session',p.live]);cells.push(['','Today',p.today],['','Last 7 days',p.week],['','All time',p.total]);const sig=JSON.stringify(cells);if(sig===el.__sig)return;el.__sig=sig;el.innerHTML='';for(const[c,l,v]of cells){const d=document.createElement('div');d.className=c;const b=document.createElement('b');b.textContent=v;d.append(b,document.createTextNode(l));el.appendChild(d)}}
-function renderLastSession(){const box=$('#lastSession'),r=statusData?.last_session;if(!box)return;const show=!!r&&!statusData.game_running&&(Date.now()/1000-r.start<4*86400);box.hidden=!show;if(!show)return;
-  const sig=JSON.stringify(r);if(box.__sig===sig)return;box.__sig=sig;const n=v=>Number(v||0).toLocaleString();
-  let up='';if(r.promoted&&r.before&&r.after&&!RANKS_HIDDEN)up=`<div class="lsUp"><img src="/ranks/${r.before.tier}.png" alt="">›<img src="/ranks/${r.after.tier}.png" alt=""><span style="color:${r.after.color}">${esc(r.after.name)}</span></div>`;
-  box.innerHTML=`<div class="xLabel">Last session</div><div class="lsVals"><span><b>${esc(r.duration)}</b>played</span><span><b>+${n(r.xp)}</b>XP</span><span><b>${n(r.wins)}</b>${r.wins===1?'win':'wins'}</span>${r.clips?`<span><b>${n(r.clips)}</b>${r.clips===1?'clip':'clips'}</span>`:''}</div>${up}`}
 function renderGameUpdate(){const box=$('#gameUpd'),s=statusData;if(!box||!s)return;const u=s.game_update||{},j=s.job||{};
   const reapplying=j.kind==='reapply'&&j.phase==='running',launching=LAUNCH_BUSY.includes(s.launch_phase);
   const show=!launching&&(reapplying||u.updating||u.available);box.hidden=!show;if(!show)return;
@@ -1603,7 +1425,10 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 async function refreshStatus(){try{statusData=await api('/api/status');cursorCatalog=statusData.cursor_catalog||[];renderStatus();if(!$('#cursorGrid').children.length)renderCursorGrid();if(statusData.pending_guard&&!$('#guardModal').classList.contains('show'))openGuard()}catch(e){console.error(e)}}
 
 // Launch
-$('#fpsSelect').onchange=async e=>{try{await post('/api/prefs/fps',{fps:e.target.value})}catch(err){toast(err.message,true)}};
+let _detectedHz=null;
+(function detectHz(){let last=0,count=0,sum=0;function tick(ts){if(last){sum+=ts-last;count++;if(count>=30){_detectedHz=Math.round(1000/(sum/count));const o=$('#fpsAutoOpt');if(o&&_detectedHz>30)o.textContent=`Auto (${_detectedHz} Hz)`;return}}last=ts;requestAnimationFrame(tick)}requestAnimationFrame(tick)})();
+function fpsValue(){const v=$('#fpsSelect').value;if(v==='auto')return _detectedHz?String(_detectedHz):'uncapped';return v}
+$('#fpsSelect').onchange=async e=>{try{await post('/api/prefs/fps',{fps:fpsValue()})}catch(err){toast(err.message,true)}};
 function openGuard(){
   $('#guardCode').value='';
   $('#guardModal').classList.add('show');
@@ -1623,15 +1448,15 @@ $('#guardSubmit').onclick=async()=>{
     closeGuard();toast(d.message||'Steam authorized. PG3D launch requested.');await refreshStatus();
   }catch(e){toast(e.message,true)}finally{b.disabled=false;b.textContent=old}
 };
-async function launch(kind){try{await post(kind==='fps'?'/api/launch/fps':'/api/launch/normal',{fps:$('#fpsSelect').value});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}}
+async function launch(){try{await post('/api/launch/fps',{fps:fpsValue()});await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}}
 const LAUNCH_BUSY=['preparing','switching','updating','launching','starting'];let lpWasBusy=false;
 function renderLaunch(){const s=statusData;if(!s)return;const busy=LAUNCH_BUSY.includes(s.launch_phase),box=$('#launchProg');
-  $('#startNormal').disabled=busy||s.game_running;$('#startFps').disabled=busy||s.game_running||!s.fps_bundle_present;
+  $('#startFps').disabled=busy||s.game_running||!s.fps_bundle_present;
   if(busy){box.hidden=false;box.classList.remove('done');const pct=Math.max(1,Math.min(99,s.launch_progress||0));$('#lpFill').style.width=pct+'%';$('#lpPct').textContent=pct+'%';$('#lpMsg').textContent=s.launch_message||'Starting…';
     const eta=s.launch_eta;$('#lpEta').textContent=eta==null?'':eta<0?'Taking longer than usual…':eta<=2?'Almost there…':`About ${fmtEta(eta)} left`}
   else if(lpWasBusy){if(!s.launch_error&&s.launch_progress===100){box.hidden=false;box.classList.add('done');$('#lpFill').style.width='100%';$('#lpPct').textContent='100%';$('#lpMsg').textContent=s.launch_message||'PG3D is running.';$('#lpEta').textContent='Have fun!';setTimeout(()=>{if(!LAUNCH_BUSY.includes(statusData?.launch_phase))$('#launchProg').hidden=true},5000)}else box.hidden=true}
   lpWasBusy=busy}
-$('#startNormal').onclick=()=>launch('normal');$('#startFps').onclick=()=>launch('fps');
+$('#startFps').onclick=()=>launch();
 
 // Cursor
 function renderCursorGrid(){if(curTarget!=='cursor')return renderRoleGrid();const q=($('#cursorSearch').value||'').toLowerCase();const grid=$('#cursorGrid');grid.innerHTML='';const list=cursorCatalog.filter(x=>(x.name+' '+x.category).toLowerCase().includes(q));for(const x of list){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor===x.id?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/${x.file}"></div><div class="cursorName"></div>`;b.querySelector('.cursorName').textContent=x.name;b.onclick=()=>{selectedCursor=x.id;localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}if(statusData?.custom_cursor){const b=document.createElement('button');b.className='cursorCard'+(selectedCursor==='custom'?' selected':'');b.innerHTML=`<div class="cursorThumb"><img src="/api/custom-cursor.png?t=${Date.now()}"></div><div class="cursorName">Custom</div>`;b.onclick=()=>{selectedCursor='custom';localStorage.pg3dCursor=selectedCursor;renderCursorGrid();updateCursorPanel()};grid.appendChild(b)}}
@@ -1710,15 +1535,17 @@ function renderAccounts(){const info=statusData?.accounts;if(!info)return;const 
     const c=el('div','accCard'+(sel?' sel':''));c.setAttribute('role','button');c.tabIndex=0;c.title=sel?'Used for Play':'Click to play on this account';
     const av=el('div','avatar',(name[0]||'?').toUpperCase());const who=el('div','accWho');who.append(el('b',null,name),el('small',null,a.nickname?`${a.persona_name} · ${a.account_name}`:a.account_name));
     const head=el('div','accHead');head.append(av,who);c.append(head);
-    const badges=el('div','accBadges');if(sel)badges.append(el('span','lkBadge acc','Playing as'));if(a.active)badges.append(el('span','lkBadge good','Signed in to Steam'));if(a.credentials_saved)badges.append(el('span','lkBadge','Login saved'));if(badges.children.length)c.append(badges);
-    const pgl=el('div','accPg');if(pg?.player_id){pgl.append(el('span',null,'PG3D'),el('b',null,pg.name||`ID ${pg.player_id}`));const lk=el('button','accLink','Look up ›');lk.type='button';lk.onclick=e=>{e.stopPropagation();setTab('lookup');runLookup(pg.player_id)};pgl.append(lk)}
+    const badges=el('div','accBadges');if(pg?.banned)badges.append(el('span','lkBadge bad','Banned'));if(sel)badges.append(el('span','lkBadge acc','Playing as'));if(a.active)badges.append(el('span','lkBadge good','Signed in to Steam'));if(a.credentials_saved)badges.append(el('span','lkBadge','Login saved'));if(badges.children.length)c.append(badges);
+    const pgl=el('div','accPg');if(pg?.player_id){pgl.append(el('span',null,'PG3D'),el('b',null,pg.name||`ID ${pg.player_id}`))}
     else pgl.append(el('span',null,'PG3D'),el('em',null,'Play once on this account to link it'));c.append(pgl);
     const act=el('div','accActions');const login=el('button','btn',a.credentials_saved?'Edit login':'Save login');login.type='button';login.onclick=e=>openCredentials(a,e);
-    const ren=el('button','btn ghost','Rename');ren.type='button';ren.onclick=e=>editNickname(a,e);act.append(login,ren);c.append(act);
+    const ren=el('button','btn ghost','Rename');ren.type='button';ren.onclick=e=>editNickname(a,e);
+    const rm=el('button','btn ghost','Remove');rm.type='button';rm.onclick=async e=>{e.stopPropagation();if(!confirm(`Remove ${displayName(a)} from the list?`))return;try{await post('/api/account/hide',{steamid64:a.steamid64});await refreshStatus();toast(`${displayName(a)} removed.`)}catch(err){toast(err.message,true)}};act.append(login,ren,rm);c.append(act);
     c.onclick=async()=>{if(sel)return;try{await post('/api/account/select',{steamid64:a.steamid64});await refreshStatus();toast(`Playing as ${displayName(a)}.`)}catch(e){toast(e.message,true)}};
     c.onkeydown=e=>{if(e.target!==c)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();c.click()}};grid.append(c)}
   if(!(info.accounts||[]).length)grid.append(el('div','xEmpty','No remembered Steam accounts. Sign in to Steam once and they show up here.'))}
 $('#refreshAccounts').onclick=async()=>{await refreshStatus();toast('Accounts refreshed.')};
+$('#unhideAccounts').onclick=async()=>{try{const d=await post('/api/account/unhide-all');await refreshStatus();toast(d.restored?`${d.restored} account${d.restored>1?'s':''} added back.`:'No removed accounts to restore.')}catch(e){toast(e.message,true)}};
 
 let overlayConfig=null,hotkeyRecording=false,overlayDirty=false,overlaySaving=false,overlayDebounce=null;
 const widgetNames={fps:'FPS',ping:'Ping',music:'Music',clock:'Clock',rank:'Rank'};
@@ -2565,241 +2392,35 @@ function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',pick
   return F}
 const TX=makeFinder('tx',['cursor']);
 
-/* ── Mods (Ember) ── */
-let _emInited=false,_emConnected=false;
-async function emInit(){
-  if(_emInited)return;
-  _emInited=true;
-  try{
-    const creds=await api('/api/ember/load-creds');
-    if(creds.ok&&creds.username){
-      $('#emUser').value=creds.username;$('#emPass').value=creds.password;$('#emRemember').checked=true;
-      $('#emLoginState').textContent='signing in…';$('#emLoginState').className='emState wait';$('#emLogin').disabled=true;
-      try{
-        await post('/api/ember/login',{username:creds.username,password:creds.password});
-        $('#emLoginState').textContent='signed in';$('#emLoginState').className='emState on';
-        await emLoadUser();await emLoadAccounts();
-      }catch(e){$('#emLoginState').textContent=e.message;$('#emLoginState').className='emState err'}
-      finally{$('#emLogin').disabled=false}
-    }
-  }catch{}
-}
-function emShowConnected(show){
-  _emConnected=show;
-  $('#emCmdCard').hidden=!show;$('#emMaxCard').hidden=!show;$('#emSessionCard').hidden=!show;
-  $('#emStealCard').hidden=!show;$('#emStatsCard').hidden=!show;
-  if(show)emLoadWeapons();
-}
-$('#emLogin').onclick=async()=>{
-  const u=$('#emUser').value.trim(),p=$('#emPass').value.trim();
-  if(!u||!p)return toast('Enter username and password.',true);
-  try{
-    $('#emLoginState').textContent='signing in…';$('#emLoginState').className='emState wait';$('#emLogin').disabled=true;
-    await post('/api/ember/login',{username:u,password:p});
-    if($('#emRemember').checked)await post('/api/ember/save-creds',{username:u,password:p});
-    $('#emLoginState').textContent='signed in';$('#emLoginState').className='emState on';
-    await emLoadUser();await emLoadAccounts();
-  }catch(e){$('#emLoginState').textContent=e.message;$('#emLoginState').className='emState err';toast(e.message,true)}
-  finally{$('#emLogin').disabled=false}
-};
-$('#emLogout').onclick=async()=>{
-  try{await post('/api/ember/logout');$('#emUserCard').hidden=true;$('#emAccountCard').hidden=true;emShowConnected(false);
-    $('#emLoginState').textContent='';$('#emLoginState').className='emState';$('#emLoginCard').hidden=false;toast('Signed out.')}catch(e){toast(e.message,true)}
-};
-async function emLoadUser(){
-  try{
-    const u=await api('/api/ember/me');
-    $('#emUserName').textContent=u.username||'Ember Account';
-    $('#emUserTier').textContent=u.tier?`Plan: ${u.tier}`:'';
-    $('#emUserCard').hidden=false;$('#emLoginCard').hidden=true;
-  }catch{}
-}
-async function emLoadAccounts(){
-  try{
-    const d=await api('/api/ember/accounts');
-    const grid=$('#emAccGrid'),accs=Array.isArray(d)?d:(d.accounts||d.data||[]);
-    grid.innerHTML='';
-    if(!accs.length){grid.innerHTML='<div class="xEmpty">No game accounts linked to this Ember account.</div>';$('#emAccountCard').hidden=false;return}
-    for(const a of accs){
-      const el=document.createElement('div');el.className='emAcc';el.dataset.id=a.id||a._id||'';
-      el.innerHTML=`<b>${esc(a.nickname||a.name||a.pg3d_uid||a.player_id||'Account')}</b><small>ID: ${esc(a.pg3d_uid||a.player_id||a.id||'–')}</small>`;
-      el.onclick=async()=>{
-        $$('.emAcc').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');
-        try{const r=await post('/api/ember/connect',{account_id:a.id||a._id});
-          $('#emSessionInfo').textContent=`Connected to ${a.nickname||a.player_id||'account'}`;
-          emShowConnected(true);toast('Connected to game account.')}catch(e){toast(e.message,true)}
-      };
-      grid.appendChild(el);
-    }
-    $('#emAccountCard').hidden=false;
-  }catch(e){toast(e.message,true)}
-}
-$('#emDisconnect').onclick=async()=>{
-  try{await post('/api/ember/disconnect');emShowConnected(false);$$('.emAcc').forEach(x=>x.classList.remove('sel'));toast('Disconnected.')}catch(e){toast(e.message,true)}
-};
-$$('.emCmd').forEach(el=>{el.onclick=async()=>{
-  if(!_emConnected)return toast('Connect to a game account first.',true);
-  if(el.classList.contains('busy'))return;
-  el.classList.add('busy');el.style.opacity='.5';
-  let params={};try{if(el.dataset.params)params=JSON.parse(el.dataset.params)}catch{}
-  try{await post('/api/ember/command',{command:el.dataset.cmd,params});toast('Done: '+el.dataset.cmd.replace(/_/g,' '))}catch(e){toast(e.message,true)}
-  finally{el.classList.remove('busy');el.style.opacity=''}
-}});
-$('#emCurAdd').onclick=async()=>{
-  if(!_emConnected)return toast('Connect first.',true);
-  try{await post('/api/ember/command',{command:'add_currency',params:{currency_type:$('#emCurType').value,amount:Number($('#emCurAmt').value)}});toast('Currency added.')}catch(e){toast(e.message,true)}
-};
-$('#emLevelSet').onclick=async()=>{
-  if(!_emConnected)return toast('Connect first.',true);
-  try{await post('/api/ember/command',{command:'set_level',params:{level:Number($('#emLevel').value)}});toast('Level set.')}catch(e){toast(e.message,true)}
-};
-$('#emConsAdd').onclick=async()=>{
-  if(!_emConnected)return toast('Connect first.',true);
-  try{await post('/api/ember/command',{command:'add_consumable',params:{consumable:Number($('#emConsType').value),amount:Number($('#emConsAmt').value)}});toast('Consumable added.')}catch(e){toast(e.message,true)}
-};
-const MAX_OPTS=['level','weapons','weapon_parts','weapon_skins','profile','wear','armor','wear_skins','royale','gadgets','pets','modules','lobby','dlc','skip_tutorial','skip_br_tutorial','set_paying_user','bonus_currency'];
-(function renderMaxOpts(){
-  const g=$('#emMaxGrid');g.innerHTML='';
-  for(const k of MAX_OPTS){
-    const el=document.createElement('label');el.className='emMaxOpt';
-    el.innerHTML=`<input type="checkbox" value="${k}" checked> ${k.replace(/_/g,' ')}`;
-    g.appendChild(el);
-  }
-})();
-$('#emMaxGo').onclick=async()=>{
-  if(!_emConnected)return toast('Connect first.',true);
-  const b=$('#emMaxGo');b.disabled=true;b.textContent='Working…';
-  const opts={};for(const cb of $$('#emMaxGrid input'))opts[cb.value]=cb.checked;
-  if(opts.level)opts.level_value=65;
-  try{await post('/api/ember/max-progress',{options:opts});toast('Max progress applied.')}catch(e){toast(e.message,true)}
-  finally{b.disabled=false;b.textContent='Max Selected'}
-};
-$('#emCustomSend').onclick=async()=>{
-  if(!_emConnected)return toast('Connect first.',true);
-  const cmd=$('#emCustomCmd').value.trim();if(!cmd)return toast('Enter a command name.',true);
-  let params={};try{const j=$('#emCustomParams').value.trim();if(j)params=JSON.parse(j)}catch{return toast('Invalid JSON.',true)}
-  try{await post('/api/ember/command',{command:cmd,params});toast('Sent: '+cmd)}catch(e){toast(e.message,true)}
-};
-/* ── Currency icon ── */
-const EM_CUR_ICO={Coins:'Coin',GemsCurrency:'Gem',Coupons:'Coupons',PixelPassCurrency:'PP Tickets',ClanSilver:'Silver',BattlePassCurrency:'Battle Credits'};
-$('#emCurType').onchange=function(){const n=EM_CUR_ICO[this.value],ic=$('#emCurIcon');if(n){ic.src='/api/ember-icon/Currency/'+encodeURIComponent(n)+'.png';ic.style.display=''}else ic.style.display='none'};
-/* ── Weapon browser ── */
-let _emWeapons=[],_emWepCat='All',_emWepsLoaded=false;
-const EM_WEP_CATS=['All','Primary','Backup','Melee','Special','Sniper','Heavy'];
-async function emLoadWeapons(){if(_emWepsLoaded)return;_emWepsLoaded=true;$('#emWepStatus').textContent='Loading weapons…';
-  try{const d=await api('/api/ember/items?cat=weapons');_emWeapons=Array.isArray(d)?d:(d.items||d.weapons||d.data||[]);
-    if(!_emWeapons.length){$('#emWepStatus').textContent='No weapons returned.';return}
-    $('#emWepStatus').textContent=_emWeapons.length+' weapons loaded.';emBuildCats();emRenderWeps();emPopulatePartSel()}
-  catch(e){$('#emWepStatus').textContent='Failed: '+e.message;_emWepsLoaded=false}}
-function emBuildCats(){const g=$('#emWepCats');g.innerHTML='';
-  for(const c of EM_WEP_CATS){const b=document.createElement('button');b.textContent=c;if(c===_emWepCat)b.className='sel';
-    b.onclick=()=>{_emWepCat=c;$$('#emWepCats button').forEach(x=>x.className='');b.className='sel';emRenderWeps()};g.appendChild(b)}}
-function emRenderWeps(){const g=$('#emWepList');g.innerHTML='';const q=($('#emWepSearch').value||'').toLowerCase().trim();const lv=Number($('#emWepLevel').value)||65;let n=0;
-  for(const w of _emWeapons){const name=w.name||w.title||w.weapon_name||'';const cat=w.category||w.type||w.slot||'';
-    if(_emWepCat!=='All'&&cat.toLowerCase()!==_emWepCat.toLowerCase())continue;if(q&&!name.toLowerCase().includes(q))continue;
-    const card=document.createElement('div');card.className='emWepItem';
-    const img=document.createElement('img');img.src='/api/ember-icon/Weapons/'+encodeURIComponent(name)+'.png';img.onerror=()=>{img.style.display='none'};img.width=34;img.height=34;img.loading='lazy';img.alt='';
-    const sp=document.createElement('span');sp.className='emWN';sp.innerHTML=esc(name)+(cat?'<small>'+esc(cat)+'</small>':'');
-    card.append(img,sp);card.onclick=async()=>{if(card.classList.contains('busy'))return;card.classList.add('busy');
-      try{await post('/api/ember/command',{command:'add_weapon',params:{weapon:w.id||w._id||w.weapon_id||name,level:lv,rarity:5}});toast('Added: '+name)}
-      catch(e){toast(e.message,true)}finally{card.classList.remove('busy')}};g.appendChild(card);if(++n>=200)break}
-  if(!n)g.innerHTML='<div style="padding:12px;color:var(--muted);font-size:12px">No weapons match.</div>'}
-$('#emWepSearch').oninput=emRenderWeps;
-/* ── Weapon parts ── */
-function emPopulatePartSel(){const s=$('#emPartWep');s.innerHTML='';
-  for(const w of _emWeapons){const o=document.createElement('option');o.value=w.id||w._id||w.weapon_id||w.name||'';o.textContent=w.name||w.title||w.weapon_name||'';s.appendChild(o)}}
-$('#emPartAdd').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);const w=$('#emPartWep').value,a=Number($('#emPartAmt').value)||250;
-  if(!w)return toast('Select a weapon.',true);try{await post('/api/ember/command',{command:'add_weapon_parts',params:{index:w,amount:a}});toast('Parts added.')}catch(e){toast(e.message,true)}};
-$('#emPartRemove').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);const w=$('#emPartWep').value,a=Number($('#emPartAmt').value)||250;
-  if(!w)return toast('Select a weapon.',true);try{await post('/api/ember/command',{command:'add_weapon_parts',params:{index:w,amount:-a}});toast('Parts removed.')}catch(e){toast(e.message,true)}};
-/* ── DLC parts ── */
-$('#emDlcRemoveParts').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);const b=$('#emDlcRemoveParts');if(b.classList.contains('busy'))return;b.classList.add('busy');b.style.opacity='.5';
-  const DLC_NAMES=['Achievement Hunter','FPS Destroyer','New-Well Pistol'];
-  try{for(const name of DLC_NAMES){const w=_emWeapons.find(x=>(x.name||x.title||x.weapon_name||'')===name);
-    await post('/api/ember/command',{command:'add_weapon_parts',params:{index:w?(w.id||w._id||w.weapon_id||name):name,amount:-250}})}
-    toast('Removed 250 parts from '+DLC_NAMES.join(', ')+'.')}
-  catch(e){toast(e.message,true)}finally{b.classList.remove('busy');b.style.opacity=''}};
-/* ── Command icons ── */
-(function(){
-  const ICO={
-    add_all_weapons:'Lookup/Weapons',add_all_weapon_skins:'Lookup/Weapons',add_all_weapon_parts:'Lookup/Weapons',upgrade_all_weapons:'Lookup/Weapons',
-    add_all_wear:'Lookup/Sets',add_all_armor:'Lookup/Sets',add_all_hats:'Lookup/Sets',add_all_masks:'Lookup/Sets',add_all_capes:'Lookup/Sets',add_all_boots:'Lookup/Sets',
-    add_all_gadgets:'Lookup/Gadgets',upgrade_all_gadgets:'Lookup/Gadgets',add_all_pets:'Lookup/Pets',upgrade_all_pets:'Lookup/Pets',add_pet_parts:'Lookup/Pets',upgrade_all_modules:'Lookup/Gadgets',
-    add_all_royale:'Lookup/Avatars',add_all_vehicles:'Lookup/Avatars',add_all_gliders:'Lookup/Avatars',add_all_trails:'Lookup/Avatars',add_all_avatars:'Lookup/Avatars',add_all_shovels:'Lookup/Avatars',
-    add_all_portraits:'Lookup/Avatars',add_all_frames:'Lookup/Avatars',add_all_backgrounds:'Lookup/Avatars',add_all_lobby:'Lookup/Avatars',
-    add_veteran_badge:'Lookup/Sets',add_dlc_sets:'Lookup/Sets',set_paying_user:'Currency/Coin',add_goblins:'Currency/Coin',add_pixel_pass:'Currency/PP Tickets'
-  };
-  const SEC={'Level & Currency':'Currency/Coin','Weapons':'Lookup/Weapons','Wear & Armor':'Lookup/Sets','Gadgets, Pets & Modules':'Lookup/Gadgets','Royale':'Lookup/Avatars','DLC Weapons':'Lookup/Sets'};
-  function ico(path,sz){const img=document.createElement('img');img.className='emCmdIco';img.src='/api/ember-icon/'+path+'.png';img.onerror=()=>img.remove();img.width=sz||16;img.height=sz||16;img.loading='lazy';img.alt='';return img}
-  for(const el of $$('.emCmd')){const p=ICO[el.dataset.cmd];if(p)el.prepend(ico(p))}
-  for(const h of $$('#emCmdCard .emCmdSection h4')){const p=SEC[h.textContent.trim()];if(p)h.prepend(ico(p))}
-})();
-/* ── Stats editor ── */
-const EM_WEEKLY=['kills','deaths','headshots','matches','wins','killstreak','winstreak','score'];
-const EM_MODES=[['2','Team Fight'],['0','Deathmatch'],['20','Battle Royale'],['4','Capture'],['16','Team Strike'],['8','Duels'],['1','Tournament'],['5','Free-Play'],['22e','Raids Easy'],['22m','Raids Medium'],['22h','Raids Hard']];
-(function(){
-  const wg=$('#emWeeklyGrid');
-  for(const k of EM_WEEKLY){const d=document.createElement('div');d.className='emStatRow';
-    d.innerHTML='<span class="xLabel">'+k.charAt(0).toUpperCase()+k.slice(1)+'</span><input class="xInput" id="emStat_'+k+'" type="number" value="0" min="0" step="1">';wg.appendChild(d)}
-  const gg=$('#emGlobalGrid');
-  for(const [id,label] of EM_MODES){const d=document.createElement('div');d.className='emStatRow';
-    d.innerHTML='<span class="xLabel">'+esc(label)+'</span><input class="xInput" id="emWins_'+id+'" type="number" value="0" min="0">';gg.appendChild(d)}
-})();
-$('#emWeeklySet').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);
-  const stats={};for(const k of EM_WEEKLY)stats[k]=Number($('#emStat_'+k).value)||0;
-  try{await post('/api/ember/command',{command:'set_weekly_stats',params:stats});toast('Weekly stats set.')}catch(e){toast(e.message,true)}};
-$('#emWeeklyReset').onclick=()=>{for(const k of EM_WEEKLY)$('#emStat_'+k).value='0'};
-$('#emGlobalSet').onclick=async()=>{if(!_emConnected)return toast('Connect first.',true);
-  const wins={};for(const [id] of EM_MODES)wins[id]=Number($('#emWins_'+id).value)||0;
-  try{await post('/api/ember/command',{command:'set_global_wins',params:{wins}});toast('Global wins set.')}catch(e){toast(e.message,true)}};
-$('#emGlobalReset').onclick=()=>{for(const [id] of EM_MODES)$('#emWins_'+id).value='0'};
-/* ── Skin & Cape Stealer ── */
-$('#emStealLookup').onclick=async()=>{
-  const id=$('#emStealId').value.trim();if(!id)return toast('Enter a player ID.',true);
-  if(!_emConnected)return toast('Connect to a game account first.',true);
-  const b=$('#emStealLookup');b.disabled=true;$('#emStealStatus').textContent='Looking up player…';$('#emStealResult').hidden=true;
-  try{
-    const d=await api('/api/lookup/'+encodeURIComponent(id));const p=d.player;if(!p)throw new Error('Player not found.');const F=p.full||{},name=p.name||'Unknown';
-    $('#emStealName').textContent=name+'\'s cosmetics';
-    const g=$('#emStealItems');g.innerHTML='';
-    function stealBtn(label,cmd,params,iconSrc){
-      const c=document.createElement('div');c.className='emStealItem';
-      if(iconSrc){const img=document.createElement('img');img.src=iconSrc;img.onerror=()=>img.remove();img.width=28;img.height=28;img.loading='lazy';img.alt='';c.appendChild(img)}
-      const sp=document.createElement('span');sp.textContent=label;c.appendChild(sp);
-      c.onclick=async()=>{if(c.classList.contains('busy'))return;c.classList.add('busy');
-        try{await post('/api/ember/command',{command:cmd,params});toast('Stole '+label+' from '+name+'.')}catch(e){toast(e.message,true)}finally{c.classList.remove('busy')}};
-      return c}
-    if(p.skin)g.appendChild(stealBtn('Current Skin','steal_skin',{player_id:id}));
-    if(F.cape)g.appendChild(stealBtn(F.cape.name||'Cape','steal_cape',{player_id:id}));
-    for(const ps of(F.player_skins||[]))if(ps?.texture&&ps.texture!==p.skin)g.appendChild(stealBtn(ps.name||'Alt Skin','steal_skin',{player_id:id,skin_index:F.player_skins.indexOf(ps)}));
-    if(!g.children.length)g.innerHTML='<div style="padding:12px;color:var(--muted);font-size:12px">No skins or capes found for this player.</div>';
-    $('#emStealResult').hidden=false;$('#emStealStatus').textContent='';
-  }catch(e){$('#emStealStatus').textContent='Failed: '+e.message;$('#emStealResult').hidden=true}
-  finally{b.disabled=false}
-};
-
 /* ── Cheats ── */
 let _chInited=false;
 const CH_KEY_NAMES={mouse4:'Mouse 4',mouse5:'Mouse 5',shift:'Shift',ctrl:'Ctrl',alt:'Alt',capslock:'Caps Lock',
   tab:'Tab',space:'Space',enter:'Enter',backspace:'Backspace',escape:'Esc',
   arrowup:'Up',arrowdown:'Down',arrowleft:'Left',arrowright:'Right'};
-function chKeyLabel(k){return CH_KEY_NAMES[k]||k.replace(/^key/i,'').toUpperCase()||k}
+function chKeyLabel(k){if(!k&&k!==0)return'—';const s=String(k);return CH_KEY_NAMES[s]||s.replace(/^key/i,'').toUpperCase()||s}
 async function chInit(){
   if(_chInited)return;_chInited=true;
   try{
     const d=await api('/api/cheats/config');
     setSwitch('#chAimbotToggle',!!d.aimbot);
     setSwitch('#chTriggerbotToggle',!!d.triggerbot);
-    if(d.aimbot_key){$('#chAimbotBind').dataset.key=d.aimbot_key;$('#chAimbotBind').textContent=chKeyLabel(d.aimbot_key)}
-    if(d.triggerbot_key){$('#chTriggerbotBind').dataset.key=d.triggerbot_key;$('#chTriggerbotBind').textContent=chKeyLabel(d.triggerbot_key)}
+    setSwitch('#chWholePlayer',!!d.whole_player);
+    setSwitch('#chCategoryToggle',!!d.category_enabled);
+    setSwitch('#chGuiVisible',d.gui_visible!==false);
+    $('#chAimbotBind').dataset.key=d.aim_key||97;$('#chAimbotBind').textContent=d.aim_key_label||chKeyLabel(d.aim_key||97);
+    $('#chTriggerbotBind').dataset.key=d.trigger_key||98;$('#chTriggerbotBind').textContent=d.trigger_key_label||chKeyLabel(d.trigger_key||98);
+    $('#chLegitimacy').value=d.legitimacy||1;$('#chLegitVal').textContent=d.legitimacy||1;
+    $('#chFov').value=d.fov||12;$('#chFovVal').textContent=Number(d.fov||12).toFixed(1);
+    $('#chCatDelay').value=d.category_delay_ms||100;
+    $('#chCatKey1').dataset.key=d.category_key_1||19;$('#chCatKey1').textContent=d.category_label_1||chKeyLabel(d.category_key_1||19);
+    $('#chCatKey2').dataset.key=d.category_key_2||20;$('#chCatKey2').textContent=d.category_label_2||chKeyLabel(d.category_key_2||20);
+    $('#chCatKey3').dataset.key=d.category_key_3||23;$('#chCatKey3').textContent=d.category_label_3||chKeyLabel(d.category_key_3||23);
   }catch{}
 }
 function chToggle(id){
   const btn=$('#'+id);
   const on=btn.classList.toggle('on');
   btn.setAttribute('aria-checked',on?'true':'false');
-  const name=id==='chAimbotToggle'?'Aimbot':'Triggerbot';
-  toast(name+(on?' enabled — will inject on next launch':' disabled'));
   chSave();
 }
 let _chListening=null;
@@ -2835,14 +2456,38 @@ document.addEventListener('mousedown',e=>{
 },{capture:true});
 $('#chAimbotToggle').onclick=()=>chToggle('chAimbotToggle');
 $('#chTriggerbotToggle').onclick=()=>chToggle('chTriggerbotToggle');
+$('#chWholePlayer').onclick=()=>chToggle('chWholePlayer');
+$('#chCategoryToggle').onclick=()=>chToggle('chCategoryToggle');
+$('#chGuiVisible').onclick=()=>chToggle('chGuiVisible');
 $('#chAimbotBind').onclick=()=>chStartCapture('chAimbotBind');
 $('#chTriggerbotBind').onclick=()=>chStartCapture('chTriggerbotBind');
+$('#chCatKey1').onclick=()=>chStartCapture('chCatKey1');
+$('#chCatKey2').onclick=()=>chStartCapture('chCatKey2');
+$('#chCatKey3').onclick=()=>chStartCapture('chCatKey3');
+$('#chLegitimacy').oninput=e=>{$('#chLegitVal').textContent=e.target.value;chSave()};
+$('#chFov').oninput=e=>{$('#chFovVal').textContent=Number(e.target.value).toFixed(1);chSave()};
+$('#chCatDelay').onchange=()=>chSave();
+(function(){try{const hz=window.screen?.refreshRate||window.screen?.mozRefreshRate;if(hz&&hz>60){const o=$('#fpsAutoOpt');if(o)o.textContent=`Auto (${hz} Hz)`}}catch{}})();
 async function chSave(){
   try{await post('/api/cheats/save',{
     aimbot:$('#chAimbotToggle').classList.contains('on'),
     triggerbot:$('#chTriggerbotToggle').classList.contains('on'),
-    aimbot_key:$('#chAimbotBind').dataset.key,
-    triggerbot_key:$('#chTriggerbotBind').dataset.key
+    aim_key:Number($('#chAimbotBind').dataset.key)||97,
+    trigger_key:Number($('#chTriggerbotBind').dataset.key)||98,
+    aim_key_label:$('#chAimbotBind').textContent,
+    trigger_key_label:$('#chTriggerbotBind').textContent,
+    legitimacy:Number($('#chLegitimacy').value)||1,
+    fov:Number($('#chFov').value)||12,
+    whole_player:$('#chWholePlayer').classList.contains('on'),
+    category_enabled:$('#chCategoryToggle').classList.contains('on'),
+    category_delay_ms:Number($('#chCatDelay').value)||100,
+    category_key_1:Number($('#chCatKey1').dataset.key)||19,
+    category_key_2:Number($('#chCatKey2').dataset.key)||20,
+    category_key_3:Number($('#chCatKey3').dataset.key)||23,
+    category_label_1:$('#chCatKey1').textContent,
+    category_label_2:$('#chCatKey2').textContent,
+    category_label_3:$('#chCatKey3').textContent,
+    gui_visible:$('#chGuiVisible').classList.contains('on'),
   })}catch{}
 }
 </script>
