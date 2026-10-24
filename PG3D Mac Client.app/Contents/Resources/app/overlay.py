@@ -25,6 +25,7 @@ from Cocoa import (
 )
 
 BG_PAD_X, BG_PAD_Y, BG_ALPHA = 12, 9, 0.46  # overlay background card
+NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)
 from Foundation import NSObject, NSTimer
 import Quartz
 import objc
