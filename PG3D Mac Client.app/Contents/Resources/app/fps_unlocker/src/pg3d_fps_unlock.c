@@ -14,6 +14,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/resource.h>
 
 enum {
     kTargetFrameRateWrapperRva = 0x5009370,
@@ -60,6 +61,20 @@ static unsigned int g_last_frames;
 static unsigned int g_last_rendered;
 extern void pg3d_presentation_start(void);
 extern void pg3d_presentation_sample(double elapsed);
+extern double g_present_stddev_ms;
+extern double g_present_p99_ms;
+
+static void (*g_gc_disable)(void);
+static void (*g_gc_enable)(void);
+static void (*g_gc_collect)(int generation);
+static int64_t (*g_gc_used_size)(void);
+static int64_t g_gc_baseline;
+static bool g_gc_managed;
+static struct timespec g_last_gc_sweep;
+
+static bool g_adaptive_capped;
+static double g_variance_history[8];
+static unsigned g_variance_cursor;
 
 static void log_message(const char *format, ...) {
     va_list arguments;
@@ -303,6 +318,110 @@ static double seconds_between(struct timespec start, struct timespec end) {
 static bool g_enforce_only;
 static bool g_unsupported;  // no hookable wrapper: the unlocker leaves the game alone
 
+static void tune_engine(void) {
+    void (*warmup)(void) = (void (*)(void))g_resolve_icall(
+        "UnityEngine.Shader::WarmupAllShaders");
+    if (warmup) {
+        warmup();
+        log_message("shader warmup complete.");
+    }
+
+    UnityIntSetter set_queued = (UnityIntSetter)g_resolve_icall(
+        "UnityEngine.QualitySettings::set_maxQueuedFrames(System.Int32)");
+    if (set_queued) {
+        set_queued(2);
+        log_message("maxQueuedFrames set to 2.");
+    }
+
+    UnityIntSetter set_bg_prio = (UnityIntSetter)g_resolve_icall(
+        "UnityEngine.Application::set_backgroundLoadingPriority(UnityEngine.ThreadPriority)");
+    if (!set_bg_prio)
+        set_bg_prio = (UnityIntSetter)g_resolve_icall(
+            "UnityEngine.Application::set_backgroundLoadingPriority(System.Int32)");
+    if (set_bg_prio) {
+        set_bg_prio(0);
+        log_message("backgroundLoadingPriority set to Low.");
+    }
+}
+
+static void setup_gc_management(void) {
+    g_gc_disable = (void (*)(void))dlsym(RTLD_DEFAULT, "il2cpp_gc_disable");
+    g_gc_enable = (void (*)(void))dlsym(RTLD_DEFAULT, "il2cpp_gc_enable");
+    g_gc_collect = (void (*)(int))dlsym(RTLD_DEFAULT, "il2cpp_gc_collect");
+    g_gc_used_size = (int64_t (*)(void))dlsym(RTLD_DEFAULT, "il2cpp_gc_get_used_size");
+
+    if (g_gc_disable && g_gc_enable && g_gc_collect && g_gc_used_size) {
+        g_gc_baseline = g_gc_used_size();
+        g_gc_disable();
+        g_gc_managed = true;
+        clock_gettime(CLOCK_MONOTONIC, &g_last_gc_sweep);
+        log_message("GC management active: baseline %lld bytes, auto-GC disabled.",
+                    (long long)g_gc_baseline);
+    } else {
+        log_message("GC management unavailable (missing il2cpp GC symbols).");
+    }
+}
+
+static void gc_tick(struct timespec now) {
+    if (!g_gc_managed) return;
+    double since_sweep = seconds_between(g_last_gc_sweep, now);
+    int64_t used = g_gc_used_size();
+    int64_t growth = used - g_gc_baseline;
+
+    if (growth > 200 * 1024 * 1024 || since_sweep > 30.0) {
+        g_gc_enable();
+        g_gc_collect(0);
+        if (growth > 200 * 1024 * 1024) {
+            g_gc_collect(1);
+        }
+        g_gc_disable();
+        g_last_gc_sweep = now;
+        int64_t after = g_gc_used_size();
+        log_message("GC sweep: %lldMB -> %lldMB (freed %lldMB, baseline %lldMB).",
+                    (long long)(used / (1024*1024)),
+                    (long long)(after / (1024*1024)),
+                    (long long)((used - after) / (1024*1024)),
+                    (long long)(g_gc_baseline / (1024*1024)));
+    }
+}
+
+static void adaptive_cap_tick(void) {
+    if (g_observe_only || g_requested_frame_rate != -1) return;
+
+    double stddev = g_present_stddev_ms;
+    double p99 = g_present_p99_ms;
+    if (stddev == 0 && p99 == 0) return;
+
+    double mean_estimate = p99 > 0 ? p99 * 0.6 : 8.3;
+    double cv = mean_estimate > 0 ? stddev / mean_estimate : 0;
+    g_variance_history[g_variance_cursor % 8] = cv;
+    g_variance_cursor++;
+
+    if (g_variance_cursor < 4) return;
+
+    double avg_cv = 0;
+    unsigned count = g_variance_cursor < 8 ? g_variance_cursor : 8;
+    for (unsigned i = 0; i < count; i++) avg_cv += g_variance_history[i];
+    avg_cv /= count;
+
+    if (!g_adaptive_capped && avg_cv > 0.25) {
+        int sustainable = p99 > 0 ? (int)(800.0 / p99) : 60;
+        if (sustainable < 30) sustainable = 30;
+        if (sustainable > 240) sustainable = 240;
+        g_target_frame_rate.forced_value = sustainable;
+        g_target_frame_rate.original(sustainable);
+        g_adaptive_capped = true;
+        log_message("adaptive cap engaged: %d FPS (cv=%.3f, p99=%.2fms, stddev=%.2fms).",
+                    sustainable, avg_cv, p99, stddev);
+    } else if (g_adaptive_capped && avg_cv < 0.10) {
+        g_target_frame_rate.forced_value = -1;
+        g_target_frame_rate.original(-1);
+        g_adaptive_capped = false;
+        g_variance_cursor = 0;
+        log_message("adaptive cap released: uncapped (cv=%.3f settled).", avg_cv);
+    }
+}
+
 static bool initialize_bindings(void) {
     // Redirect the icall wrappers so the game can't lower the target. Builds compiled
     // differently have no wrapper we recognise; then nothing is changed.
@@ -368,6 +487,10 @@ static bool initialize_bindings(void) {
     } else {
         log_message("frame pacing observation is active: no values changed.");
     }
+    if (!g_observe_only) {
+        tune_engine();
+        setup_gc_management();
+    }
     pg3d_presentation_start();
     clock_gettime(CLOCK_MONOTONIC, &g_last_sample);
     g_last_frames = (unsigned int)g_get_frames();
@@ -391,6 +514,7 @@ static void measure_frames(void) {
     }
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
+    gc_tick(now);
     const double elapsed = seconds_between(g_last_sample, now);
     if (elapsed < 5.0) {
         return;
@@ -402,6 +526,7 @@ static void measure_frames(void) {
                 (double)(frames - g_last_frames) / elapsed, elapsed,
                 g_get_target(), g_get_vsync(), g_get_focused() ? "yes" : "no");
     pg3d_presentation_sample(elapsed);
+    adaptive_cap_tick();
     g_last_sample = now;
     g_last_frames = frames;
     g_last_rendered = rendered;
@@ -460,6 +585,15 @@ static void start_unlocker(void) {
     g_target_frame_rate.forced_value = g_requested_frame_rate;
     log_message("loaded (requested frame rate: %s).",
                 g_requested_frame_rate == -1 ? "uncapped" : getenv("PG3D_UNLOCK_FPS"));
+
+    if (setpriority(PRIO_PROCESS, 0, -10) == 0) {
+        log_message("process priority raised (nice -10).");
+    }
+    int (*set_qos)(unsigned int, int) = (int (*)(unsigned int, int))
+        dlsym(RTLD_DEFAULT, "pthread_set_qos_class_self_np");
+    if (set_qos && set_qos(0x21, 0) == 0) {
+        log_message("QoS class set to user-interactive.");
+    }
 
     // Run on the application's main queue, after the normal Unity startup path
     // has had an opportunity to resolve its native IL2CPP callbacks.

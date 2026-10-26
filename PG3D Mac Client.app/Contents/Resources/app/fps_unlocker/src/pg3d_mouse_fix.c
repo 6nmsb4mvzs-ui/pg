@@ -39,6 +39,9 @@ extern int32_t CGDisplayHideCursor(uint32_t display);
 extern int32_t CGCursorIsVisible(void);  // deprecated but still answers on current macOS
 extern int32_t CGDisplayShowCursor(uint32_t display);
 extern uint32_t CGMainDisplayID(void);
+typedef void *CGEventSourceRef;
+extern CGEventSourceRef CGEventSourceCreate(int32_t stateID);
+extern void CGEventSourceSetLocalEventsSuppressionInterval(CGEventSourceRef source, double seconds);
 
 extern char _dispatch_main_q;
 extern void dispatch_async_f(void *queue, void *context, void (*work)(void *));
@@ -49,7 +52,7 @@ extern uint64_t dispatch_time(uint64_t when, int64_t delta);
 #define SEL_(name) sel_registerName(name)
 #define MSG(ret, ...) ((ret (*)(id, SEL, ##__VA_ARGS__))objc_msgSend)
 
-enum { kTickMs = 300 };
+enum { kTickMs = 100 };
 static const uint64_t kMouseDownMask = (1ULL << 1) | (1ULL << 3) | (1ULL << 25);
 
 static volatile bool g_locked;       // the game disassociated the mouse (cursor locked)
@@ -212,6 +215,11 @@ __attribute__((constructor)) static void start(void) {
     const char *flag = getenv("PG3D_MOUSEFIX");
     if (flag && strcmp(flag, "0") == 0) return;
     note("loaded (%u)", 1);
+    CGEventSourceRef source = CGEventSourceCreate(0);
+    if (source) {
+        CGEventSourceSetLocalEventsSuppressionInterval(source, 0.0);
+        note("event suppression interval zeroed (%u)", 1);
+    }
     // Always measure: the FPS unlocker stays off on builds it can't hook, and then
     // reports nothing. (When it is active both report; the numbers agree.)
     g_started = now_seconds();
