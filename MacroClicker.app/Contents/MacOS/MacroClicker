@@ -1,0 +1,2 @@
+#!/bin/zsh
+exec /bin/zsh "$(dirname "$0")/../Resources/app/launch.sh" "$@"
