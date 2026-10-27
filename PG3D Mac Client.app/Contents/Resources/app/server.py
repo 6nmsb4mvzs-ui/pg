@@ -7267,6 +7267,8 @@ PG3D_ID_KEY = "AccountCreated"
 # On Windows these live in the registry; on macOS in the preferences plist.
 SKIN_PREF_KEY = "User Skins_h1196497400"
 SKIN_NAME_PREF_KEY = "User Name Skins_h1318731231"
+PG3D_PREFS_DOMAIN = "unity.Pixel Gun Team.Pixel Gun 3D"
+PG3D_PREFS_FALLBACK = Path.home() / "Library/Preferences" / f"{PG3D_PREFS_DOMAIN}.plist"
 
 
 def _pref_bytes_to_dict(value):
@@ -7282,9 +7284,7 @@ def _pref_bytes_to_dict(value):
 
 def _read_skin_prefs():
     domains = _pg3d_pref_domains()
-    if not domains:
-        return {}, {}, None
-    domain = domains[0]
+    domain = domains[0] if domains else PG3D_PREFS_FALLBACK
     prefs = _read_prefs(domain)
     skins, names = {}, {}
     for key in (SKIN_PREF_KEY, "User Skins"):
@@ -7315,11 +7315,6 @@ def apply_skins(entries):
     if not entries:
         raise RuntimeError("No skins to apply.")
     existing_skins, existing_names, domain = _read_skin_prefs()
-    if domain is None:
-        raise RuntimeError(
-            "PG3D preferences not found. Start the game once, sign in, "
-            "then close it and try again."
-        )
     for e in entries:
         sid = str(e["id"])
         existing_skins[sid] = e["data"]
@@ -7335,13 +7330,11 @@ def list_skins():
     result = []
     for sid, data in skins.items():
         result.append({"id": sid, "name": names.get(sid, ""), "has_data": bool(data)})
-    return {"skins": result, "domain": domain.name if domain else None}
+    return {"skins": result, "domain": domain.stem}
 
 
 def remove_skin(skin_id):
     skins, names, domain = _read_skin_prefs()
-    if domain is None:
-        raise RuntimeError("PG3D preferences not found.")
     skin_id = str(skin_id)
     if skin_id not in skins:
         raise RuntimeError("Skin not found in game preferences.")
@@ -7353,8 +7346,6 @@ def remove_skin(skin_id):
 
 def remove_all_skins():
     _, _, domain = _read_skin_prefs()
-    if domain is None:
-        raise RuntimeError("PG3D preferences not found.")
     _write_skin_prefs(domain, {}, {})
     return {"ok": True}
 
