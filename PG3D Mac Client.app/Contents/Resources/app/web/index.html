@@ -1620,7 +1620,7 @@ $('#skinApplyAll').onclick=async()=>{
   try{
     const skins=skinQueue.map(s=>({id:s.id,name:s.name,data:s.processedBase64}));
     const r=await post('/api/skins/apply',{skins});
-    toast(`${r.count} skin${r.count>1?'s':''} added to game (${r.total} total).`);
+    toast(`${r.count} skin${r.count>1?'s':''} written to ${r.domain||'prefs'} (${r.total} total). Restart PG3D to see them.`);
     skinQueue.length=0;renderSkinQueue();loadExistingSkins();
   }catch(e){toast(e.message,true)}
 };

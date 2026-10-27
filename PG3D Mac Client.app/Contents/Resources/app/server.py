@@ -7299,20 +7299,16 @@ def _read_skin_prefs():
 
 
 def _write_skin_prefs(domain, skins, names):
-    try:
-        with domain.open("rb") as f:
-            plist_data = plistlib.load(f)
-    except Exception:
-        plist_data = {}
-    plist_data[SKIN_PREF_KEY] = json.dumps(skins, separators=(",", ":")).encode("utf-8") + b"\x00"
-    plist_data[SKIN_NAME_PREF_KEY] = json.dumps(names, separators=(",", ":")).encode("utf-8") + b"\x00"
-    with domain.open("wb") as f:
-        plistlib.dump(plist_data, f)
-    try:
-        subprocess.run(["/usr/bin/defaults", "read", domain.stem, SKIN_PREF_KEY],
-                       capture_output=True, timeout=5)
-    except Exception:
-        pass
+    domain_name = domain.stem
+    skin_json = json.dumps(skins, separators=(",", ":"))
+    name_json = json.dumps(names, separators=(",", ":"))
+    for key, val in [(SKIN_PREF_KEY, skin_json), (SKIN_NAME_PREF_KEY, name_json)]:
+        r = subprocess.run(
+            ["/usr/bin/defaults", "write", domain_name, key, "-string", val],
+            capture_output=True, timeout=10,
+        )
+        if r.returncode != 0:
+            raise RuntimeError(f"defaults write failed for {key}: {r.stderr.decode().strip()}")
 
 
 def apply_skins(entries):
@@ -7320,14 +7316,18 @@ def apply_skins(entries):
         raise RuntimeError("No skins to apply.")
     existing_skins, existing_names, domain = _read_skin_prefs()
     if domain is None:
-        raise RuntimeError("PG3D preferences not found. Start the game once first.")
+        raise RuntimeError(
+            "PG3D preferences not found. Start the game once, sign in, "
+            "then close it and try again."
+        )
     for e in entries:
         sid = str(e["id"])
         existing_skins[sid] = e["data"]
         existing_names[sid] = e.get("name", "")
     _write_skin_prefs(domain, existing_skins, existing_names)
-    log(f"Skin importer: applied {len(entries)} skin(s) to {domain.name}")
-    return {"ok": True, "count": len(entries), "total": len(existing_skins)}
+    log(f"Skin importer: applied {len(entries)} skin(s) to {domain.stem}")
+    return {"ok": True, "count": len(entries), "total": len(existing_skins),
+            "domain": domain.stem}
 
 
 def list_skins():
