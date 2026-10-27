@@ -12,13 +12,15 @@ if os.environ.get("PG3D_EMBEDDED") and os.environ.get("PYTHONPATH"):
     site.addsitedir(os.environ["PYTHONPATH"])  # the runtime's packages (.pth files included)
 
 from Cocoa import (
-    NSAlert, NSAlertFirstButtonReturn, NSModalResponseOK, NSOpenPanel, NSTextField,
+    NSAlert, NSAlertFirstButtonReturn, NSModalResponseOK, NSOpenPanel, NSSavePanel,
+    NSTextField,
     NSApplication, NSApplicationActivationPolicyRegular, NSBackingStoreBuffered,
     NSColor, NSMakeRect, NSObject, NSScreen, NSWindow, NSWindowStyleMaskClosable,
     NSWindowStyleMaskMiniaturizable, NSWindowStyleMaskResizable, NSWindowStyleMaskTitled,
     NSViewWidthSizable, NSViewHeightSizable,
 )
 from Foundation import NSTimer, NSURL, NSURLRequest
+import threading, urllib.request
 from WebKit import WKWebView, WKWebViewConfiguration, WKUserContentController, WKWebsiteDataStore
 import objc
 
@@ -42,6 +44,28 @@ def _request_screen_permission():
             pass
 
 
+def _save_file(url, filename):
+    """Download a file from the local server and present a save dialog."""
+    def do_save():
+        try:
+            data = urllib.request.urlopen(url, timeout=30).read()
+        except Exception:
+            return
+        def pick(data=data, filename=filename):
+            panel = NSSavePanel.savePanel()
+            panel.setNameFieldStringValue_(filename)
+            NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+            if panel.runModal() == NSModalResponseOK:
+                path = panel.URL().path()
+                try:
+                    Path(path).write_bytes(data)
+                except Exception:
+                    pass
+        from PyObjCTools import AppHelper
+        AppHelper.callAfter(pick)
+    threading.Thread(target=do_save, daemon=True).start()
+
+
 class MessageHandler(NSObject):
     """Receives window.webkit.messageHandlers.pg3d messages from the UI."""
 
@@ -49,6 +73,8 @@ class MessageHandler(NSObject):
         body = message.body()
         if isinstance(body, dict) and body.get("type") == "requestScreenPermission":
             _request_screen_permission()
+        elif isinstance(body, dict) and body.get("type") == "saveFile":
+            _save_file(body.get("url", ""), body.get("filename", "file.png"))
 
 
 def run_alert(message, buttons, field=None):

@@ -2677,9 +2677,14 @@ const FL=(function(){
   };
   F._download=()=>{
     const x=F._modalItem;if(!x)return;
-    const a=document.createElement('a');a.href=`/api/finder/full/${x.gid}.png`;
-    a.download=`${(x.name||'texture').replace(/[^\w\-. ]/g,'_')}.png`;
-    document.body.append(a);a.click();a.remove();
+    const url=`${location.origin}/api/finder/full/${x.gid}.png`;
+    const fn=`${(x.name||'texture').replace(/[^\w\-. ]/g,'_')}.png`;
+    if(window.webkit?.messageHandlers?.pg3d){
+      window.webkit.messageHandlers.pg3d.postMessage({type:'saveFile',url,filename:fn});
+    }else{
+      const a=document.createElement('a');a.href=url;a.download=fn;
+      document.body.append(a);a.click();a.remove();
+    }
   };
   $('#flMCloseBtn').onclick=()=>F._closeModal();
   $('#flMDl').onclick=()=>F._download();
