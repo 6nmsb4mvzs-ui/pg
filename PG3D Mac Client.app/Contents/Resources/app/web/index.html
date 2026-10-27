@@ -1295,7 +1295,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
         <div class="crCard" id="skinExistingCard">
           <div class="crCardHead"><h3>Skins in game</h3><span id="skinExistingCount"></span></div>
           <div class="skinExisting" id="skinExistingGrid"></div>
-          <div id="skinExistingEmpty" style="color:var(--muted);font-size:12px;padding:8px 0">No custom skins found. Import some above, or start PG3D once so the client can find its preferences.</div>
+          <div id="skinExistingEmpty" style="color:var(--muted);font-size:12px;padding:8px 0">No custom skins yet. Drop PNGs above and click "Add all to game", then restart PG3D.</div>
           <div style="margin-top:10px"><button class="btn danger" id="skinRemoveAll" hidden>Remove all skins</button></div>
         </div>
       </div>
@@ -1522,8 +1522,17 @@ $('#cursorFile').onchange=e=>{const f=e.target.files?.[0];if(!f)return;if(f.type
 
 // Skin Importer
 const skinQueue=[];
-let skinIdCounter=Date.now();
-function skinId(){return String(skinIdCounter++)}
+const SKIN_UNIX_EPOCH_TICKS=621355968000000000n;
+const SKIN_TICKS_PER_MS=10000n;
+const SKIN_MS_PER_DAY=86400000;
+function skinNowTicks(){return BigInt(Date.now())*SKIN_TICKS_PER_MS+SKIN_UNIX_EPOCH_TICKS}
+function skinRandomGapTicks(minD,maxD){return BigInt(Math.floor((minD+Math.random()*(maxD-minD))*SKIN_MS_PER_DAY))*SKIN_TICKS_PER_MS}
+let skinNextId=skinNowTicks()-skinRandomGapTicks(1,20);
+const skinUsedIds=new Set();
+function skinId(){
+  while(skinUsedIds.has(skinNextId.toString()))skinNextId-=skinRandomGapTicks(1,19);
+  const id=skinNextId.toString();skinUsedIds.add(id);skinNextId-=skinRandomGapTicks(1,19);return id;
+}
 
 function snapshotRect(data,width,x,y,w,h){const s=new Uint8ClampedArray(w*h*4);for(let r=0;r<h;r++){const o=((y+r)*width+x)*4;s.set(data.subarray(o,o+w*4),r*w*4)}return s}
 function pasteOpaquePixels(data,width,sx,sy,dx,dy,w,h){const s=snapshotRect(data,width,sx,sy,w,h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;if(s[i+3]===255){const d=((dy+y)*width+(dx+x))*4;data[d]=s[i];data[d+1]=s[i+1];data[d+2]=s[i+2];data[d+3]=255}}}
@@ -1620,7 +1629,7 @@ $('#skinApplyAll').onclick=async()=>{
   try{
     const skins=skinQueue.map(s=>({id:s.id,name:s.name,data:s.processedBase64}));
     const r=await post('/api/skins/apply',{skins});
-    toast(`${r.count} skin${r.count>1?'s':''} written to ${r.domain||'prefs'} (${r.total} total). Restart PG3D to see them.`);
+    toast(`${r.count} skin${r.count>1?'s':''} saved (${r.total} total). Close PG3D and reopen it to see them in-game.`);
     skinQueue.length=0;renderSkinQueue();loadExistingSkins();
   }catch(e){toast(e.message,true)}
 };
@@ -1639,7 +1648,8 @@ $('#skinRegInput').onchange=async e=>{
     let count=0;
     for(const[id,data]of Object.entries(skinMap)){
       if(!data)continue;
-      skinQueue.push({id,name:nameMap[id]||`Skin ${id}`,sourceBase64:data,processedBase64:data,sourceSize:'imported'});
+      const processed=await processSkinData(data);
+      skinQueue.push({id:skinId(),name:nameMap[id]||`Skin ${id}`,sourceBase64:data,processedBase64:processed||data,sourceSize:'imported'});
       count++;
     }
     renderSkinQueue();toast(`Imported ${count} skin${count>1?'s':''} from .reg file.`);
@@ -1651,11 +1661,12 @@ async function loadExistingSkins(){
     const r=await api('/api/skins');
     const grid=$('#skinExistingGrid'),empty=$('#skinExistingEmpty'),count=$('#skinExistingCount'),rmAll=$('#skinRemoveAll');
     grid.innerHTML='';
-    if(!r.skins.length){empty.hidden=false;rmAll.hidden=true;count.textContent=r.domain?'':'No PG3D preferences found';return}
+    if(!r.skins.length){empty.hidden=false;rmAll.hidden=true;count.textContent='';return}
     empty.hidden=true;rmAll.hidden=r.skins.length<2;
     count.textContent=`${r.skins.length} skin${r.skins.length>1?'s':''}`;
     r.skins.forEach(s=>{
       const card=document.createElement('div');card.className='skinExCard';
+      if(s.data){const thumb=document.createElement('img');thumb.src='data:image/png;base64,'+s.data;thumb.style.cssText='width:64px;height:32px;image-rendering:pixelated;border-radius:4px';card.append(thumb)}
       const name=document.createElement('span');name.textContent=s.name||s.id;
       const rm=document.createElement('button');rm.textContent='Remove';
       rm.onclick=async()=>{try{await post('/api/skins/remove',{id:s.id});toast('Skin removed.');loadExistingSkins()}catch(e){toast(e.message,true)}};

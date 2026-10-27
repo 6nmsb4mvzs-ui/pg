@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.17"
+APP_VERSION = "1.77.18"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -7302,13 +7302,39 @@ def _write_skin_prefs(domain, skins, names):
     domain_name = domain.stem
     skin_json = json.dumps(skins, separators=(",", ":"))
     name_json = json.dumps(names, separators=(",", ":"))
-    for key, val in [(SKIN_PREF_KEY, skin_json), (SKIN_NAME_PREF_KEY, name_json)]:
-        r = subprocess.run(
-            ["/usr/bin/defaults", "write", domain_name, key, "-string", val],
-            capture_output=True, timeout=10,
-        )
-        if r.returncode != 0:
-            raise RuntimeError(f"defaults write failed for {key}: {r.stderr.decode().strip()}")
+    pairs = [
+        (SKIN_PREF_KEY, skin_json),
+        ("User Skins", skin_json),
+        (SKIN_NAME_PREF_KEY, name_json),
+        ("User Name Skins", name_json),
+    ]
+    defaults_ok = True
+    for key, val in pairs:
+        try:
+            r = subprocess.run(
+                ["/usr/bin/defaults", "write", domain_name, key, "-string", val],
+                capture_output=True, timeout=10,
+            )
+            if r.returncode != 0:
+                log(f"Skin importer: defaults write failed for {key}: {r.stderr.decode().strip()}")
+                defaults_ok = False
+        except Exception as exc:
+            log(f"Skin importer: defaults write exception for {key}: {exc}")
+            defaults_ok = False
+    if not defaults_ok:
+        try:
+            plist_path = domain if domain.suffix == ".plist" else domain.parent / f"{domain_name}.plist"
+            existing = {}
+            if plist_path.exists():
+                with plist_path.open("rb") as f:
+                    existing = plistlib.load(f)
+            for key, val in pairs:
+                existing[key] = val
+            with plist_path.open("wb") as f:
+                plistlib.dump(existing, f)
+            log(f"Skin importer: wrote via plistlib to {plist_path}")
+        except Exception as exc:
+            raise RuntimeError(f"Could not write skin preferences: {exc}")
 
 
 def apply_skins(entries):
@@ -7329,7 +7355,7 @@ def list_skins():
     skins, names, domain = _read_skin_prefs()
     result = []
     for sid, data in skins.items():
-        result.append({"id": sid, "name": names.get(sid, ""), "has_data": bool(data)})
+        result.append({"id": sid, "name": names.get(sid, ""), "data": data or "", "has_data": bool(data)})
     return {"skins": result, "domain": domain.stem}
 
 
