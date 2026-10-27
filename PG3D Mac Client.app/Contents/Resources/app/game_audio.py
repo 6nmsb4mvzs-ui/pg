@@ -31,6 +31,23 @@ def log(msg):
     print(f"[game_audio] {msg}", flush=True)
 
 
+# Hide from the Dock before PyObjC loads AppKit (prevents the bouncing Python icon).
+try:
+    import ctypes, ctypes.util as _cu
+    _objc_lib = ctypes.cdll.LoadLibrary(_cu.find_library('objc'))
+    _objc_lib.objc_getClass.restype = ctypes.c_void_p
+    _objc_lib.sel_registerName.restype = ctypes.c_void_p
+    _objc_lib.objc_msgSend.restype = ctypes.c_void_p
+    _objc_lib.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    ctypes.cdll.LoadLibrary(_cu.find_library('AppKit'))
+    _cls = _objc_lib.objc_getClass(b'NSApplication')
+    _app = _objc_lib.objc_msgSend(_cls, _objc_lib.sel_registerName(b'sharedApplication'))
+    _send_long = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long)(('objc_msgSend', _objc_lib))
+    _send_long(_app, _objc_lib.sel_registerName(b'setActivationPolicy:'), 2)
+    del _objc_lib, _cls, _app, _send_long, _cu
+except Exception:
+    pass
+
 try:
     import objc
     import CoreMedia
