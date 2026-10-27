@@ -22,15 +22,33 @@ from Foundation import NSTimer, NSURL, NSURLRequest
 from WebKit import WKWebView, WKWebViewConfiguration, WKUserContentController, WKWebsiteDataStore
 import objc
 
+try:
+    from Quartz import CGPreflightScreenCaptureAccess, CGRequestScreenCaptureAccess
+except ImportError:
+    CGPreflightScreenCaptureAccess = None
+    CGRequestScreenCaptureAccess = None
+
 SUPPORT = Path.home() / "Library/Application Support/PG3D Mac Client"
 BG = (0x0c / 255, 0x0d / 255, 0x0f / 255)  # matches --bg in web/index.html
 
 
+def _request_screen_permission():
+    """Request Screen Recording permission from this process (the signed app),
+    so macOS shows 'PG3D Mac Client' instead of 'Python' in the permission dialog."""
+    if CGRequestScreenCaptureAccess is not None:
+        try:
+            CGRequestScreenCaptureAccess()
+        except Exception:
+            pass
+
+
 class MessageHandler(NSObject):
-    """Receives window.webkit.messageHandlers.pg3d messages from the UI (currently informational)."""
+    """Receives window.webkit.messageHandlers.pg3d messages from the UI."""
 
     def userContentController_didReceiveScriptMessage_(self, controller, message):
-        pass
+        body = message.body()
+        if isinstance(body, dict) and body.get("type") == "requestScreenPermission":
+            _request_screen_permission()
 
 
 def run_alert(message, buttons, field=None):
@@ -193,6 +211,7 @@ def main():
         app.setActivationPolicy_(NSApplicationActivationPolicyRegular)
         shell = Shell.alloc().initWithURL_(sys.argv[1])
         shell.activate()
+        _request_screen_permission()
 
         def on_usr1(*_):
             shell.pending_activate = True
