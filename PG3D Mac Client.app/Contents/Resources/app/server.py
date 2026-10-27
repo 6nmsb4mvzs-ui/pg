@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.22"
+APP_VERSION = "1.77.23"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -8186,6 +8186,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(reset_cursor())
             if path == "/api/cursor/custom":
                 return self.send_json(import_custom_cursor(data.get("data", "")))
+            if path == "/api/finder/save":
+                gid = int(data.get("gid", -1))
+                fp, name = finder_full_path(gid)
+                if not fp:
+                    return self.send_json({"ok": False, "error": "Could not export this file."})
+                dl = Path.home() / "Downloads"
+                dl.mkdir(exist_ok=True)
+                safe = re.sub(r'[^\w\-. ]', '_', name or 'texture')
+                dest = dl / f"{safe}.png"
+                n = 1
+                while dest.exists():
+                    n += 1
+                    dest = dl / f"{safe} ({n}).png"
+                shutil.copy2(fp, dest)
+                return self.send_json({"ok": True, "path": str(dest), "name": dest.name})
             if path == "/api/finder/scan":
                 return self.send_json(start_finder_scan())
             if path == "/api/finder/picks":

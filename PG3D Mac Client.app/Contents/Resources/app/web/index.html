@@ -2675,16 +2675,13 @@ const FL=(function(){
     const m=$('#flModal');m.classList.remove('open');
     $('#flMImg').src='';F._modalItem=null;
   };
-  F._download=()=>{
+  F._download=async()=>{
     const x=F._modalItem;if(!x)return;
-    const url=`${location.origin}/api/finder/full/${x.gid}.png`;
-    const fn=`${(x.name||'texture').replace(/[^\w\-. ]/g,'_')}.png`;
-    if(window.webkit?.messageHandlers?.pg3d){
-      window.webkit.messageHandlers.pg3d.postMessage({type:'saveFile',url,filename:fn});
-    }else{
-      const a=document.createElement('a');a.href=url;a.download=fn;
-      document.body.append(a);a.click();a.remove();
-    }
+    try{
+      const r=await post('/api/finder/save',{gid:x.gid});
+      if(r.ok)toast(`Saved to Downloads: ${r.name}`);
+      else toast(r.error||'Save failed',true);
+    }catch(e){toast('Save failed',true)}
   };
   $('#flMCloseBtn').onclick=()=>F._closeModal();
   $('#flMDl').onclick=()=>F._download();
