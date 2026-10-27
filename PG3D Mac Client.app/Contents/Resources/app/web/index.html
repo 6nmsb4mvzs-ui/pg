@@ -1332,12 +1332,16 @@ const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5F
 var clipsTimer=null,settingsTimer=null;
 const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
-let netFails=0;
-async function netLost(){// "Load failed" is WebKit's word for "no answer": find out whose fault it is
+let netFails=0,netRecovering=false;
+async function netLost(){
   netFails++;if(netFails<3)return;
-  let up=false;try{up=(await fetch('/api/health',{cache:'no-store'})).ok}catch{}
-  let last=0;try{last=+sessionStorage.pg3dNetReload||0}catch{}
-  if(up&&Date.now()-last>120000){try{sessionStorage.pg3dNetReload=Date.now()}catch{}location.reload()}}
+  if(netRecovering)return;netRecovering=true;
+  // The server restarts itself when stuck; wait up to 30 s for it to come back.
+  for(let i=0;i<15;i++){await new Promise(r=>setTimeout(r,2000));
+    try{if((await fetch('/api/health',{cache:'no-store'})).ok){netFails=0;netRecovering=false;
+      let last=0;try{last=+sessionStorage.pg3dNetReload||0}catch{}
+      if(Date.now()-last>30000){try{sessionStorage.pg3dNetReload=Date.now()}catch{}location.reload()}return}}catch{}}
+  netRecovering=false}
 async function api(path,opts={}){let r;try{r=await fetch(path,{cache:'no-store',headers:{'Content-Type':'application/json',...(opts.headers||{})},...opts})}
   catch(e){netLost();throw new Error('The client\'s background service didn\'t answer. If this keeps happening, quit the client (⌘Q) and open it again.')}
   netFails=0;let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d}

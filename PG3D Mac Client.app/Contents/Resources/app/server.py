@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.9"
+APP_VERSION = "1.77.10"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -3913,7 +3913,6 @@ def fps_launch(game: Path, fps: str):
     fps = fps_target_value(fps)
     if not ensure_steam_running():
         raise RuntimeError("Steam didn't start. Open Steam, sign in, then press Start again.")
-    run_trace_cleaner()
     log_path = FPS_LOG_DIR / f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
     log_path.write_text(
         f"[PG3D Mac Client] launch {datetime.now().isoformat(timespec='seconds')} fps={fps}\n",
@@ -7661,6 +7660,7 @@ def start_cursor_init(force=False):
 
 class Handler(BaseHTTPRequestHandler):
     server_version = f"PG3DMacClient/{APP_VERSION}"
+    timeout = 30
 
     def log_message(self, fmt, *args):
         return
@@ -8240,6 +8240,33 @@ def idle_watch(server):
             return
 
 
+HEALTH_RESPONSE = time.time()
+
+
+def health_watchdog(port):
+    """Probe the server's own /api/health every 30 s.  If it fails to answer
+    for 90 s straight the process is stuck — restart it by exec-ing a new
+    server so the client's window just reconnects."""
+    import urllib.request
+    global HEALTH_RESPONSE
+    while True:
+        time.sleep(30)
+        try:
+            req = urllib.request.Request(f"http://127.0.0.1:{port}/api/health", method="GET")
+            with urllib.request.urlopen(req, timeout=5) as r:
+                if r.status == 200:
+                    HEALTH_RESPONSE = time.time()
+        except Exception:
+            pass
+        if time.time() - HEALTH_RESPONSE > 90:
+            log("Server unresponsive for 90 s; restarting.")
+            try:
+                cleanup()
+            except Exception:
+                pass
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+
+
 def cleanup():
     try:
         clips.shutdown()
@@ -8362,7 +8389,9 @@ def main():
     signal.signal(signal.SIGTERM, _on_sigterm)
     start_cursor_init(False)
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server.daemon_threads = True
     threading.Thread(target=idle_watch, args=(server,), daemon=True).start()
+    threading.Thread(target=health_watchdog, args=(port,), daemon=True).start()
     threading.Thread(target=playtime_watch, daemon=True).start()
     def _ember_auto_login():
         try:

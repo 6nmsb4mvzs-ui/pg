@@ -119,22 +119,47 @@ static BOOL accepts_first_mouse(id self, SEL cmd, id event) {
     return 1;
 }
 
+// Patch acceptsFirstMouse: on the NSView class itself so every view in the
+// process (including ones Unity creates later) returns YES.  This makes clicks
+// go through without first needing to make the window key — the event monitor
+// below handles that part, but patching the class avoids the window eating the
+// first mouseDown entirely.
+static bool g_class_patched;
+
+static void patch_view_class(void) {
+    if (g_class_patched) return;
+    Class cls = objc_getClass("NSView");
+    if (cls) {
+        class_replaceMethod(cls, SEL_("acceptsFirstMouse:"), (IMP)accepts_first_mouse, "c@:@");
+        g_class_patched = true;
+    }
+}
+
 // A click on a window that lost key status first makes it key, then goes through.
 static void install_click_fix(id app) {
     id windows = MSG(id)(app, SEL_("windows"));
     unsigned long count = windows ? MSG(unsigned long)(windows, SEL_("count")) : 0;
     if (count == 0) return;
+
+    patch_view_class();
+
+    // Also patch the specific content view's metaclass as a belt-and-suspenders
+    // measure: some Unity builds override acceptsFirstMouse: on UnityView.
     id window = MSG(id)(app, SEL_("keyWindow"));
     if (!window) window = MSG(id, unsigned long)(windows, SEL_("objectAtIndex:"), 0);
     id view = window ? MSG(id)(window, SEL_("contentView")) : NULL;
-    if (view) class_replaceMethod(object_getClass(view), SEL_("acceptsFirstMouse:"), (IMP)accepts_first_mouse, "c@:@");
+    if (view) {
+        class_replaceMethod(object_getClass(view), SEL_("acceptsFirstMouse:"), (IMP)accepts_first_mouse, "c@:@");
+        Class viewClass = MSG(Class)(view, SEL_("class"));
+        if (viewClass) class_replaceMethod(viewClass, SEL_("acceptsFirstMouse:"), (IMP)accepts_first_mouse, "c@:@");
+    }
 
     Class event_class = objc_getClass("NSEvent");
     if (!event_class) return;
     id (^handler)(id) = ^id(id event) {
         id target = MSG(id)(event, SEL_("window"));
         if (target && !MSG(BOOL)(target, SEL_("isKeyWindow"))) {
-            MSG(void)(target, SEL_("makeKeyWindow"));
+            MSG(void)(target, SEL_("makeKeyAndOrderFront:"), (id)0);
             if (++g_click_fixes <= 5) note("made the game window key before a click (%u)", g_click_fixes);
         }
         return event;
@@ -186,6 +211,7 @@ static void measure_fps(void) {
 
 static void tick(void *unused) {
     (void)unused;
+    patch_view_class();
     id app = shared_app();
     if (app) {
         if (!g_monitor_installed) install_click_fix(app);
