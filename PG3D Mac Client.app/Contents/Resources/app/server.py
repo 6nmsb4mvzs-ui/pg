@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.18"
+APP_VERSION = "1.77.19"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5349,6 +5349,51 @@ def finder_thumb_path(gid):
     return out
 
 
+def _fuzzy_words(text):
+    """Split camelCase/snake_case/kebab into lowercase words for matching."""
+    parts = re.sub(r"([a-z])([A-Z])", r"\1 \2", text or "")
+    return re.sub(r"[_\-./\\]+", " ", parts).lower().split()
+
+
+def files_search(q="", type_filter="", offset=0, limit=60):
+    """Fuzzy multi-word search over all scanned game files."""
+    items = _finder_data().get("items", [])
+    words = (q or "").lower().split()
+    tf = (type_filter or "").lower()
+    out = []
+    for x in items:
+        if tf and x["type"].lower() != tf:
+            continue
+        if words:
+            haystack = (x["name"] + " " + x.get("relative_file", "")).lower()
+            item_words = _fuzzy_words(x["name"]) + _fuzzy_words(x.get("relative_file", ""))
+            item_flat = " ".join(item_words)
+            if not all(w in haystack or w in item_flat for w in words):
+                continue
+        out.append(x)
+    # Score: items where more query words appear in the name rank higher.
+    if words:
+        def score(x):
+            name_low = x["name"].lower()
+            name_words = " ".join(_fuzzy_words(x["name"]))
+            hits = sum(1 for w in words if w in name_low or w in name_words)
+            return (-hits, x["name"].lower())
+        out.sort(key=score)
+    else:
+        out.sort(key=lambda x: x["name"].lower())
+    return {"total": len(out), "items": out[int(offset):int(offset) + int(limit)]}
+
+
+def files_payload():
+    data = _finder_data()
+    types = {}
+    for x in data.get("items", []):
+        t = x["type"]
+        types[t] = types.get(t, 0) + 1
+    return {"generated": data.get("generated"), "build": data.get("build"),
+            "total": len(data.get("items", [])), "types": types}
+
+
 HUD_SCAN_JSON = STATE_DIR / "hud_scan.json"
 HUD_GROUPS_JSON = STATE_DIR / "hud_groups.json"
 
@@ -8004,6 +8049,13 @@ class Handler(BaseHTTPRequestHandler):
             if not re.fullmatch(r"[0-9a-f]{16}\.jpg", name):
                 return self.send_error(403)
             return self.send_file(SKY_PREVIEWS / name, cache=True)
+        if path == "/api/files":
+            return self.send_json(files_payload())
+        if path == "/api/files/search":
+            qs = parse_qs(urlparse(self.path).query)
+            g = lambda k, d="": (qs.get(k) or [d])[0]
+            return self.send_json(files_search(g("q"), g("type"), int(g("offset", "0") or 0),
+                                               min(200, int(g("limit", "60") or 60))))
         if path == "/api/finder":
             return self.send_json(finder_payload())
         if path == "/api/hud":

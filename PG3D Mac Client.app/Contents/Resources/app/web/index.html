@@ -897,6 +897,17 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .fdItem .fdTag{position:absolute;top:8px;left:10px;font-size:10px;font-weight:800;background:rgba(0,0,0,.6);color:#fff;border-radius:5px;padding:1px 5px}
 .fdGui{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
 .fdItem.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}.fdItem.sel::after{content:"✓";position:absolute;top:8px;right:10px;color:var(--accent);font-weight:900}
+.flGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.flCard{background:hsl(var(--nh) var(--ns) 7%);border:1px solid var(--border);border-radius:10px;padding:6px;text-align:left;color:var(--text);position:relative}
+.flCard .flThumb{width:100%;height:100px;object-fit:contain;border-radius:6px;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 9%) 0 25%,hsl(var(--nh) var(--ns) 6%) 0 50%) 0 0/14px 14px;display:block}
+.flCard .flPlaceholder{width:100%;height:100px;border-radius:6px;background:hsl(var(--nh) var(--ns) 9%);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
+.flCard b{display:block;font-size:11px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flCard small{display:block;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flCard .flType{position:absolute;top:8px;right:8px;font-size:9px;font-weight:700;background:rgba(0,0,0,.65);color:var(--dim);border-radius:4px;padding:1px 5px}
+.flBar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.flBar .search{flex:1;min-width:180px}
+.flCount{font-size:12px;color:var(--muted)}
+.flMore{display:flex;justify-content:center;margin-top:12px}
 
 /* mods */
 .emState{font-size:12px;font-weight:700;color:var(--muted)}.emState.on{color:#9be7bd}.emState.err{color:#ff8e9c}.emState.wait{color:#ffd866}
@@ -974,6 +985,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="cursor"><span class="ico">⊕</span><span class="label">Cursor</span></button>
       <button data-tab="theme"><span class="ico">A</span><span class="label">Font</span></button>
       <button data-tab="skins"><span class="ico">◑</span><span class="label">Skins</span></button>
+      <button data-tab="files"><span class="ico">☰</span><span class="label">Files</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1301,6 +1313,22 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
+    <section class="page" id="page-files" hidden>
+      <div class="xPage">
+        <div class="crCard">
+          <div class="crCardHead"><div><h3>Game File Scanner</h3><p class="xNote" style="margin-top:4px">Browse and search every texture, sprite and cubemap in PG3D. Type partial names — each word is matched independently.</p></div><button class="btn" id="flScan">Scan game files</button></div>
+          <div class="xJob" id="flJob"><div class="msg"></div><div class="bar"><i></i></div></div>
+          <div class="flBar">
+            <input class="search" id="flSearch" placeholder="Search by name (e.g. gun blue scope)" spellcheck="false">
+            <select class="select" id="flType" style="width:auto;min-width:120px"><option value="">All types</option><option value="Texture2D">Texture2D</option><option value="Sprite">Sprite</option><option value="Cubemap">Cubemap</option></select>
+          </div>
+          <div class="flCount" id="flCount"></div>
+          <div class="flGrid" id="flGrid"></div>
+          <div class="flMore"><button class="btn ghost" id="flMore" hidden>Load more</button></div>
+        </div>
+      </div>
+    </section>
+
 
 
   </main>
@@ -1376,7 +1404,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',theme:'Font',skins:'Skins',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',theme:'Font',skins:'Skins',files:'Files',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 let netFails=0,netRecovering=false;
 async function netLost(){
@@ -1396,7 +1424,7 @@ function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Mat
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
 const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already applied stay); its code stays
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='skins')loadExistingSkins()}
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='skins')loadExistingSkins();if(tab==='files')FL.load()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -2074,11 +2102,11 @@ let lastJobPhase=null;
 function jobLine(j){const q=j.queue||[];let t=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');
   if(j.phase==='running'&&j.eta!=null&&j.eta>0)t+=` · about ${fmtEta(j.eta)} left`;if(q.length)t+=` · then: ${q.join(', ')}`;return t}
 function renderJob(){const j=statusData?.job;if(!j)return;const active=j.phase==='running'||j.phase==='waiting';
-  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#hdJob',['hud','scan','change','reapply','restore']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#txJob',['scan','sky','change']]]){const box=$(id);if(!box)continue;
+  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#hdJob',['hud','scan','change','reapply','restore']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#txJob',['scan','sky','change']],['#flJob',['scan']]]){const box=$(id);if(!box)continue;
     const mine=(kinds.includes(j.kind)&&(active||j.phase==='error'))||(j.queue||[]).length>0;box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
     box.querySelector('.msg').textContent=jobLine(j);box.querySelector('.bar i').style.width=(j.phase==='running'?j.progress||0:0)+'%'}
   const hint=$('#skHint');if(hint)hint.textContent=statusData.game_stuck?'PG3D is stuck in the background: quit it on the Play tab, then this applies.':statusData.game_running?'PG3D is open: your change is applied as soon as it closes.':active?'Changes you click now are queued and run one after another.':'';
-  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='hud')loadHud()}
+  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='hud')loadHud();if(localStorage.pg3dTab==='files'&&j.kind==='scan')FL.load()}
   if(fin||lastJobId===undefined)lastJobId=fin?j.id:null;lastJobPhase=j.phase}
 let lastJobId;
 
@@ -2546,6 +2574,72 @@ function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',pick
     toast(F.cat==='cursor'?`Your cursor now uses ${r.target}.`:r.applied?`Applying your ${F.cat==='sky'?'sky':'loading screen'} to the ${r.count} selected textures…`:`Saved. Pick a picture in the Loading tab and apply it; it goes onto these ${r.count} textures.`);await refreshStatus();scheduleStatus();loadSky()}catch(e){toast(e.message,true)}};
   return F}
 const TX=makeFinder('tx',['cursor']);
+
+/* ===== Files (game file scanner) ===== */
+const FL=(function(){
+  const F={data:null,items:[],total:0,req:0,loaded:false,observer:null};
+  F.load=async()=>{
+    if(!F.loaded){F.loaded=true;F._initObserver()}
+    try{F.data=await api('/api/files');F._renderInfo();await F.search(true)}catch(e){console.error(e)}
+  };
+  F._initObserver=()=>{
+    F.observer=new IntersectionObserver((entries)=>{
+      for(const e of entries){
+        if(!e.isIntersecting)continue;
+        const card=e.target;const url=card.dataset.thumb;if(!url)continue;
+        F.observer.unobserve(card);delete card.dataset.thumb;
+        const img=document.createElement('img');img.className='flThumb';img.alt='';
+        img.onload=()=>{const ph=card.querySelector('.flPlaceholder');if(ph)ph.replaceWith(img)};
+        img.onerror=()=>{const ph=card.querySelector('.flPlaceholder');if(ph)ph.textContent='No preview'};
+        img.src=url;
+      }
+    },{rootMargin:'300px'});
+  };
+  F._renderInfo=()=>{
+    const d=F.data;if(!d)return;
+    const c=$('#flCount');
+    if(!d.generated){c.textContent='No scan data yet. Press "Scan game files" to index PG3D\'s assets.';return}
+    c.textContent=`${d.total} files indexed · PG3D build ${d.build||'?'}`;
+  };
+  F.search=async(reset)=>{
+    const q=encodeURIComponent($('#flSearch').value||'');
+    const tf=encodeURIComponent($('#flType').value||'');
+    const off=reset?0:F.items.length;
+    const req=++F.req;
+    try{
+      const r=await api(`/api/files/search?q=${q}&type=${tf}&offset=${off}&limit=60`);
+      if(req!==F.req)return;
+      F.items=reset?r.items:F.items.concat(r.items);F.total=r.total;
+      F._render(reset);
+    }catch(e){console.error(e)}
+  };
+  F._card=x=>{
+    const d=document.createElement('div');d.className='flCard';d.title=`${x.name}\n${x.type} ${x.width}×${x.height}\n${x.relative_file} #${x.path_id}`;
+    const ph=document.createElement('div');ph.className='flPlaceholder';
+    ph.textContent=x.type==='Cubemap'?'Cubemap':`${x.width}×${x.height}`;
+    d.append(ph);
+    if(x.type!=='Cubemap'){d.dataset.thumb=`/api/finder/thumb/${x.gid}.jpg`;F.observer.observe(d)}
+    const tp=document.createElement('span');tp.className='flType';tp.textContent=x.type==='Texture2D'?'Tex2D':x.type;
+    const b=document.createElement('b');b.textContent=x.name||`#${x.path_id}`;
+    const sm=document.createElement('small');sm.textContent=`${x.width}×${x.height} · ${(x.relative_file||'').split('/').pop()}`;
+    d.append(tp,b,sm);return d;
+  };
+  F._render=reset=>{
+    const g=$('#flGrid');
+    if(reset){g.innerHTML='';g.scrollTop=0}
+    if(!F.data?.generated){g.innerHTML='';const e=document.createElement('div');e.className='xEmpty';e.textContent='Scan the game files first.';g.append(e);$('#flMore').hidden=true;return}
+    const have=g.querySelectorAll('.flCard').length;
+    F.items.slice(have).forEach(x=>g.append(F._card(x)));
+    if(!F.items.length&&!have){const e=document.createElement('div');e.className='xEmpty';e.textContent='No files match your search.';g.append(e)}
+    const c=$('#flCount');c.textContent=F.data?`${F.total} results · ${F.data.total} files indexed`:'';
+    $('#flMore').hidden=F.items.length>=F.total;$('#flMore').textContent=`Load more (${F.total-F.items.length} remaining)`;
+  };
+  let qT;$('#flSearch').oninput=()=>{clearTimeout(qT);qT=setTimeout(()=>F.search(true),300)};
+  $('#flType').onchange=()=>F.search(true);
+  $('#flMore').onclick=()=>F.search(false);
+  $('#flScan').onclick=async()=>{try{await post('/api/finder/scan',{});toast('Scanning PG3D\'s files… this takes a few minutes.')}catch(e){toast(e.message,true)}};
+  return F;
+})();
 
 (function(){try{const hz=window.screen?.refreshRate||window.screen?.mozRefreshRate;if(hz&&hz>60){const o=$('#fpsAutoOpt');if(o)o.textContent=`Auto (${hz} Hz)`}}catch{}})();
 </script>
