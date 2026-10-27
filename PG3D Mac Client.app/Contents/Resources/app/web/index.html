@@ -933,6 +933,32 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .emStealItem img{width:28px;height:28px;object-fit:contain;flex-shrink:0;border-radius:4px}
 .emStealItem.busy{opacity:.5;pointer-events:none}
 /* cheats */
+
+/* v1.77 Skin Importer */
+.skinPage{display:grid;gap:14px;max-width:1040px}
+.skinDropZone{border:2px dashed hsl(var(--nh) var(--ns) 20%);border-radius:16px;padding:40px 20px;text-align:center;cursor:pointer;transition:.15s ease;background:hsl(var(--nh) var(--ns) 4%)}
+.skinDropZone:hover,.skinDropZone.over{border-color:var(--accent);background:hsl(var(--ah) calc(60% * var(--as)) 20% / .1)}
+.skinDropZone b{display:block;font-size:15px;color:#f5f5ff;margin-bottom:4px}
+.skinDropZone span{font-size:12px;color:var(--muted)}
+.skinQueue{display:grid;gap:8px}
+.skinItem{display:grid;grid-template-columns:64px 64px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid hsl(var(--nh) var(--ns) 18%);border-radius:12px;background:hsl(var(--nh) var(--ns) 6%)}
+.skinItem img,.skinItem canvas{width:64px;height:32px;image-rendering:pixelated;border-radius:4px;border:1px solid hsl(var(--nh) var(--ns) 14%);background:hsl(var(--nh) var(--ns) 3%)}
+.skinMeta{min-width:0}.skinMeta input{width:100%;height:32px;padding:0 8px;border-radius:8px;border:1px solid hsl(var(--nh) var(--ns) 20%);background:hsl(var(--nh) var(--ns) 4%);color:#f5f5ff;font-size:13px;outline:0}
+.skinMeta input:focus{border-color:var(--accent)}
+.skinMeta small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.skinActions{display:flex;gap:6px}
+.skinRemove{width:32px;height:32px;border-radius:8px;border:1px solid #3a2a2e;background:#1a0d10;color:#e8a3ae;cursor:pointer;font-size:15px;display:grid;place-items:center}
+.skinRemove:hover{background:#2a1218;border-color:#5a2a33}
+.skinBar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.skinCount{font-size:12px;color:var(--muted)}
+.skinCount b{color:#f5f5ff}
+.skinExisting{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px}
+.skinExCard{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border:1px solid hsl(var(--nh) var(--ns) 16%);border-radius:10px;background:hsl(var(--nh) var(--ns) 5%);text-align:center}
+.skinExCard img{width:64px;height:32px;image-rendering:pixelated;border-radius:3px}
+.skinExCard span{font-size:11px;color:#c3c8cf;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.skinExCard button{font-size:10px;padding:2px 8px;border-radius:6px;border:1px solid #3a2a2e;background:#1a0d10;color:#e8a3ae;cursor:pointer}
+.skinExCard button:hover{background:#2a1218}
+.skinRegBtn{height:36px;padding:0 14px;font-size:12.5px}
 </style>
 </head>
 <body>
@@ -947,6 +973,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="hud"><span class="ico">⊞</span><span class="label">HUD</span></button>
       <button data-tab="cursor"><span class="ico">⊕</span><span class="label">Cursor</span></button>
       <button data-tab="theme"><span class="ico">A</span><span class="label">Font</span></button>
+      <button data-tab="skins"><span class="ico">◑</span><span class="label">Skins</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1254,7 +1281,25 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-
+    <section class="page" id="page-skins">
+      <div class="skinPage">
+        <div class="crCard">
+          <div class="crCardHead"><h3>Import Minecraft Skins</h3><span>64×64 or 64×32 PNG → PG3D format</span></div>
+          <div class="skinDropZone" id="skinDropZone"><b>Drop Minecraft skin PNGs here</b><span>or click to browse files</span><input type="file" id="skinFileInput" accept="image/png" multiple hidden></div>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn skinRegBtn" id="skinImportReg">Import from .reg file</button><input type="file" id="skinRegInput" accept=".reg" hidden></div>
+        </div>
+        <div class="crCard" id="skinQueueCard" hidden>
+          <div class="skinBar"><div class="crCardHead"><h3>Queue</h3><span class="skinCount" id="skinQueueCount"></span></div><div style="display:flex;gap:8px"><button class="btn" id="skinClearAll">Clear all</button><button class="btn primary" id="skinApplyAll">Add all to game</button></div></div>
+          <div class="skinQueue" id="skinQueue"></div>
+        </div>
+        <div class="crCard" id="skinExistingCard">
+          <div class="crCardHead"><h3>Skins in game</h3><span id="skinExistingCount"></span></div>
+          <div class="skinExisting" id="skinExistingGrid"></div>
+          <div id="skinExistingEmpty" style="color:var(--muted);font-size:12px;padding:8px 0">No custom skins found. Import some above, or start PG3D once so the client can find its preferences.</div>
+          <div style="margin-top:10px"><button class="btn danger" id="skinRemoveAll" hidden>Remove all skins</button></div>
+        </div>
+      </div>
+    </section>
 
 
 
@@ -1331,7 +1376,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',theme:'Font',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',theme:'Font',skins:'Skins',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 let netFails=0,netRecovering=false;
 async function netLost(){
@@ -1351,7 +1396,7 @@ function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Mat
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
 const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already applied stay); its code stays
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load()}
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='skins')loadExistingSkins()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -1474,6 +1519,151 @@ $('#resetCursor').onclick=async()=>{if(curTarget!=='cursor'){try{await post('/ap
 $('#redetectCursor').onclick=async()=>{try{await post('/api/cursor/redetect');toast('Re-detecting cursor…');setTimeout(refreshStatus,700)}catch(e){toast(e.message,true)}};
 $('#importCursor').onclick=()=>$('#cursorFile').click();
 $('#cursorFile').onchange=e=>{const f=e.target.files?.[0];if(!f)return;if(f.type!=='image/png'){toast('Use a PNG file.',true);return}const rd=new FileReader();const role=curTarget;rd.onload=async()=>{if(role!=='cursor'){try{const d=await post('/api/sprites/install',{role,data:rd.result,name:f.name});roleSel[role]=d.id;try{localStorage.pg3dRoleSel=JSON.stringify(roleSel)}catch{}await loadSprites();toast('Installed. Press Apply to use it in game.')}catch(err){toast(err.message,true)}return}try{await post('/api/cursor/custom',{data:rd.result});selectedCursor='custom';localStorage.pg3dCursor='custom';lastPreviewKey='';await refreshStatus();renderCursorGrid();updateCursorPanel();toast('Custom cursor imported.')}catch(err){toast(err.message,true)}};rd.readAsDataURL(f);e.target.value=''};
+
+// Skin Importer
+const skinQueue=[];
+let skinIdCounter=Date.now();
+function skinId(){return String(skinIdCounter++)}
+
+function snapshotRect(data,width,x,y,w,h){const s=new Uint8ClampedArray(w*h*4);for(let r=0;r<h;r++){const o=((y+r)*width+x)*4;s.set(data.subarray(o,o+w*4),r*w*4)}return s}
+function pasteOpaquePixels(data,width,sx,sy,dx,dy,w,h){const s=snapshotRect(data,width,sx,sy,w,h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;if(s[i+3]===255){const d=((dy+y)*width+(dx+x))*4;data[d]=s[i];data[d+1]=s[i+1];data[d+2]=s[i+2];data[d+3]=255}}}
+function pasteOpaquePixelsFlipX(data,width,sx,sy,dx,dy,w,h){const s=snapshotRect(data,width,sx,sy,w,h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;if(s[i+3]===255){const d=((dy+y)*width+(dx+(w-1-x)))*4;data[d]=s[i];data[d+1]=s[i+1];data[d+2]=s[i+2];data[d+3]=255}}}
+function clearRect(data,width,x0,y0,w,h){for(let y=y0;y<y0+h;y++)for(let x=x0;x<x0+w;x++)data[(y*width+x)*4+3]=0}
+function isLimbSlotAlready4px(data,width,ox,oy){const x=ox+14;let c=0;for(let i=0;i<12;i++)if(data[((oy+4+i)*width+x)*4+3]>=128)c++;return c/12>=.8}
+function pasteMirroredLimbBlock(data,width,sx,sy,dx,dy,fW,depth,sH){pasteOpaquePixelsFlipX(data,width,sx+depth,sy,dx+depth,dy,fW,depth);pasteOpaquePixelsFlipX(data,width,sx+depth+fW,sy,dx+depth+fW,dy,fW,depth);pasteOpaquePixelsFlipX(data,width,sx+depth+fW,sy+depth,dx,dy+depth,depth,sH);pasteOpaquePixelsFlipX(data,width,sx,sy+depth,dx+depth+fW,dy+depth,depth,sH);pasteOpaquePixelsFlipX(data,width,sx+depth,sy+depth,dx+depth,dy+depth,fW,sH);pasteOpaquePixelsFlipX(data,width,sx+depth+fW+depth,sy+depth,dx+depth+fW+depth,dy+depth,fW,sH)}
+
+function processSkinData(base64){
+  return new Promise(resolve=>{
+    const img=new Image();img.src='data:image/png;base64,'+base64;
+    img.onload=()=>{
+      const w=img.width,h=img.height,cv=document.createElement('canvas');
+      cv.width=w;cv.height=h;const ctx=cv.getContext('2d');ctx.drawImage(img,0,0);
+      const d=ctx.getImageData(0,0,w,h).data;
+      if(h>=64){
+        // layer overlay: head
+        pasteOpaquePixels(d,w,32,0,0,0,32,16);
+        // body
+        pasteOpaquePixels(d,w,16,32,16,16,24,16);
+        // right arm overlay
+        pasteOpaquePixels(d,w,40,32,40,16,14,16);
+        // right leg overlay
+        pasteOpaquePixels(d,w,0,32,0,16,16,16);
+        // arm source (right)
+        // leg source (right) — defaults, no flip needed
+      }
+      // arm 3px→4px auto-detect
+      if(!isLimbSlotAlready4px(d,w,40,16)){
+        pasteOpaquePixels(d,w,45,20,46,20,9,12);
+        pasteOpaquePixels(d,w,53,20,54,20,6,16);
+        pasteOpaquePixels(d,w,45,16,46,16,5,4);
+        pasteOpaquePixels(d,w,49,16,50,16,2,4);
+      }
+      // arm top flip
+      pasteOpaquePixelsFlipX(d,w,44,16,44,16,4,4);
+      // trim to 64×32
+      const out=new Uint8ClampedArray(64*32*4);
+      for(let r=0;r<Math.min(32,h);r++){const s=r*w*4;out.set(d.subarray(s,s+Math.min(64,w)*4),r*64*4)}
+      const oc=document.createElement('canvas');oc.width=64;oc.height=32;
+      oc.getContext('2d').putImageData(new ImageData(out,64,32),0,0);
+      resolve(oc.toDataURL('image/png').split(',')[1]);
+    };
+    img.onerror=()=>resolve(null);
+  });
+}
+
+function skinThumb(base64,size=64){const img=document.createElement('img');img.src='data:image/png;base64,'+base64;img.style.cssText=`width:${size}px;height:${size/2}px;image-rendering:pixelated`;return img}
+
+function renderSkinQueue(){
+  const el=$('#skinQueue'),card=$('#skinQueueCard'),count=$('#skinQueueCount');
+  if(!skinQueue.length){card.hidden=true;return}
+  card.hidden=false;count.innerHTML=`<b>${skinQueue.length}</b> skin${skinQueue.length>1?'s':''}`;
+  el.innerHTML='';
+  skinQueue.forEach((s,i)=>{
+    const row=document.createElement('div');row.className='skinItem';
+    const orig=document.createElement('img');orig.src='data:image/png;base64,'+s.sourceBase64;
+    const proc=document.createElement('img');proc.src='data:image/png;base64,'+s.processedBase64;
+    const meta=document.createElement('div');meta.className='skinMeta';
+    const inp=document.createElement('input');inp.value=s.name;inp.placeholder='Skin name';
+    inp.oninput=()=>{s.name=inp.value};
+    const info=document.createElement('small');info.textContent=s.sourceSize;
+    meta.append(inp,info);
+    const acts=document.createElement('div');acts.className='skinActions';
+    const rm=document.createElement('button');rm.className='skinRemove';rm.textContent='✕';
+    rm.onclick=()=>{skinQueue.splice(i,1);renderSkinQueue()};
+    acts.append(rm);
+    row.append(orig,proc,meta,acts);el.append(row);
+  });
+}
+
+async function addSkinFiles(files){
+  for(const f of files){
+    if(f.type!=='image/png'){toast(`${f.name}: not a PNG`,true);continue}
+    const b64=await new Promise(r=>{const rd=new FileReader();rd.onload=()=>r(rd.result.split(',')[1]);rd.readAsDataURL(f)});
+    const img=new Image();await new Promise(r=>{img.src='data:image/png;base64,'+b64;img.onload=r;img.onerror=r});
+    if((img.width!==64)||(img.height!==64&&img.height!==32)){toast(`${f.name}: must be 64×64 or 64×32`,true);continue}
+    const processed=await processSkinData(b64);
+    if(!processed){toast(`${f.name}: processing failed`,true);continue}
+    skinQueue.push({id:skinId(),name:f.name.replace(/\.png$/i,''),sourceBase64:b64,processedBase64:processed,sourceSize:`${img.width}×${img.height}`});
+  }
+  renderSkinQueue();
+}
+
+$('#skinDropZone').onclick=()=>$('#skinFileInput').click();
+$('#skinFileInput').onchange=e=>{if(e.target.files.length)addSkinFiles([...e.target.files]);e.target.value=''};
+$('#skinDropZone').ondragover=e=>{e.preventDefault();$('#skinDropZone').classList.add('over')};
+$('#skinDropZone').ondragleave=()=>$('#skinDropZone').classList.remove('over');
+$('#skinDropZone').ondrop=e=>{e.preventDefault();$('#skinDropZone').classList.remove('over');const files=[...e.dataTransfer.files].filter(f=>f.type==='image/png');if(files.length)addSkinFiles(files);else toast('Drop PNG files',true)};
+
+$('#skinClearAll').onclick=()=>{skinQueue.length=0;renderSkinQueue()};
+$('#skinApplyAll').onclick=async()=>{
+  if(!skinQueue.length)return;
+  try{
+    const skins=skinQueue.map(s=>({id:s.id,name:s.name,data:s.processedBase64}));
+    const r=await post('/api/skins/apply',{skins});
+    toast(`${r.count} skin${r.count>1?'s':''} added to game (${r.total} total).`);
+    skinQueue.length=0;renderSkinQueue();loadExistingSkins();
+  }catch(e){toast(e.message,true)}
+};
+
+$('#skinImportReg').onclick=()=>$('#skinRegInput').click();
+$('#skinRegInput').onchange=async e=>{
+  const f=e.target.files?.[0];e.target.value='';if(!f)return;
+  try{
+    const text=await f.text();
+    const skinHex=text.match(/"User Skins_h\d+"=hex:([0-9a-f,\s\\]+)/i);
+    const nameHex=text.match(/"User Name Skins_h\d+"=hex:([0-9a-f,\s\\]+)/i);
+    if(!skinHex)throw new Error('No skin data found in .reg file');
+    function hexToObj(h){const bytes=h.replace(/\\\r?\n\s*/g,'').split(',').map(x=>x.trim()).filter(x=>x).map(x=>parseInt(x,16)).filter(x=>!isNaN(x));while(bytes.length&&bytes[bytes.length-1]===0)bytes.pop();return JSON.parse(new TextDecoder().decode(new Uint8Array(bytes)))}
+    const skinMap=hexToObj(skinHex[1]);
+    const nameMap=nameHex?hexToObj(nameHex[1]):{};
+    let count=0;
+    for(const[id,data]of Object.entries(skinMap)){
+      if(!data)continue;
+      skinQueue.push({id,name:nameMap[id]||`Skin ${id}`,sourceBase64:data,processedBase64:data,sourceSize:'imported'});
+      count++;
+    }
+    renderSkinQueue();toast(`Imported ${count} skin${count>1?'s':''} from .reg file.`);
+  }catch(err){toast(err.message,true)}
+};
+
+async function loadExistingSkins(){
+  try{
+    const r=await api('/api/skins');
+    const grid=$('#skinExistingGrid'),empty=$('#skinExistingEmpty'),count=$('#skinExistingCount'),rmAll=$('#skinRemoveAll');
+    grid.innerHTML='';
+    if(!r.skins.length){empty.hidden=false;rmAll.hidden=true;count.textContent=r.domain?'':'No PG3D preferences found';return}
+    empty.hidden=true;rmAll.hidden=r.skins.length<2;
+    count.textContent=`${r.skins.length} skin${r.skins.length>1?'s':''}`;
+    r.skins.forEach(s=>{
+      const card=document.createElement('div');card.className='skinExCard';
+      const name=document.createElement('span');name.textContent=s.name||s.id;
+      const rm=document.createElement('button');rm.textContent='Remove';
+      rm.onclick=async()=>{try{await post('/api/skins/remove',{id:s.id});toast('Skin removed.');loadExistingSkins()}catch(e){toast(e.message,true)}};
+      card.append(name,rm);grid.append(card);
+    });
+  }catch(e){$('#skinExistingEmpty').textContent=e.message;$('#skinExistingEmpty').hidden=false}
+}
+$('#skinRemoveAll').onclick=async()=>{if(!confirm('Remove all custom skins from PG3D?'))return;try{await post('/api/skins/remove-all');toast('All skins removed.');loadExistingSkins()}catch(e){toast(e.message,true)}};
 
 // Accounts
 function renderSelectedAccount(){const info=statusData?.accounts,box=$('#selectedAccount');if(!info){return}const a=info.accounts?.find(x=>x.steamid64===info.selected);if(!a){box.innerHTML='<div class="accountInfo"><b>No Steam account</b></div>';return}const name=displayName(a);box.innerHTML=`<div class="avatar"></div><div class="accountInfo"><b></b><small></small></div><button class="btn ghost" id="changeAccount">Change</button>`;box.querySelector('.avatar').textContent=(name[0]||'?').toUpperCase();box.querySelector('b').textContent=name;box.querySelector('small').textContent=(a.nickname?`${a.persona_name} · ${a.account_name}`:a.account_name)+(a.credentials_saved?' · saved login':'');$('#changeAccount').onclick=()=>setTab('accounts')}

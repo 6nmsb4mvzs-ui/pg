@@ -179,27 +179,30 @@ static bool find_game_assembly(void) {
 }
 
 static bool wrapper_matches_binding(const uint8_t *wrapper, const char *binding_name) {
-    // All Unity IL2CPP icall wrappers in this supported build begin with a lazy
-    // cached function-pointer lookup. Validate it and then validate the exact
-    // resolver string before redirecting the cache slot.
-    static const uint8_t prefix[] = {
-        0x48, 0x8B, 0x05, 0x00, 0x00, 0x00, 0x00,
-        0x48, 0x85, 0xC0, 0x74, 0x02, 0xFF, 0xE0,
-        0x55, 0x48, 0x89, 0xE5, 0x53, 0x50, 0x48, 0x8D, 0x05,
-    };
-    if (memcmp(wrapper, prefix, 3) != 0 ||
-        memcmp(wrapper + 7, prefix + 7, sizeof(prefix) - 7) != 0) {
+    // The wrapper starts with mov rax, [rip+disp32] (the cached function pointer
+    // load). Somewhere in the next ~80 bytes a LEA with a RIP-relative operand
+    // points to the binding name string that il2cpp_resolve_icall will be called
+    // with. Older builds (151027) had a rigid 23-byte prefix; newer IL2CPP versions
+    // rearrange the prologue, so we scan for any LEA reg, [rip+disp32] whose
+    // displacement resolves to the exact binding name.
+    if (wrapper[0] != 0x48 || wrapper[1] != 0x8B || wrapper[2] != 0x05) {
         return false;
     }
-
-    int32_t string_displacement;
-    memcpy(&string_displacement, wrapper + 23, sizeof(string_displacement));
-    const char *resolved_name = (const char *)(wrapper + 27 + string_displacement);
     const size_t expected_length = strlen(binding_name);
-    if (!range_is_inside_image((uintptr_t)resolved_name, expected_length + 1)) {
-        return false;
+    const size_t window = 80;
+    for (size_t i = 7; i + 7 <= window; i++) {
+        // LEA with RIP-relative: REX.W (0x48 or 0x4C) + 0x8D + modrm with mod=00 rm=101
+        uint8_t b0 = wrapper[i];
+        if (b0 != 0x48 && b0 != 0x4C) continue;
+        if (wrapper[i + 1] != 0x8D) continue;
+        if ((wrapper[i + 2] & 0xC7) != 0x05) continue;
+        int32_t displacement;
+        memcpy(&displacement, wrapper + i + 3, sizeof(displacement));
+        const char *candidate = (const char *)(wrapper + i + 7 + displacement);
+        if (!range_is_inside_image((uintptr_t)candidate, expected_length + 1)) continue;
+        if (memcmp(candidate, binding_name, expected_length + 1) == 0) return true;
     }
-    return memcmp(resolved_name, binding_name, expected_length + 1) == 0;
+    return false;
 }
 
 // Newer builds move the wrappers. Find the one whose lazy-lookup code names
@@ -210,7 +213,7 @@ static uintptr_t scan_for_wrapper(const char *binding_name) {
         return 0;
     }
     const uint8_t *cursor = (const uint8_t *)g_text_start;
-    const uint8_t *end = (const uint8_t *)g_text_end - 32;
+    const uint8_t *end = (const uint8_t *)g_text_end - 88;
     while (cursor < end) {
         const uint8_t *hit = memchr(cursor, 0x48, (size_t)(end - cursor));
         if (hit == NULL) {
@@ -316,7 +319,6 @@ static double seconds_between(struct timespec start, struct timespec end) {
 }
 
 static bool g_enforce_only;
-static bool g_unsupported;  // no hookable wrapper: the unlocker leaves the game alone
 
 static void tune_engine(void) {
     void (*warmup)(void) = (void (*)(void))g_resolve_icall(
@@ -423,15 +425,10 @@ static void adaptive_cap_tick(void) {
 }
 
 static bool initialize_bindings(void) {
-    // Redirect the icall wrappers so the game can't lower the target. Builds compiled
-    // differently have no wrapper we recognise; then nothing is changed.
+    // Redirect the icall wrappers so the game can't lower the target. When the
+    // wrapper pattern isn't found the enforce-only path calls the resolved icalls
+    // directly every 250 ms instead.
     const bool have_hook = prepare_override(&g_target_frame_rate);
-    if (!have_hook && g_target_frame_rate.scanned && !g_observe_only) {
-        // No hookable wrapper. Calling Unity's setters/getters from this timer
-        // instead crashed PG3D (build 156210+), so stay out of the game entirely.
-        g_unsupported = true;
-        return false;
-    }
     if (g_resolve_icall == NULL) {
         return false;
     }
@@ -540,12 +537,6 @@ static void retry_installation(void) {
     ++g_retry_count;
     if ((g_image_start != 0 || find_game_assembly()) && initialize_bindings()) {
         g_active = true;
-        return;
-    }
-    if (g_unsupported) {
-        log_message("frame-rate hook not found in this build; FPS unlocker inactive "
-                    "(PG3D runs at its own frame rate).");
-        dispatch_source_cancel(g_retry_timer);
         return;
     }
     if (g_retry_count >= kRetryLimit) {
