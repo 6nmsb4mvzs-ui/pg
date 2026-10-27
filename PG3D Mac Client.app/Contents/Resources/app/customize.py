@@ -862,6 +862,27 @@ def finder_thumb(source_file, path_id, out: Path, env_cache):
     bg.save(out, "JPEG", quality=78)
 
 
+def finder_full(source_file, path_id, out: Path, env_cache):
+    """Full-size PNG of one texture, made on demand."""
+    import UnityPy
+
+    env = env_cache.get(source_file)
+    if env is None:
+        env = UnityPy.load(source_file)
+        env_cache[source_file] = env
+        while len(env_cache) > 2:
+            env_cache.pop(next(iter(env_cache)))
+    reader = next((o for o in env.objects if int(o.path_id) == int(path_id)), None)
+    if reader is None:
+        raise FileNotFoundError(path_id)
+    data = reader.parse_as_object()
+    if reader.type.name == "Cubemap":
+        raise ValueError("cubemap")
+    img = data.image.convert("RGBA")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    img.save(out, "PNG")
+
+
 # ----------------------------------------------------------------------------- HUD layout scan
 # Resizing the HUD means changing the size/scale of its layout objects, not its pictures.
 # PG3D's in-match HUD may use NGUI (plain Transforms + UIWidget/UISprite scripts) rather

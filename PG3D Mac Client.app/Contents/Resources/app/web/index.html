@@ -908,6 +908,19 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .flBar .search{flex:1;min-width:180px}
 .flCount{font-size:12px;color:var(--muted)}
 .flMore{display:flex;justify-content:center;margin-top:12px}
+.flCard{cursor:pointer}.flCard:hover{border-color:var(--accent)}
+.flModal{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .15s}
+.flModal.open{opacity:1;pointer-events:auto}
+.flModal img{max-width:90vw;max-height:70vh;object-fit:contain;border-radius:8px;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 12%) 0 25%,hsl(var(--nh) var(--ns) 8%) 0 50%) 0 0/16px 16px}
+.flModal .flMInfo{color:#fff;font-size:13px;margin-top:10px;text-align:center;max-width:80vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flModal .flMSub{color:var(--muted);font-size:11px;margin-top:2px}
+.flModal .flMBar{display:flex;gap:8px;margin-top:14px}
+.flModal .flMBar button{padding:6px 18px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer}
+.flModal .flMDl{background:var(--accent);color:#fff}
+.flModal .flMDl:hover{filter:brightness(1.15)}
+.flModal .flMClose{background:hsl(var(--nh) var(--ns) 15%);color:var(--text)}
+.flModal .flMClose:hover{background:hsl(var(--nh) var(--ns) 20%)}
+.flModal .flMSpinner{color:var(--muted);font-size:12px;margin-top:12px}
 
 /* mods */
 .emState{font-size:12px;font-weight:700;color:var(--muted)}.emState.on{color:#9be7bd}.emState.err{color:#ff8e9c}.emState.wait{color:#ffd866}
@@ -1329,7 +1342,16 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-
+    <div class="flModal" id="flModal">
+      <img id="flMImg" alt="">
+      <div class="flMInfo" id="flMName"></div>
+      <div class="flMSub" id="flMDetail"></div>
+      <div class="flMSpinner" id="flMSpinner">Loading full size…</div>
+      <div class="flMBar">
+        <button class="flMDl" id="flMDl">Download PNG</button>
+        <button class="flMClose" id="flMCloseBtn">Close</button>
+      </div>
+    </div>
 
   </main>
 </div>
@@ -2622,7 +2644,9 @@ const FL=(function(){
     const tp=document.createElement('span');tp.className='flType';tp.textContent=x.type==='Texture2D'?'Tex2D':x.type;
     const b=document.createElement('b');b.textContent=x.name||`#${x.path_id}`;
     const sm=document.createElement('small');sm.textContent=`${x.width}×${x.height} · ${(x.relative_file||'').split('/').pop()}`;
-    d.append(tp,b,sm);return d;
+    d.append(tp,b,sm);
+    d.addEventListener('click',()=>F._openModal(x));
+    return d;
   };
   F._render=reset=>{
     const g=$('#flGrid');
@@ -2634,6 +2658,33 @@ const FL=(function(){
     const c=$('#flCount');c.textContent=F.data?`${F.total} results · ${F.data.total} files indexed`:'';
     $('#flMore').hidden=F.items.length>=F.total;$('#flMore').textContent=`Load more (${F.total-F.items.length} remaining)`;
   };
+  F._modalItem=null;
+  F._openModal=x=>{
+    F._modalItem=x;
+    const m=$('#flModal'),img=$('#flMImg'),sp=$('#flMSpinner');
+    $('#flMName').textContent=x.name||`#${x.path_id}`;
+    $('#flMDetail').textContent=`${x.type} · ${x.width}×${x.height} · ${(x.relative_file||'').split('/').pop()}`;
+    img.style.display='none';sp.style.display='';
+    img.onload=()=>{img.style.display='';sp.style.display='none'};
+    img.onerror=()=>{sp.textContent='Preview not available'};
+    if(x.type==='Cubemap'){img.style.display='none';sp.textContent='Cubemaps cannot be previewed';$('#flMDl').style.display='none'}
+    else{$('#flMDl').style.display='';img.src=`/api/finder/full/${x.gid}.png`}
+    m.classList.add('open');
+  };
+  F._closeModal=()=>{
+    const m=$('#flModal');m.classList.remove('open');
+    $('#flMImg').src='';F._modalItem=null;
+  };
+  F._download=()=>{
+    const x=F._modalItem;if(!x)return;
+    const a=document.createElement('a');a.href=`/api/finder/full/${x.gid}.png`;
+    a.download=`${(x.name||'texture').replace(/[^\w\-. ]/g,'_')}.png`;
+    document.body.append(a);a.click();a.remove();
+  };
+  $('#flMCloseBtn').onclick=()=>F._closeModal();
+  $('#flMDl').onclick=()=>F._download();
+  $('#flModal').onclick=e=>{if(e.target.id==='flModal')F._closeModal()};
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')F._closeModal()});
   let qT;$('#flSearch').oninput=()=>{clearTimeout(qT);qT=setTimeout(()=>F.search(true),300)};
   $('#flType').onchange=()=>F.search(true);
   $('#flMore').onclick=()=>F.search(false);

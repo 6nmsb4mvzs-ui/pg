@@ -5349,6 +5349,27 @@ def finder_thumb_path(gid):
     return out
 
 
+FINDER_FULL = RUNTIME / "finder_full"
+_FINDER_FULL_LOCK = threading.Lock()
+
+
+def finder_full_path(gid):
+    items = _finder_data().get("items", [])
+    if not 0 <= gid < len(items):
+        return None, None
+    x = items[gid]
+    out = FINDER_FULL / f"{gid}.png"
+    if out.exists():
+        return out, x["name"]
+    with _FINDER_FULL_LOCK:
+        if not out.exists():
+            try:
+                customize.finder_full(x["source_file"], x["path_id"], out, _FINDER_ENVS)
+            except Exception:
+                return None, None
+    return out, x["name"]
+
+
 def _fuzzy_words(text):
     """Split camelCase/snake_case/kebab into lowercase words for matching."""
     parts = re.sub(r"([a-z])([A-Z])", r"\1 \2", text or "")
@@ -5623,6 +5644,7 @@ def start_finder_scan():
         files = candidate_files(app / "Contents/Resources/Data", deep=True) + external_bundle_files(refresh=True)
         items = customize.finder_scan(files, app, progress, log)
         shutil.rmtree(FINDER_THUMBS, ignore_errors=True)
+        shutil.rmtree(FINDER_FULL, ignore_errors=True)
         _FINDER_ENVS.clear()
         write_json(FINDER_JSON, {"generated": datetime.now().isoformat(timespec="seconds"),
                                  "build": plist_value(app / "Contents/Info.plist", "CFBundleVersion"), "items": items})
@@ -8072,6 +8094,22 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_error(403)
             t = finder_thumb_path(int(m.group(1)))
             return self.send_file(t) if t else self.send_error(404)
+        if path.startswith("/api/finder/full/"):
+            m = re.fullmatch(r"/api/finder/full/(\d{1,6})\.png", path)
+            if not m:
+                return self.send_error(403)
+            fp, name = finder_full_path(int(m.group(1)))
+            if not fp:
+                return self.send_error(404)
+            data = fp.read_bytes()
+            safe = re.sub(r'[^\w\-. ]', '_', name or 'texture')
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Disposition", f'attachment; filename="{safe}.png"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         if path == "/api/cursor/candidates":
             return self.send_json(cursor_candidates_payload())
         if path.startswith("/api/cursor/candidate/"):
