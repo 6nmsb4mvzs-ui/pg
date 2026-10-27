@@ -43,7 +43,7 @@ from Cocoa import (
 
 BG_PAD_X, BG_PAD_Y, BG_ALPHA = 12, 9, 0.46  # overlay background card
 NSApplication.sharedApplication().setActivationPolicy_(NSApplicationActivationPolicyAccessory)
-from Foundation import NSObject, NSTimer
+from Foundation import NSObject, NSPointInRect, NSTimer
 import Quartz
 import objc
 
@@ -618,7 +618,10 @@ class MusicView(NSView):
 
 class DragBox(NSView):
     controller=objc.ivar(); target=objc.ivar(); drag_start=objc.ivar(); origin=objc.ivar()
-    def hitTest_(self, point):return self
+    def hitTest_(self, point):
+        local=self.convertPoint_fromView_(point, self.superview())
+        if NSPointInRect(local, self.bounds()):return self
+        return None
     def mouseDown_(self,event):
         self.drag_start=event.locationInWindow(); self.origin=self.frame().origin
     def mouseDragged_(self,event):
