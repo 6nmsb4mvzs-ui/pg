@@ -1,5 +1,5 @@
 // PG3D mouse fix. PG3D Mac Client loads this into Pixel Gun 3D (DYLD_INSERT_LIBRARIES).
-// It works around two macOS input bugs in the game itself:
+// It works around macOS input bugs in the game itself:
 //   1. PG3D locks the system cursor in the middle of the screen and draws its own cursor,
 //      but macOS sometimes keeps showing the system arrow there.
 //   2. Clicks only register on the second press when the game window has lost key status.
@@ -36,7 +36,7 @@ extern int clock_gettime(int clock_id, struct timespec_ *tp);
 
 extern int32_t CGAssociateMouseAndMouseCursorPosition(uint32_t connected);
 extern int32_t CGDisplayHideCursor(uint32_t display);
-extern int32_t CGCursorIsVisible(void);  // deprecated but still answers on current macOS
+extern int32_t CGCursorIsVisible(void);
 extern int32_t CGDisplayShowCursor(uint32_t display);
 extern uint32_t CGMainDisplayID(void);
 typedef void *CGEventSourceRef;
@@ -54,15 +54,18 @@ extern uint64_t dispatch_time(uint64_t when, int64_t delta);
 
 enum { kTickMs = 100 };
 static const uint64_t kMouseDownMask = (1ULL << 1) | (1ULL << 3) | (1ULL << 25);
+// mouseMoved events let us force-hide the cursor whenever the mouse moves while locked
+static const uint64_t kMouseMovedMask = (1ULL << 5) | (1ULL << 6) | (1ULL << 27);
 
 static volatile bool g_locked;       // the game disassociated the mouse (cursor locked)
-static bool g_we_hid;                // we hold one CGDisplayHideCursor of our own
-static unsigned g_extra_hides;       // extra hides needed to beat a stuck show count
+static bool g_we_hid;                // we hold CGDisplayHideCursor calls
+static unsigned g_cg_hide_depth;     // how many unbalanced CGDisplayHideCursor calls we hold
 static bool g_was_active;
 static bool g_monitor_installed;
+static bool g_move_monitor_installed;
 static unsigned g_click_fixes;
 static unsigned g_kicks;
-static unsigned g_mid_game_fixes;
+static unsigned g_force_hides;
 
 static void note(const char *format, unsigned value) {
     fprintf(stderr, "[PG3D Mouse Fix pid=%d] ", getpid());
@@ -76,28 +79,62 @@ static id shared_app(void) {
     return cls ? MSG(id)((id)cls, SEL_("sharedApplication")) : NULL;
 }
 
-// Keep the system cursor hidden while the game has it locked and PG3D is in front.
+// Hide the cursor using both NSCursor and CGDisplay APIs.
+// NSCursor's hide is a separate counter from CGDisplay's; both need to agree
+// for the cursor to actually be invisible.
+static void force_hide_cursor(void) {
+    uint32_t display = CGMainDisplayID();
+    // CG-level: ensure at least one hide call is outstanding
+    if (!g_we_hid) {
+        CGDisplayHideCursor(display);
+        g_we_hid = true;
+        g_cg_hide_depth = 1;
+    }
+    // If the cursor is still showing despite our hide, WindowServer's internal
+    // show count is ahead of us.  Push extra hides to catch up.
+    if (CGCursorIsVisible()) {
+        CGDisplayHideCursor(display);
+        g_cg_hide_depth++;
+    }
+    // NSCursor-level: [NSCursor hide] and setHiddenUntilMouseMoves: are the
+    // Cocoa-layer APIs that WindowServer also respects.
+    Class nscursor = objc_getClass("NSCursor");
+    if (nscursor) {
+        MSG(void)((id)nscursor, SEL_("hide"));
+        MSG(void, BOOL)((id)nscursor, SEL_("setHiddenUntilMouseMoves:"), 1);
+    }
+}
+
+// Undo all our hides so the cursor comes back when the game unlocks or PG3D
+// goes to the background.
+static void force_show_cursor(void) {
+    uint32_t display = CGMainDisplayID();
+    for (; g_cg_hide_depth > 0; --g_cg_hide_depth)
+        CGDisplayShowCursor(display);
+    g_we_hid = false;
+    // Balance our NSCursor hides
+    Class nscursor = objc_getClass("NSCursor");
+    if (nscursor) {
+        MSG(void)((id)nscursor, SEL_("unhide"));
+        MSG(void, BOOL)((id)nscursor, SEL_("setHiddenUntilMouseMoves:"), 0);
+    }
+}
+
 static void sync_cursor(void *unused) {
     (void)unused;
     id app = shared_app();
     bool active = app && MSG(BOOL)(app, SEL_("isActive"));
     bool want = g_locked && active;
-    if (want && !g_we_hid) {
-        CGDisplayHideCursor(CGMainDisplayID());
-        g_we_hid = true;
+    if (want) {
+        force_hide_cursor();
     } else if (!want && g_we_hid) {
-        CGDisplayShowCursor(CGMainDisplayID());
-        for (; g_extra_hides > 0; --g_extra_hides) CGDisplayShowCursor(CGMainDisplayID());
-        g_we_hid = false;
+        force_show_cursor();
     }
 }
 
-// Re-sync WindowServer's hide state when PG3D comes back to the front: a balanced
-// show+hide pair, which is what Cmd-Tab out and in does for the user.
 static void kick_cursor(void) {
-    uint32_t display = CGMainDisplayID();
-    CGDisplayShowCursor(display);
-    CGDisplayHideCursor(display);
+    force_show_cursor();
+    force_hide_cursor();
     if (++g_kicks <= 3) note("re-hid the system cursor after PG3D became active (%u)", g_kicks);
 }
 
@@ -119,11 +156,6 @@ static BOOL accepts_first_mouse(id self, SEL cmd, id event) {
     return 1;
 }
 
-// Patch acceptsFirstMouse: on the NSView class itself so every view in the
-// process (including ones Unity creates later) returns YES.  This makes clicks
-// go through without first needing to make the window key — the event monitor
-// below handles that part, but patching the class avoids the window eating the
-// first mouseDown entirely.
 static bool g_class_patched;
 
 static void patch_view_class(void) {
@@ -135,7 +167,6 @@ static void patch_view_class(void) {
     }
 }
 
-// A click on a window that lost key status first makes it key, then goes through.
 static void install_click_fix(id app) {
     id windows = MSG(id)(app, SEL_("windows"));
     unsigned long count = windows ? MSG(unsigned long)(windows, SEL_("count")) : 0;
@@ -143,8 +174,6 @@ static void install_click_fix(id app) {
 
     patch_view_class();
 
-    // Also patch the specific content view's metaclass as a belt-and-suspenders
-    // measure: some Unity builds override acceptsFirstMouse: on UnityView.
     id window = MSG(id)(app, SEL_("keyWindow"));
     if (!window) window = MSG(id, unsigned long)(windows, SEL_("objectAtIndex:"), 0);
     id view = window ? MSG(id)(window, SEL_("contentView")) : NULL;
@@ -156,7 +185,10 @@ static void install_click_fix(id app) {
 
     Class event_class = objc_getClass("NSEvent");
     if (!event_class) return;
-    id (^handler)(id) = ^id(id event) {
+
+    // Click monitor: make the window key before the click reaches AppKit's
+    // normal first-responder handling.
+    id (^click_handler)(id) = ^id(id event) {
         id target = MSG(id)(event, SEL_("window"));
         if (target && !MSG(BOOL)(target, SEL_("isKeyWindow"))) {
             MSG(void)(target, SEL_("makeKeyAndOrderFront:"), (id)0);
@@ -165,9 +197,33 @@ static void install_click_fix(id app) {
         return event;
     };
     MSG(id, uint64_t, id)((id)event_class, SEL_("addLocalMonitorForEventsMatchingMask:handler:"),
-                          kMouseDownMask, (id)handler);
+                          kMouseDownMask, (id)click_handler);
     g_monitor_installed = true;
     note("click fix installed (%u windows)", (unsigned)count);
+
+    // Move monitor: every time the mouse moves while locked, force-hide again.
+    // This catches the case where macOS re-shows the cursor on mouse movement
+    // (some drivers / accessibility features do this).
+    if (!g_move_monitor_installed) {
+        id (^move_handler)(id) = ^id(id event) {
+            if (g_locked && g_we_hid) {
+                Class nscursor = objc_getClass("NSCursor");
+                if (nscursor) {
+                    MSG(void)((id)nscursor, SEL_("hide"));
+                    MSG(void, BOOL)((id)nscursor, SEL_("setHiddenUntilMouseMoves:"), 1);
+                }
+                if (CGCursorIsVisible()) {
+                    CGDisplayHideCursor(CGMainDisplayID());
+                    g_cg_hide_depth++;
+                    if (++g_force_hides <= 10) note("force-hid cursor on mouse move (%u)", g_force_hides);
+                }
+            }
+            return event;
+        };
+        MSG(id, uint64_t, id)((id)event_class, SEL_("addLocalMonitorForEventsMatchingMask:handler:"),
+                              kMouseMovedMask, (id)move_handler);
+        g_move_monitor_installed = true;
+    }
 }
 
 // Frame-rate readout for the client's overlay when the FPS unlocker isn't loaded
@@ -187,12 +243,10 @@ static double now_seconds(void) {
 static void measure_fps(void) {
     if (g_measure_off) return;
     if (g_frame_count == NULL) {
-        // Never call into IL2CPP before it's initialised (that crashes the game at
-        // launch): its core library pointer stays NULL until then.
         void *(*corlib)(void) = (void *(*)(void))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_get_corlib");
         if (corlib == NULL || corlib() == NULL || now_seconds() - g_started < 15.0) return;
         void *(*resolve)(const char *) = (void *(*)(const char *))dlsym(RTLD_DEFAULT_HANDLE, "il2cpp_resolve_icall");
-        if (resolve == NULL) return;  // GameAssembly not loaded yet
+        if (resolve == NULL) return;
         g_frame_count = (int (*)(void))resolve("UnityEngine.Time::get_frameCount");
         if (g_frame_count == NULL) { g_measure_off = true; return; }
         g_last_t = now_seconds();
@@ -217,18 +271,11 @@ static void tick(void *unused) {
         if (!g_monitor_installed) install_click_fix(app);
         bool active = MSG(BOOL)(app, SEL_("isActive"));
         if (active && !g_was_active && g_locked) kick_cursor();
-        // Mid-game, without any app switch, macOS sometimes shows its arrow over the
-        // locked game (it isn't in recordings: it's the system cursor). Re-hide it.
-        else if (active && g_locked && g_we_hid && CGCursorIsVisible()) {
-            uint32_t display = CGMainDisplayID();
-            CGDisplayShowCursor(display);
-            CGDisplayHideCursor(display);
-            if (!CGCursorIsVisible() && ++g_mid_game_fixes <= 20) {
-                note("re-hid the system cursor that appeared mid-game (%u)", g_mid_game_fixes);
-            } else if (CGCursorIsVisible() && g_extra_hides < 3) {
-                CGDisplayHideCursor(display);  // one more hide, balanced when the lock ends
-                g_extra_hides++;
-            }
+        // While the game is active with cursor locked, force-hide on every tick.
+        // Don't wait for CGCursorIsVisible() — it lies sometimes, and the cost of
+        // a redundant NSCursor hide call is near zero.
+        else if (active && g_locked && g_we_hid) {
+            force_hide_cursor();
         }
         g_was_active = active;
         sync_cursor(NULL);
@@ -246,9 +293,6 @@ __attribute__((constructor)) static void start(void) {
         CGEventSourceSetLocalEventsSuppressionInterval(source, 0.0);
         note("event suppression interval zeroed (%u)", 1);
     }
-    // Always measure: the FPS unlocker stays off on builds it can't hook, and then
-    // reports nothing. (When it is active both report; the numbers agree.)
     g_started = now_seconds();
-    // The main queue only runs once the app's run loop is up.
     dispatch_after_f(dispatch_time(0, 1000LL * 1000000), MAIN_QUEUE, NULL, tick);
 }
