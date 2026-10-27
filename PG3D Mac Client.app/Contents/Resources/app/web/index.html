@@ -946,6 +946,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="gui"><span class="ico">◫</span><span class="label">Overlay</span></button>
       <button data-tab="hud"><span class="ico">⊞</span><span class="label">HUD</span></button>
       <button data-tab="cursor"><span class="ico">⊕</span><span class="label">Cursor</span></button>
+      <button data-tab="theme"><span class="ico">A</span><span class="label">Font</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1330,7 +1331,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',theme:'Font',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 let netFails=0,netRecovering=false;
 async function netLost(){
@@ -1657,7 +1658,7 @@ function renderClipStatus(){
   else if(st.phase==='error'){t='Recording stopped';x=st.message;dot.classList.add('warn')}
   else if(st.phase==='off'){t='Clips are off';x='Turn on the replay buffer to record while you play.';acts.append(clipAction('Turn on',()=>setClipConfig({enabled:true}),true))}
   else{t='Waiting for Pixel Gun 3D';x='Recording starts by itself once you\'re in the game.'}
-  if(st.ffmpeg&&(st.permission===false||st.phase==='error'))acts.append(clipAction('Allow screen recording',async()=>{await post('/api/clips/permission');toast('Turn on PG3D Mac Client in Screen Recording, then reopen the client.')}));
+  if(st.ffmpeg&&(st.permission===false||st.phase==='error'))acts.append(clipAction('Allow screen recording',async()=>{if(window.webkit?.messageHandlers?.pg3d){window.webkit.messageHandlers.pg3d.postMessage({type:'requestScreenPermission'})}else{await post('/api/clips/permission')}toast('Turn on PG3D Mac Client in Screen Recording, then reopen the client.')}));
   $('#clipStateTitle').textContent=t;$('#clipStateText').textContent=x||'';
   const buf=st.phase==='recording'?Math.min(st.buffered||0,CLIP_BUFFER_MAX):0;
   $('#clipMeterFill').style.width=`${buf/CLIP_BUFFER_MAX*100}%`;

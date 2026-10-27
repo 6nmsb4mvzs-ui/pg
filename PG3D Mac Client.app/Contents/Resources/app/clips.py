@@ -202,13 +202,6 @@ def screen_permission():
 
 
 def request_screen_permission():
-    if Quartz is not None:
-        fn = getattr(Quartz, "CGRequestScreenCaptureAccess", None)
-        if fn is not None:
-            try:
-                fn()
-            except Exception:
-                pass
     for url in ("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
                 "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_ScreenCapture"):
         try:
