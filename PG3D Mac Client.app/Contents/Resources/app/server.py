@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.14"
+APP_VERSION = "1.77.15"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -7260,6 +7260,104 @@ def link_ember(account, player_id, source="manual"):
 # the Windows build keeps in the registry). Only that key is ever read here.
 PG3D_ID_KEY = "AccountCreated"
 
+# ------------------------------------------------- Skin importer (PlayerPrefs)
+# PG3D custom skins are stored in PlayerPrefs as JSON maps:
+#   "User Skins_h1196497400"      -> {snowflakeId: base64PNG, ...}
+#   "User Name Skins_h1318731231" -> {snowflakeId: displayName, ...}
+# On Windows these live in the registry; on macOS in the preferences plist.
+SKIN_PREF_KEY = "User Skins_h1196497400"
+SKIN_NAME_PREF_KEY = "User Name Skins_h1318731231"
+
+
+def _pref_bytes_to_dict(value):
+    if isinstance(value, (bytes, bytearray)):
+        value = bytes(value).decode("utf-8", "ignore").rstrip("\x00")
+    if isinstance(value, str):
+        value = value.rstrip("\x00")
+    try:
+        return json.loads(value) if value else {}
+    except (json.JSONDecodeError, ValueError):
+        return {}
+
+
+def _read_skin_prefs():
+    domains = _pg3d_pref_domains()
+    if not domains:
+        return {}, {}, None
+    domain = domains[0]
+    prefs = _read_prefs(domain)
+    skins, names = {}, {}
+    for key in (SKIN_PREF_KEY, "User Skins"):
+        if key in prefs:
+            skins = _pref_bytes_to_dict(prefs[key])
+            break
+    for key in (SKIN_NAME_PREF_KEY, "User Name Skins"):
+        if key in prefs:
+            names = _pref_bytes_to_dict(prefs[key])
+            break
+    return skins, names, domain
+
+
+def _write_skin_prefs(domain, skins, names):
+    try:
+        with domain.open("rb") as f:
+            plist_data = plistlib.load(f)
+    except Exception:
+        plist_data = {}
+    plist_data[SKIN_PREF_KEY] = json.dumps(skins, separators=(",", ":")).encode("utf-8") + b"\x00"
+    plist_data[SKIN_NAME_PREF_KEY] = json.dumps(names, separators=(",", ":")).encode("utf-8") + b"\x00"
+    with domain.open("wb") as f:
+        plistlib.dump(plist_data, f)
+    try:
+        subprocess.run(["/usr/bin/defaults", "read", domain.stem, SKIN_PREF_KEY],
+                       capture_output=True, timeout=5)
+    except Exception:
+        pass
+
+
+def apply_skins(entries):
+    if not entries:
+        raise RuntimeError("No skins to apply.")
+    existing_skins, existing_names, domain = _read_skin_prefs()
+    if domain is None:
+        raise RuntimeError("PG3D preferences not found. Start the game once first.")
+    for e in entries:
+        sid = str(e["id"])
+        existing_skins[sid] = e["data"]
+        existing_names[sid] = e.get("name", "")
+    _write_skin_prefs(domain, existing_skins, existing_names)
+    log(f"Skin importer: applied {len(entries)} skin(s) to {domain.name}")
+    return {"ok": True, "count": len(entries), "total": len(existing_skins)}
+
+
+def list_skins():
+    skins, names, domain = _read_skin_prefs()
+    result = []
+    for sid, data in skins.items():
+        result.append({"id": sid, "name": names.get(sid, ""), "has_data": bool(data)})
+    return {"skins": result, "domain": domain.name if domain else None}
+
+
+def remove_skin(skin_id):
+    skins, names, domain = _read_skin_prefs()
+    if domain is None:
+        raise RuntimeError("PG3D preferences not found.")
+    skin_id = str(skin_id)
+    if skin_id not in skins:
+        raise RuntimeError("Skin not found in game preferences.")
+    del skins[skin_id]
+    names.pop(skin_id, None)
+    _write_skin_prefs(domain, skins, names)
+    return {"ok": True, "remaining": len(skins)}
+
+
+def remove_all_skins():
+    _, _, domain = _read_skin_prefs()
+    if domain is None:
+        raise RuntimeError("PG3D preferences not found.")
+    _write_skin_prefs(domain, {}, {})
+    return {"ok": True}
+
 
 def _pg3d_pref_domains():
     prefs = Path.home() / "Library/Preferences"
@@ -7777,6 +7875,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/ember/items":
             cat = query.get("cat", ["weapons"])[0]
             return self.send_json(ember_client.items(cat))
+        if path == "/api/skins":
+            return self.send_json(list_skins())
         if path == "/api/cheats/config":
             return self.send_json(ember_client.cheats_config())
         if path == "/api/overlay/config":
@@ -8119,6 +8219,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(refocus_game())
             if path == "/api/game-update/install":
                 return self.send_json(install_game_update())
+            if path == "/api/skins/apply":
+                return self.send_json(apply_skins(data.get("skins", [])))
+            if path == "/api/skins/remove":
+                return self.send_json(remove_skin(data.get("id", "")))
+            if path == "/api/skins/remove-all":
+                return self.send_json(remove_all_skins())
             if path == "/api/prefs/reapply":
                 return self.send_json(set_reapply_pref(data.get("on", True)))
             if path == "/api/mods/reapply":
