@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.29"
+APP_VERSION = "1.77.30"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1863,13 +1863,21 @@ def _rebuild_one(source_str, state):
         # Texture pack replacements.
         if tp_ops:
             tp_dir = Path(tp.get("pack_dir", ""))
+            log(f"texpack rebuild {source.name}: {len(tp_ops)} op(s), pack_dir={tp_dir}, exists={tp_dir.is_dir()}")
+            tp_applied = 0
             for t in tp_ops:
                 reader = _find(int(t["path_id"]))
-                if reader is None or reader.type.name != "Texture2D":
+                if reader is None:
+                    log(f"texpack rebuild: {t['name']} pid={t['path_id']} — reader not found in env")
+                    skipped["texpack textures"] = skipped.get("texpack textures", 0) + 1
+                    continue
+                if reader.type.name != "Texture2D":
+                    log(f"texpack rebuild: {t['name']} pid={t['path_id']} — type is {reader.type.name}, need Texture2D")
                     skipped["texpack textures"] = skipped.get("texpack textures", 0) + 1
                     continue
                 rep_path = tp_dir / t["file"]
                 if not rep_path.is_file():
+                    log(f"texpack rebuild: {t['name']} — replacement file missing: {rep_path}")
                     skipped["texpack textures"] = skipped.get("texpack textures", 0) + 1
                     continue
                 data = reader.parse_as_object()
@@ -1879,6 +1887,9 @@ def _rebuild_one(source_str, state):
                     rep_img = rep_img.resize(tex_size, Image.Resampling.LANCZOS)
                 data.image = rep_img
                 save_parsed_object(data, reader)
+                tp_applied += 1
+                log(f"texpack rebuild: applied {t['name']} {tex_size[0]}x{tex_size[1]} from {t['file']}")
+            log(f"texpack rebuild {source.name}: {tp_applied} applied, {skipped.get('texpack textures', 0)} skipped")
 
         if skipped:
             log(f"{source.name}: not found, skipped " + ", ".join(f"{n} {k}" for k, n in skipped.items())
@@ -5473,7 +5484,7 @@ def texpack_list():
 
 
 def texpack_resolve(pack_id):
-    """Find game textures matching a pack's entries by name + size."""
+    """Find game textures matching a pack's entries by name (Texture2D only)."""
     pack_dir = None
     for d in _texpack_dirs():
         if d.name == pack_id:
@@ -5483,21 +5494,33 @@ def texpack_resolve(pack_id):
         raise RuntimeError(f"Texture pack '{pack_id}' not found.")
     meta = read_json(pack_dir / "pack.json", {})
     items = _finder_data().get("items", [])
+    log(f"texpack resolve: {len(items)} finder items, pack_dir={pack_dir}")
     targets = []
     for tex in meta.get("textures", []):
         name = tex["name"].lower()
         tw = int(tex["width"]) if tex.get("width") else None
         th = int(tex["height"]) if tex.get("height") else None
+        found = False
         for x in items:
             if x["name"].lower() != name:
                 continue
+            if x.get("type") != "Texture2D":
+                log(f"texpack resolve: skipping {x['name']} (type={x.get('type')}, need Texture2D)")
+                continue
             if tw is not None and (int(x["width"]) != tw or int(x["height"]) != th):
                 continue
+            rep_file = pack_dir / tex["file"]
+            log(f"texpack resolve: matched {x['name']} {x['width']}x{x['height']} pid={x['path_id']} "
+                f"in {Path(x['source_file']).name}, replacement={tex['file']} exists={rep_file.is_file()}")
             targets.append({"name": x["name"], "width": int(x["width"]), "height": int(x["height"]),
                             "source_file": x["source_file"], "path_id": x["path_id"],
                             "file": tex["file"]})
+            found = True
             if tw is not None:
                 break
+        if not found:
+            log(f"texpack resolve: NO match for '{tex['name']}' (checked {len(items)} items)")
+    log(f"texpack resolve: {len(targets)} target(s) found")
     return pack_dir, meta, targets
 
 
@@ -5505,6 +5528,8 @@ def apply_texpack(pack_id):
     pack_dir, meta, targets = texpack_resolve(pack_id)
     if not targets:
         raise RuntimeError("No matching game textures found. Run a file scan first.")
+    log(f"apply_texpack: {pack_id} → {len(targets)} target(s): "
+        + ", ".join(f"{t['name']} pid={t['path_id']} in {Path(t['source_file']).name}" for t in targets))
 
     def job(progress):
         progress(0.1, f"Applying {meta.get('name', pack_id)}…")
@@ -5514,7 +5539,7 @@ def apply_texpack(pack_id):
                                 "name": meta.get("name", pack_id), "targets": targets}
         mutate_state(change, f"Texture pack: {meta.get('name', pack_id)}",
                      _sub_progress(progress, 0.2, 1.0))
-        return f'"{meta.get("name", pack_id)}" applied - {len(targets)} texture(s) replaced.'
+        return f'"{meta.get("name", pack_id)}" applied - {len(targets)} texture(s) matched.'
     return start_job("texpack", job)
 
 
