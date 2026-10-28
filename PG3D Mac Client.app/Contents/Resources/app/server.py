@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.27"
+APP_VERSION = "1.77.28"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5486,12 +5486,17 @@ def texpack_resolve(pack_id):
     targets = []
     for tex in meta.get("textures", []):
         name = tex["name"].lower()
-        tw, th = int(tex["width"]), int(tex["height"])
+        tw = int(tex["width"]) if tex.get("width") else None
+        th = int(tex["height"]) if tex.get("height") else None
         for x in items:
-            if x["name"].lower() == name and int(x["width"]) == tw and int(x["height"]) == th:
-                targets.append({"name": x["name"], "width": tw, "height": th,
-                                "source_file": x["source_file"], "path_id": x["path_id"],
-                                "file": tex["file"]})
+            if x["name"].lower() != name:
+                continue
+            if tw is not None and (int(x["width"]) != tw or int(x["height"]) != th):
+                continue
+            targets.append({"name": x["name"], "width": int(x["width"]), "height": int(x["height"]),
+                            "source_file": x["source_file"], "path_id": x["path_id"],
+                            "file": tex["file"]})
+            if tw is not None:
                 break
     return pack_dir, meta, targets
 

@@ -2,7 +2,7 @@
   "name": "Ice Scythe Test",
   "description": "Replaces the Thermal Scythe textures with an ice variant.",
   "textures": [
-    {"name": "thermal_scythe_map", "width": 1024, "height": 1024, "file": "thermal_scythe_map_1024.png"},
-    {"name": "thermal_scythe_map", "width": 128, "height": 128, "file": "thermal_scythe_map_128.png"}
+    {"name": "thermal_scythe_map", "width": 1024, "height": 1024, "file": "thermal_scythe_map.png"},
+    {"name": "thermal_scythe_icon_big", "file": "thermal_scythe_icon_big.png"}
   ]
 }
