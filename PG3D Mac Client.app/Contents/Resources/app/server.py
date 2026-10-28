@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.23"
+APP_VERSION = "1.77.24"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1101,6 +1101,11 @@ def _source_sig(state, src):
                  for op in (state.get("hud_layout") or {}).values() if op.get("source_file") == src)
     if hud:
         sig["hud_layout"] = hud
+    tp = state.get("texpack")
+    if tp:
+        mine = [t for t in tp.get("targets", []) if t.get("source_file") == src]
+        if mine:
+            sig["texpack"] = [tp.get("pack"), sorted((int(t["path_id"]), t["file"]) for t in mine)]
     return json.dumps(sig, sort_keys=True, default=str)
 
 
@@ -1124,6 +1129,9 @@ def sources_for_state(state):
         if sky:
             out.update(t["source_file"] for t in sky.get("targets", []) if t.get("source_file"))
     out.update(op["source_file"] for op in (state.get("hud_layout") or {}).values() if op.get("source_file"))
+    tp = state.get("texpack")
+    if tp:
+        out.update(t["source_file"] for t in tp.get("targets", []) if t.get("source_file"))
     return out
 
 
@@ -1602,8 +1610,10 @@ def _rebuild_one(source_str, state):
     font_ops = [t for t in ((state.get("font") or {}).get("targets") or []) if t.get("source_file") == source_str]
     hud_ops = [op for op in (state.get("hud_layout") or {}).values()
                if op.get("source_file") == source_str and abs(float(op.get("pct", 100)) - 100) > 0.01]
+    tp = state.get("texpack") or {}
+    tp_ops = [t for t in tp.get("targets", []) if t.get("source_file") == source_str]
     if (not needs_cursor and not gui_ops and not theme_pids and not sky_ops and not load_ops and not font_ops
-            and not hud_ops):
+            and not hud_ops and not tp_ops):
         shutil.copy2(original, source)
         manifest["last_mod_sha256"] = None
         manifest["restored"] = datetime.now().isoformat(timespec="seconds")
@@ -1849,6 +1859,26 @@ def _rebuild_one(source_str, state):
                     skipped["HUD groups"] = skipped.get("HUD groups", 0) + 1
                     continue
                 customize.scale_transform(reader, factor, move)
+
+        # Texture pack replacements.
+        if tp_ops:
+            tp_dir = Path(tp.get("pack_dir", ""))
+            for t in tp_ops:
+                reader = _find(int(t["path_id"]))
+                if reader is None or reader.type.name != "Texture2D":
+                    skipped["texpack textures"] = skipped.get("texpack textures", 0) + 1
+                    continue
+                rep_path = tp_dir / t["file"]
+                if not rep_path.is_file():
+                    skipped["texpack textures"] = skipped.get("texpack textures", 0) + 1
+                    continue
+                data = reader.parse_as_object()
+                rep_img = Image.open(rep_path).convert("RGBA")
+                tex_size = (int(data.m_Width), int(data.m_Height))
+                if rep_img.size != tex_size:
+                    rep_img = rep_img.resize(tex_size, Image.Resampling.LANCZOS)
+                data.image = rep_img
+                save_parsed_object(data, reader)
 
         if skipped:
             log(f"{source.name}: not found, skipped " + ", ".join(f"{n} {k}" for k, n in skipped.items())
@@ -5415,6 +5445,83 @@ def files_payload():
             "total": len(data.get("items", [])), "types": types}
 
 
+# ----------------------------------------------------------------------------- Texture packs
+TEXPACK_BUILTIN = BASE / "texpacks"
+TEXPACK_USER = SUPPORT / "texpacks"
+
+
+def _texpack_dirs():
+    dirs = []
+    for root in (TEXPACK_BUILTIN, TEXPACK_USER):
+        if root.is_dir():
+            for d in sorted(root.iterdir()):
+                if (d / "pack.json").is_file():
+                    dirs.append(d)
+    return dirs
+
+
+def texpack_list():
+    packs = []
+    for d in _texpack_dirs():
+        meta = read_json(d / "pack.json", {})
+        packs.append({"id": d.name, "name": meta.get("name", d.name),
+                       "description": meta.get("description", ""),
+                       "count": len(meta.get("textures", [])),
+                       "dir": str(d)})
+    active = (load_mods().get("texpack") or {}).get("pack")
+    return {"packs": packs, "active": active}
+
+
+def texpack_resolve(pack_id):
+    """Find game textures matching a pack's entries by name + size."""
+    pack_dir = None
+    for d in _texpack_dirs():
+        if d.name == pack_id:
+            pack_dir = d
+            break
+    if not pack_dir:
+        raise RuntimeError(f"Texture pack '{pack_id}' not found.")
+    meta = read_json(pack_dir / "pack.json", {})
+    items = _finder_data().get("items", [])
+    targets = []
+    for tex in meta.get("textures", []):
+        name = tex["name"].lower()
+        tw, th = int(tex["width"]), int(tex["height"])
+        for x in items:
+            if x["name"].lower() == name and int(x["width"]) == tw and int(x["height"]) == th:
+                targets.append({"name": x["name"], "width": tw, "height": th,
+                                "source_file": x["source_file"], "path_id": x["path_id"],
+                                "file": tex["file"]})
+                break
+    return pack_dir, meta, targets
+
+
+def apply_texpack(pack_id):
+    pack_dir, meta, targets = texpack_resolve(pack_id)
+    if not targets:
+        raise RuntimeError("No matching game textures found. Run a file scan first.")
+
+    def job(progress):
+        progress(0.1, f"Applying {meta.get('name', pack_id)}…")
+
+        def change(state):
+            state["texpack"] = {"pack": pack_id, "pack_dir": str(pack_dir),
+                                "name": meta.get("name", pack_id), "targets": targets}
+        mutate_state(change, f"Texture pack: {meta.get('name', pack_id)}",
+                     _sub_progress(progress, 0.2, 1.0))
+        return f""{meta.get('name', pack_id)}" applied — {len(targets)} texture(s) replaced."
+    return start_job("texpack", job)
+
+
+def reset_texpack():
+    def job(progress):
+        def change(state):
+            state["texpack"] = None
+        mutate_state(change, "Reset texture pack", progress)
+        return "Original textures restored."
+    return start_job("texpack", job)
+
+
 HUD_SCAN_JSON = STATE_DIR / "hud_scan.json"
 HUD_GROUPS_JSON = STATE_DIR / "hud_groups.json"
 
@@ -8082,6 +8189,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(finder_payload())
         if path == "/api/hud":
             return self.send_json(hud_payload())
+        if path == "/api/texpack/list":
+            return self.send_json(texpack_list())
         if path == "/api/finder/list":
             qs = parse_qs(urlparse(self.path).query)
             g = lambda k, d="": (qs.get(k) or [d])[0]
@@ -8203,6 +8312,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"ok": True, "path": str(dest), "name": dest.name})
             if path == "/api/finder/scan":
                 return self.send_json(start_finder_scan())
+            if path == "/api/texpack/apply":
+                return self.send_json(apply_texpack(data.get("pack", "")))
+            if path == "/api/texpack/reset":
+                return self.send_json(reset_texpack())
             if path == "/api/finder/picks":
                 return self.send_json(set_finder_picks(data.get("cat"), data.get("ids")))
             if path == "/api/hud/find":

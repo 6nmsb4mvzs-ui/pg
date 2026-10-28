@@ -922,6 +922,19 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .flModal .flMClose:hover{background:hsl(var(--nh) var(--ns) 20%)}
 .flModal .flMSpinner{color:var(--muted);font-size:12px;margin-top:12px}
 
+/* texture packs */
+.tpList{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:10px}
+.tpPack{padding:14px;border-radius:10px;background:hsl(var(--nh) var(--ns) 5.5%);border:2px solid var(--border);cursor:pointer;transition:border-color .15s,background .15s}
+.tpPack:hover{border-color:var(--accent)}
+.tpPack.active{border-color:var(--accent);background:hsl(var(--nh) var(--ns) 8%)}
+.tpPack h4{margin:0 0 4px;font-size:14px;color:var(--text)}
+.tpPack p{margin:0;font-size:12px;color:var(--muted)}
+.tpPack .tpMeta{font-size:11px;color:var(--dim);margin-top:6px}
+.tpPack .tpBadge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;margin-top:8px}
+.tpPack .tpBadge.on{background:var(--accent);color:#fff}
+.tpPack .tpBadge.off{background:hsl(var(--nh) var(--ns) 12%);color:var(--muted)}
+.tpEmpty{color:var(--muted);font-size:13px;padding:20px 0}
+
 /* mods */
 .emState{font-size:12px;font-weight:700;color:var(--muted)}.emState.on{color:#9be7bd}.emState.err{color:#ff8e9c}.emState.wait{color:#ffd866}
 .emAccGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:10px}
@@ -999,6 +1012,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="theme"><span class="ico">A</span><span class="label">Font</span></button>
       <button data-tab="skins"><span class="ico">◑</span><span class="label">Skins</span></button>
       <button data-tab="files"><span class="ico">☰</span><span class="label">Files</span></button>
+      <button data-tab="texpack"><span class="ico">◈</span><span class="label">Tex Packs</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1342,6 +1356,16 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
+    <section class="page" id="page-texpack">
+      <div class="xPage">
+        <div class="crCard">
+          <div class="crCardHead"><div><h3>Texture Packs</h3><p class="xNote" style="margin-top:4px">Replace game textures with custom packs. Requires a file scan first.</p></div></div>
+          <div class="xJob" id="tpJob"><div class="msg"></div><div class="bar"><i></i></div></div>
+          <div class="tpList" id="tpList"></div>
+        </div>
+      </div>
+    </section>
+
     <div class="flModal" id="flModal">
       <img id="flMImg" alt="">
       <div class="flMInfo" id="flMName"></div>
@@ -1426,7 +1450,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',theme:'Font',skins:'Skins',files:'Files',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',theme:'Font',skins:'Skins',files:'Files',texpack:'Texture Packs',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 let netFails=0,netRecovering=false;
 async function netLost(){
@@ -1446,7 +1470,7 @@ function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Mat
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
 const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already applied stay); its code stays
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='skins')loadExistingSkins();if(tab==='files')FL.load()}
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='skins')loadExistingSkins();if(tab==='files')FL.load();if(tab==='texpack')TP.load()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -2124,11 +2148,11 @@ let lastJobPhase=null;
 function jobLine(j){const q=j.queue||[];let t=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');
   if(j.phase==='running'&&j.eta!=null&&j.eta>0)t+=` · about ${fmtEta(j.eta)} left`;if(q.length)t+=` · then: ${q.join(', ')}`;return t}
 function renderJob(){const j=statusData?.job;if(!j)return;const active=j.phase==='running'||j.phase==='waiting';
-  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#hdJob',['hud','scan','change','reapply','restore']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#txJob',['scan','sky','change']],['#flJob',['scan']]]){const box=$(id);if(!box)continue;
+  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#hdJob',['hud','scan','change','reapply','restore']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#txJob',['scan','sky','change']],['#flJob',['scan']],['#tpJob',['texpack']]]){const box=$(id);if(!box)continue;
     const mine=(kinds.includes(j.kind)&&(active||j.phase==='error'))||(j.queue||[]).length>0;box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
     box.querySelector('.msg').textContent=jobLine(j);box.querySelector('.bar i').style.width=(j.phase==='running'?j.progress||0:0)+'%'}
   const hint=$('#skHint');if(hint)hint.textContent=statusData.game_stuck?'PG3D is stuck in the background: quit it on the Play tab, then this applies.':statusData.game_running?'PG3D is open: your change is applied as soon as it closes.':active?'Changes you click now are queued and run one after another.':'';
-  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='hud')loadHud();if(localStorage.pg3dTab==='files'&&j.kind==='scan')FL.load()}
+  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='hud')loadHud();if(localStorage.pg3dTab==='files'&&j.kind==='scan')FL.load();if(localStorage.pg3dTab==='texpack'&&j.kind==='texpack')TP.load()}
   if(fin||lastJobId===undefined)lastJobId=fin?j.id:null;lastJobPhase=j.phase}
 let lastJobId;
 
@@ -2692,6 +2716,39 @@ const FL=(function(){
   $('#flMore').onclick=()=>F.search(false);
   $('#flScan').onclick=async()=>{try{await post('/api/finder/scan',{});toast('Scanning PG3D\'s files… this takes a few minutes.')}catch(e){toast(e.message,true)}};
   return F;
+})();
+
+const TP=(function(){
+  const T={};
+  const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  T.load=async()=>{
+    try{
+      const r=await api('/api/texpack/list');
+      const box=$('#tpList');if(!box)return;
+      const packs=r.packs||[];
+      const active=r.active||null;
+      if(!packs.length){box.innerHTML='<div class="tpEmpty">No texture packs found.</div>';return}
+      let html='<button class="tpPack'+(active?'':' active')+'" data-tp="__original"><h4>Original</h4><p>Restore all textures to normal</p><span class="tpBadge '+(active?'off':'on')+'">'+(active?'Click to restore':'Active')+'</span></button>';
+      for(const p of packs){
+        const isCur=active===p.id;
+        html+='<button class="tpPack'+(isCur?' active':'')+'" data-tp="'+p.id+'"><h4>'+esc(p.name)+'</h4><p>'+esc(p.description)+'</p><div class="tpMeta">'+p.count+' texture(s)</div><span class="tpBadge '+(isCur?'on':'off')+'">'+(isCur?'Active':'Apply')+'</span></button>';
+      }
+      box.innerHTML=html;
+      box.querySelectorAll('.tpPack').forEach(btn=>{
+        btn.onclick=async()=>{
+          const id=btn.dataset.tp;
+          if(id==='__original'){
+            if(!active)return;
+            try{await post('/api/texpack/reset');toast('Restoring original textures…')}catch(e){toast(e.message,true)}
+          }else{
+            if(active===id)return;
+            try{await post('/api/texpack/apply',{pack:id});toast('Applying texture pack…')}catch(e){toast(e.message,true)}
+          }
+        };
+      });
+    }catch(e){console.error(e)}
+  };
+  return T;
 })();
 
 (function(){try{const hz=window.screen?.refreshRate||window.screen?.mozRefreshRate;if(hz&&hz>60){const o=$('#fpsAutoOpt');if(o)o.textContent=`Auto (${hz} Hz)`}}catch{}})();
