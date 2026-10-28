@@ -1011,7 +1011,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="cursor"><span class="ico">⊕</span><span class="label">Cursor</span></button>
       <button data-tab="theme"><span class="ico">A</span><span class="label">Font</span></button>
       <button data-tab="skins"><span class="ico">◑</span><span class="label">Skins</span></button>
-      <button data-tab="files"><span class="ico">☰</span><span class="label">Files</span></button>
+      <button data-tab="files" hidden><span class="ico">☰</span><span class="label">Files</span></button>
       <button data-tab="texpack" hidden><span class="ico">◈</span><span class="label">Tex Packs</span></button>
     </nav>
     <nav class="nav navBottom">
@@ -1475,8 +1475,9 @@ function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(ob
 const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
 const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already applied stay); its code stays
 let TEXPACK_HIDDEN=true;  // texture packs archived for now; toggled from Settings
-const ARCHIVED_TABS=['texpack'];
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky')||(TEXPACK_HIDDEN&&tab==='texpack'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='skins')loadExistingSkins();if(tab==='files')FL.load();if(tab==='texpack')TP.load()}
+let FILES_HIDDEN=true;
+const ARCHIVED_TABS=['files','texpack'];
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky')||(TEXPACK_HIDDEN&&tab==='texpack')||(FILES_HIDDEN&&tab==='files'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='skins')loadExistingSkins();if(tab==='files')FL.load();if(tab==='texpack')TP.load()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -2366,7 +2367,7 @@ $('#rescanGame').onclick=async()=>{const b=$('#rescanGame');b.disabled=true;try{
   const sw=$('#archivedTabsSw');if(!sw)return;
   const key='pg3dShowArchived';
   function apply(on){
-    TEXPACK_HIDDEN=!on;
+    TEXPACK_HIDDEN=!on;FILES_HIDDEN=!on;
     ARCHIVED_TABS.forEach(t=>{const b=document.querySelector(`[data-tab="${t}"]`);if(b)b.hidden=!on});
     setSwitch('#archivedTabsSw',on);
     try{localStorage[key]=on?'1':''}catch{}
