@@ -1012,7 +1012,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="theme"><span class="ico">A</span><span class="label">Font</span></button>
       <button data-tab="skins"><span class="ico">◑</span><span class="label">Skins</span></button>
       <button data-tab="files"><span class="ico">☰</span><span class="label">Files</span></button>
-      <button data-tab="texpack"><span class="ico">◈</span><span class="label">Tex Packs</span></button>
+      <button data-tab="texpack" hidden><span class="ico">◈</span><span class="label">Tex Packs</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1225,6 +1225,10 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
         <div class="crCard setCard">
           <div class="crCardHead"><h3>Storage</h3></div>
           <div class="setRows" id="storageRows"></div>
+        </div>
+        <div class="crCard setCard">
+          <div class="crCardHead"><h3>Tabs</h3></div>
+          <button class="xSwitch" id="archivedTabsSw" role="switch"><div><b>Show archived tabs</b><small>Tabs that are hidden because they are unfinished or unstable.</small></div><span class="pillToggle"></span></button>
         </div>
         <div class="crCard setCard">
           <div class="crCardHead"><h3>Troubleshooting</h3></div>
@@ -1470,7 +1474,9 @@ function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Mat
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
 const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already applied stay); its code stays
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='skins')loadExistingSkins();if(tab==='files')FL.load();if(tab==='texpack')TP.load()}
+let TEXPACK_HIDDEN=true;  // texture packs archived for now; toggled from Settings
+const ARCHIVED_TABS=['texpack'];
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky')||(TEXPACK_HIDDEN&&tab==='texpack'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='skins')loadExistingSkins();if(tab==='files')FL.load();if(tab==='texpack')TP.load()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -2354,6 +2360,20 @@ function renderTheme(){renderFonts()}
 $('#mouseFixSw').onclick=async()=>{try{await post('/api/prefs/mouse-fix',{on:statusData?.mouse_fix===false});await refreshStatus();setSwitch('#mouseFixSw',statusData?.mouse_fix!==false)}catch(e){toast(e.message,true)}};
 $('#fixMouse').onclick=async()=>{try{await post('/api/game/refocus',{});toast('Switched back to PG3D. In game you can also press Ctrl+Shift+M.')}catch(e){toast(e.message,true)}};
 $('#rescanGame').onclick=async()=>{const b=$('#rescanGame');b.disabled=true;try{await post('/api/gui/scan',{deep:false});try{await post('/api/customize/scan')}catch(e){if(!/running/.test(e.message))throw e}toast('Rescanning PG3D. This takes about a minute.');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}finally{setTimeout(()=>b.disabled=false,3000)}};
+
+// Archived tabs toggle
+(function(){
+  const sw=$('#archivedTabsSw');if(!sw)return;
+  const key='pg3dShowArchived';
+  function apply(on){
+    TEXPACK_HIDDEN=!on;
+    ARCHIVED_TABS.forEach(t=>{const b=document.querySelector(`[data-tab="${t}"]`);if(b)b.hidden=!on});
+    setSwitch('#archivedTabsSw',on);
+    try{localStorage[key]=on?'1':''}catch{}
+  }
+  sw.onclick=()=>apply(TEXPACK_HIDDEN);
+  try{if(localStorage[key]==='1')apply(true)}catch{}
+})();
 
 // Sky
 let loadTargetsOn=null;let skyData=null,skySel=null,skyTargetsOff=new Set(),skMode='sky',skyPoll=null;
