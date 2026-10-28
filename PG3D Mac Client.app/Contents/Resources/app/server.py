@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.24"
+APP_VERSION = "1.77.25"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5509,7 +5509,7 @@ def apply_texpack(pack_id):
                                 "name": meta.get("name", pack_id), "targets": targets}
         mutate_state(change, f"Texture pack: {meta.get('name', pack_id)}",
                      _sub_progress(progress, 0.2, 1.0))
-        return f""{meta.get('name', pack_id)}" applied — {len(targets)} texture(s) replaced."
+        return f'"{meta.get("name", pack_id)}" applied - {len(targets)} texture(s) replaced.'
     return start_job("texpack", job)
 
 
