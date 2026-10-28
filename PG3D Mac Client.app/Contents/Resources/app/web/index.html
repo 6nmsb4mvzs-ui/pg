@@ -922,6 +922,39 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .flModal .flMClose:hover{background:hsl(var(--nh) var(--ns) 20%)}
 .flModal .flMSpinner{color:var(--muted);font-size:12px;margin-top:12px}
 
+/* files: two-panel layout */
+.flPage{display:flex;gap:16px;align-items:flex-start}
+.flMain{flex:1;min-width:0}
+.flAlbums{width:300px;flex-shrink:0}
+@media(max-width:800px){.flPage{flex-direction:column}.flAlbums{width:100%}}
+
+/* files: selection */
+.flCard .flCheck{position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:5px;border:2px solid var(--border);background:rgba(0,0,0,.5);cursor:pointer;display:flex;align-items:center;justify-content:center;color:transparent;font-size:13px;font-weight:900;z-index:2;transition:border-color .1s,background .1s}
+.flCard .flCheck:hover{border-color:var(--accent)}
+.flCard .flCheck.on{border-color:var(--accent);background:var(--accent);color:#fff}
+.flSelBar{display:none;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:hsl(var(--nh) var(--ns) 10%);border:1px solid var(--accent);margin-bottom:10px;flex-wrap:wrap}
+.flSelBar.show{display:flex}
+.flSelBar .flSelCount{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
+
+/* files: albums sidebar */
+.albCard{background:hsl(var(--nh) var(--ns) 6%);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden}
+.albHead{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none}
+.albHead:hover{background:hsl(var(--nh) var(--ns) 8%)}
+.albHead .albName{flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.albHead .albCount{font-size:11px;color:var(--muted);flex-shrink:0}
+.albHead .albArrow{font-size:10px;color:var(--muted);transition:transform .15s}
+.albHead .albArrow.open{transform:rotate(90deg)}
+.albBody{display:none;padding:8px 10px 10px}
+.albBody.open{display:block}
+.albThumbGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:4px}
+.albThumbGrid .albThumb{position:relative;border-radius:6px;overflow:hidden;aspect-ratio:1;background:hsl(var(--nh) var(--ns) 9%)}
+.albThumbGrid .albThumb img{width:100%;height:100%;object-fit:cover}
+.albThumbGrid .albThumb .albRm{position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;font-size:11px;line-height:16px;text-align:center;cursor:pointer;display:none}
+.albThumbGrid .albThumb:hover .albRm{display:block}
+.albActions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.albActions button{font-size:11px;padding:3px 8px}
+.albRename{background:transparent;border:none;color:var(--text);font-size:13px;font-weight:600;padding:0 2px;outline:none;min-width:40px;border-bottom:1px solid var(--accent)}
+
 /* texture packs */
 .tpList{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:10px}
 .tpPack{padding:14px;border-radius:10px;background:hsl(var(--nh) var(--ns) 5.5%);border:2px solid var(--border);cursor:pointer;transition:border-color .15s,background .15s}
@@ -1349,13 +1382,34 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
         <div class="crCard">
           <div class="crCardHead"><div><h3>Game File Scanner</h3><p class="xNote" style="margin-top:4px">Browse and search every texture, sprite and cubemap in PG3D. Type partial names — each word is matched independently.</p></div><button class="btn" id="flScan">Scan game files</button></div>
           <div class="xJob" id="flJob"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <div class="flBar">
-            <input class="search" id="flSearch" placeholder="Search by name (e.g. gun blue scope)" spellcheck="false">
-            <select class="select" id="flType" style="width:auto;min-width:120px"><option value="">All types</option><option value="Texture2D">Texture2D</option><option value="Sprite">Sprite</option><option value="Cubemap">Cubemap</option></select>
+          <div class="flPage">
+            <div class="flMain">
+              <div class="flBar">
+                <input class="search" id="flSearch" placeholder="Search by name (e.g. gun blue scope)" spellcheck="false">
+                <select class="select" id="flType" style="width:auto;min-width:120px"><option value="">All types</option><option value="Texture2D">Texture2D</option><option value="Sprite">Sprite</option><option value="Cubemap">Cubemap</option></select>
+              </div>
+              <div class="flSelBar" id="flSelBar">
+                <span class="flSelCount" id="flSelCount">0 selected</span>
+                <select class="select" id="flAlbumPick" style="width:auto;min-width:140px;font-size:12px"><option value="">Add to album…</option></select>
+                <button class="btn small" id="flSelAdd">Add</button>
+                <button class="btn small ghost" id="flSelClear">Clear selection</button>
+              </div>
+              <div class="flCount" id="flCount"></div>
+              <div class="flGrid" id="flGrid"></div>
+              <div class="flMore">
+                <button class="btn ghost" id="flMore" hidden>Load more</button>
+                <button class="btn ghost" id="flLoadAll" hidden style="margin-left:8px">Load all</button>
+              </div>
+            </div>
+            <div class="flAlbums">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <h4 style="margin:0;font-size:14px">Albums</h4>
+                <button class="btn small" id="flAlbumNew">New album</button>
+              </div>
+              <div id="flAlbumList"></div>
+              <div id="flAlbumEmpty" style="color:var(--muted);font-size:12px;padding:8px 0">No albums yet. Select files and create an album to organize them.</div>
+            </div>
           </div>
-          <div class="flCount" id="flCount"></div>
-          <div class="flGrid" id="flGrid"></div>
-          <div class="flMore"><button class="btn ghost" id="flMore" hidden>Load more</button></div>
         </div>
       </div>
     </section>
@@ -2644,10 +2698,10 @@ const TX=makeFinder('tx',['cursor']);
 
 /* ===== Files (game file scanner) ===== */
 const FL=(function(){
-  const F={data:null,items:[],total:0,req:0,loaded:false,observer:null};
+  const F={data:null,items:[],total:0,req:0,loaded:false,observer:null,selected:new Map(),albums:[]};
   F.load=async()=>{
     if(!F.loaded){F.loaded=true;F._initObserver()}
-    try{F.data=await api('/api/files');F._renderInfo();await F.search(true)}catch(e){console.error(e)}
+    try{F.data=await api('/api/files');F._renderInfo();await F.search(true);await F._loadAlbums()}catch(e){console.error(e)}
   };
   F._initObserver=()=>{
     F.observer=new IntersectionObserver((entries)=>{
@@ -2668,13 +2722,15 @@ const FL=(function(){
     if(!d.generated){c.textContent='No scan data yet. Press "Scan game files" to index PG3D\'s assets.';return}
     c.textContent=`${d.total} files indexed · PG3D build ${d.build||'?'}`;
   };
-  F.search=async(reset)=>{
+  F._itemKey=x=>`${x.source_file}::${x.path_id}`;
+  F.search=async(reset,loadAll)=>{
     const q=encodeURIComponent($('#flSearch').value||'');
     const tf=encodeURIComponent($('#flType').value||'');
     const off=reset?0:F.items.length;
+    const lim=loadAll?0:60;
     const req=++F.req;
     try{
-      const r=await api(`/api/files/search?q=${q}&type=${tf}&offset=${off}&limit=60`);
+      const r=await api(`/api/files/search?q=${q}&type=${tf}&offset=${off}&limit=${lim}`);
       if(req!==F.req)return;
       F.items=reset?r.items:F.items.concat(r.items);F.total=r.total;
       F._render(reset);
@@ -2682,6 +2738,9 @@ const FL=(function(){
   };
   F._card=x=>{
     const d=document.createElement('div');d.className='flCard';d.title=`${x.name}\n${x.type} ${x.width}×${x.height}\n${x.relative_file} #${x.path_id}`;
+    const chk=document.createElement('div');chk.className='flCheck'+(F.selected.has(F._itemKey(x))?' on':'');chk.textContent='✓';
+    chk.addEventListener('click',ev=>{ev.stopPropagation();F._toggleSelect(x,chk)});
+    d.append(chk);
     const ph=document.createElement('div');ph.className='flPlaceholder';
     ph.textContent=x.type==='Cubemap'?'Cubemap':`${x.width}×${x.height}`;
     d.append(ph);
@@ -2693,15 +2752,33 @@ const FL=(function(){
     d.addEventListener('click',()=>F._openModal(x));
     return d;
   };
+  F._toggleSelect=(x,chk)=>{
+    const k=F._itemKey(x);
+    if(F.selected.has(k)){F.selected.delete(k);chk.classList.remove('on')}
+    else{F.selected.set(k,x);chk.classList.add('on')}
+    F._updateSelBar();
+  };
+  F._updateSelBar=()=>{
+    const n=F.selected.size;
+    const bar=$('#flSelBar');bar.classList.toggle('show',n>0);
+    $('#flSelCount').textContent=`${n} selected`;
+  };
+  F._clearSelection=()=>{
+    F.selected.clear();
+    document.querySelectorAll('.flCheck.on').forEach(c=>c.classList.remove('on'));
+    F._updateSelBar();
+  };
   F._render=reset=>{
     const g=$('#flGrid');
     if(reset){g.innerHTML='';g.scrollTop=0}
-    if(!F.data?.generated){g.innerHTML='';const e=document.createElement('div');e.className='xEmpty';e.textContent='Scan the game files first.';g.append(e);$('#flMore').hidden=true;return}
+    if(!F.data?.generated){g.innerHTML='';const e=document.createElement('div');e.className='xEmpty';e.textContent='Scan the game files first.';g.append(e);$('#flMore').hidden=true;$('#flLoadAll').hidden=true;return}
     const have=g.querySelectorAll('.flCard').length;
     F.items.slice(have).forEach(x=>g.append(F._card(x)));
     if(!F.items.length&&!have){const e=document.createElement('div');e.className='xEmpty';e.textContent='No files match your search.';g.append(e)}
     const c=$('#flCount');c.textContent=F.data?`${F.total} results · ${F.data.total} files indexed`:'';
-    $('#flMore').hidden=F.items.length>=F.total;$('#flMore').textContent=`Load more (${F.total-F.items.length} remaining)`;
+    const rem=F.total-F.items.length;
+    $('#flMore').hidden=rem<=0;$('#flMore').textContent=`Load more (${rem} remaining)`;
+    $('#flLoadAll').hidden=rem<=0;$('#flLoadAll').textContent=`Load all (${F.total})`;
   };
   F._modalItem=null;
   F._openModal=x=>{
@@ -2716,10 +2793,7 @@ const FL=(function(){
     else{$('#flMDl').style.display='';img.src=`/api/finder/full/${x.gid}.png`}
     m.classList.add('open');
   };
-  F._closeModal=()=>{
-    const m=$('#flModal');m.classList.remove('open');
-    $('#flMImg').src='';F._modalItem=null;
-  };
+  F._closeModal=()=>{$('#flModal').classList.remove('open');$('#flMImg').src='';F._modalItem=null};
   F._download=async()=>{
     const x=F._modalItem;if(!x)return;
     try{
@@ -2728,6 +2802,66 @@ const FL=(function(){
       else toast(r.error||'Save failed',true);
     }catch(e){toast('Save failed',true)}
   };
+  /* --- Albums --- */
+  F._loadAlbums=async()=>{
+    try{const r=await api('/api/albums');F.albums=r.albums||[];F._renderAlbums();F._updateAlbumPicker()}catch(e){console.error(e)}
+  };
+  F._updateAlbumPicker=()=>{
+    const sel=$('#flAlbumPick');sel.innerHTML='<option value="">Add to album…</option>';
+    for(const a of F.albums){const o=document.createElement('option');o.value=a.id;o.textContent=a.name;sel.append(o)}
+  };
+  F._renderAlbums=()=>{
+    const list=$('#flAlbumList');list.innerHTML='';
+    $('#flAlbumEmpty').style.display=F.albums.length?'none':'';
+    for(const a of F.albums){
+      const card=document.createElement('div');card.className='albCard';
+      const head=document.createElement('div');head.className='albHead';
+      const arrow=document.createElement('span');arrow.className='albArrow';arrow.textContent='▶';
+      const name=document.createElement('span');name.className='albName';name.textContent=a.name;
+      const cnt=document.createElement('span');cnt.className='albCount';cnt.textContent=`${a.items.length}`;
+      head.append(arrow,name,cnt);
+      const body=document.createElement('div');body.className='albBody';
+      const grid=document.createElement('div');grid.className='albThumbGrid';
+      for(const it of a.items){
+        const th=document.createElement('div');th.className='albThumb';
+        if(it.gid!=null&&it.type!=='Cubemap'){const im=document.createElement('img');im.src=`/api/finder/thumb/${it.gid}.jpg`;im.alt='';th.append(im)}
+        const rm=document.createElement('div');rm.className='albRm';rm.textContent='×';
+        rm.addEventListener('click',async ev=>{ev.stopPropagation();
+          try{const r=await post('/api/albums/remove',{id:a.id,keys:[{source_file:it.source_file,path_id:it.path_id}]});
+            F._replaceAlbum(a.id,r);F._renderAlbums();F._updateAlbumPicker()}catch(e){toast(e.message,true)}});
+        th.append(rm);grid.append(th);
+      }
+      body.append(grid);
+      const actions=document.createElement('div');actions.className='albActions';
+      const btnRen=document.createElement('button');btnRen.className='btn small ghost';btnRen.textContent='Rename';
+      btnRen.onclick=()=>{
+        name.style.display='none';
+        const inp=document.createElement('input');inp.className='albRename';inp.value=a.name;
+        name.parentElement.insertBefore(inp,name);inp.focus();inp.select();
+        const done=async()=>{const v=inp.value.trim();inp.remove();name.style.display='';
+          if(v&&v!==a.name){try{const r=await post('/api/albums/rename',{id:a.id,name:v});F._replaceAlbum(a.id,r);F._renderAlbums();F._updateAlbumPicker()}catch(e){toast(e.message,true)}}};
+        inp.onblur=done;inp.onkeydown=ev=>{if(ev.key==='Enter')done();if(ev.key==='Escape'){inp.remove();name.style.display=''}};
+      };
+      const btnCopy=document.createElement('button');btnCopy.className='btn small ghost';btnCopy.textContent='Duplicate';
+      btnCopy.onclick=async()=>{try{const r=await post('/api/albums/copy',{id:a.id});F.albums.push(r);F._renderAlbums();F._updateAlbumPicker();toast(`Duplicated "${a.name}"`)}catch(e){toast(e.message,true)}};
+      const btnDel=document.createElement('button');btnDel.className='btn small danger';btnDel.textContent='Delete';
+      btnDel.onclick=async()=>{try{await post('/api/albums/delete',{id:a.id});F.albums=F.albums.filter(x=>x.id!==a.id);F._renderAlbums();F._updateAlbumPicker()}catch(e){toast(e.message,true)}};
+      actions.append(btnRen,btnCopy,btnDel);body.append(actions);
+      head.onclick=()=>{const open=body.classList.toggle('open');arrow.classList.toggle('open',open)};
+      card.append(head,body);list.append(card);
+    }
+  };
+  F._replaceAlbum=(id,updated)=>{const i=F.albums.findIndex(a=>a.id===id);if(i>=0)F.albums[i]=updated};
+  F._addSelectedToAlbum=async()=>{
+    const aid=$('#flAlbumPick').value;if(!aid){toast('Pick an album first',true);return}
+    const items=[...F.selected.values()];if(!items.length){toast('Select some files first',true);return}
+    try{
+      const r=await post('/api/albums/add',{id:aid,items:items});
+      F._replaceAlbum(aid,r);F._renderAlbums();F._updateAlbumPicker();
+      toast(`Added ${items.length} file(s) to album`);F._clearSelection();
+    }catch(e){toast(e.message,true)}
+  };
+  /* --- Events --- */
   $('#flMCloseBtn').onclick=()=>F._closeModal();
   $('#flMDl').onclick=()=>F._download();
   $('#flModal').onclick=e=>{if(e.target.id==='flModal')F._closeModal()};
@@ -2735,6 +2869,10 @@ const FL=(function(){
   let qT;$('#flSearch').oninput=()=>{clearTimeout(qT);qT=setTimeout(()=>F.search(true),300)};
   $('#flType').onchange=()=>F.search(true);
   $('#flMore').onclick=()=>F.search(false);
+  $('#flLoadAll').onclick=()=>F.search(true,true);
+  $('#flSelClear').onclick=()=>F._clearSelection();
+  $('#flSelAdd').onclick=()=>F._addSelectedToAlbum();
+  $('#flAlbumNew').onclick=async()=>{try{const r=await post('/api/albums/create',{name:'New Album'});F.albums.push(r);F._renderAlbums();F._updateAlbumPicker()}catch(e){toast(e.message,true)}};
   $('#flScan').onclick=async()=>{try{await post('/api/finder/scan',{});toast('Scanning PG3D\'s files… this takes a few minutes.')}catch(e){toast(e.message,true)}};
   return F;
 })();
