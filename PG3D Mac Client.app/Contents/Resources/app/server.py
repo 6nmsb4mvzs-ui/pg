@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.41"
+APP_VERSION = "1.77.42"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5687,9 +5687,33 @@ def albums_export(aid):
     album = next((a for a in albums if a["id"] == aid), None)
     if not album:
         raise RuntimeError("Album not found")
-    textures = [f for f in album["files"] if f.get("type") == "Texture2D"]
-    if not textures:
-        raise RuntimeError("Album has no Texture2D files to export.")
+    if not album["files"]:
+        raise RuntimeError("Album is empty.")
+    finder_items = _finder_data().get("items", [])
+    if not finder_items:
+        raise RuntimeError("No file scan data. Run a file scan in Settings first.")
+    by_name = {}
+    for x in finder_items:
+        if x["type"] == "Texture2D":
+            by_name.setdefault(x["name"].lower(), []).append(x)
+    targets = []
+    for f in album["files"]:
+        name = f.get("name", "")
+        candidates = by_name.get(name.lower(), [])
+        if not candidates:
+            log(f"album export: '{name}' not found in current scan data")
+            continue
+        match = candidates[0]
+        if len(candidates) > 1:
+            w, h = f.get("width"), f.get("height")
+            for c in candidates:
+                if c["width"] == w and c["height"] == h:
+                    match = c
+                    break
+        targets.append((name, match))
+    if not targets:
+        raise RuntimeError("None of the album's files were found as Texture2D in the scan. "
+                           "The album may contain only Sprites, or the scan is outdated.")
     slug = re.sub(r"[^A-Za-z0-9 _.-]+", "", album["name"]).strip().replace(" ", "_").lower()[:48] or "album"
     pack_dir = TEXPACK_USER / slug
     pack_dir.mkdir(parents=True, exist_ok=True)
@@ -5697,10 +5721,9 @@ def albums_export(aid):
     env_cache = {}
     manifest_textures = []
     exported = 0
-    for f in textures:
-        src = f.get("source_file", "")
-        pid = int(f["path_id"])
-        name = f["name"]
+    for name, item in targets:
+        src = item["source_file"]
+        pid = int(item["path_id"])
         fname = re.sub(r"[^A-Za-z0-9_.-]", "_", name) + ".png"
         try:
             if src not in env_cache:
@@ -5727,7 +5750,7 @@ def albums_export(aid):
                "description": f"Exported from album \"{album['name']}\"",
                "textures": manifest_textures})
     if not exported:
-        raise RuntimeError("Could not export any textures. Run a file scan first.")
+        raise RuntimeError("Could not extract any textures from the game files.")
     return {"ok": True, "message": f"Exported {exported} texture(s) to \"{slug}\". "
             f"Edit the PNGs in the texture pack folder, then apply it from the Texture Packs tab.",
             "pack_dir": str(pack_dir), "pack_id": slug}
