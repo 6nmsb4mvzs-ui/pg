@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.36"
+APP_VERSION = "1.77.37"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -123,6 +123,7 @@ CURSOR_TARGET_JSON = STATE_DIR / "cursor_target.json"
 GUI_CATALOG_JSON = STATE_DIR / "gui_catalog.json"
 MODS_JSON = STATE_DIR / "mods.json"
 HISTORY_JSON = STATE_DIR / "history.json"
+REBUILT_STATE_JSON = STATE_DIR / "rebuilt_state.json"
 PREFS_JSON = STATE_DIR / "prefs.json"
 CREDENTIALS_JSON = SUPPORT / "steam_credentials.json"
 LOG = SUPPORT / "client.log"
@@ -1079,6 +1080,38 @@ def push_history(before, after, label):
     save_mods(after)
 
 
+def load_rebuilt_state():
+    return read_json(REBUILT_STATE_JSON, None)
+
+
+def save_rebuilt_state(state):
+    write_json(REBUILT_STATE_JSON, state)
+
+
+def _has_pending_rebuild():
+    rebuilt = load_rebuilt_state()
+    if rebuilt is None:
+        return False
+    current = load_mods()
+    for src in sources_for_state(current) | sources_for_state(rebuilt):
+        if _source_sig(current, src) != _source_sig(rebuilt, src):
+            return True
+    return False
+
+
+def has_pending_rebuild():
+    return cached("pending_rebuild", 2.0, _has_pending_rebuild)
+
+
+def pending_rebuild_sources():
+    rebuilt = load_rebuilt_state()
+    if rebuilt is None:
+        return set()
+    current = load_mods()
+    return {src for src in sources_for_state(current) | sources_for_state(rebuilt)
+            if _source_sig(current, src) != _source_sig(rebuilt, src)}
+
+
 def _source_sig(state, src):
     """Everything that decides how one game file is rebuilt."""
     sig = {}
@@ -2032,74 +2065,63 @@ def _exclusive(fn):
     return wrapper
 
 
-@_exclusive
 def mutate_state(mutator, label, progress=None):
-    before = load_mods()
-    after = copy.deepcopy(before)
-    mutator(after)
-    # Only files whose own changes differ: applying a loading screen leaves the
-    # cursor's and sky's files alone (they used to be rebuilt every time).
-    affected = {src for src in sources_for_state(before) | sources_for_state(after)
-                if _source_sig(before, src) != _source_sig(after, src)}
-    push_history(before, after, label)
-    try:
-        rebuild_sources(affected, after, progress)
-    except Exception:
-        save_mods(before)
-        try:
-            rebuild_sources(affected, before)
-        except Exception as rollback_error:
-            log(f"State rollback rebuild also failed: {rollback_error}")
-        hist = read_json(HISTORY_JSON, default_history())
-        if hist["undo"]:
-            hist["undo"].pop()
-        write_json(HISTORY_JSON, hist)
-        raise
+    with _MUTATE_LOCK:
+        before = load_mods()
+        after = copy.deepcopy(before)
+        mutator(after)
+        push_history(before, after, label)
+        invalidate("pending_rebuild")
     return after
 
 
-@_exclusive
 def undo_change():
-    hist = read_json(HISTORY_JSON, default_history())
-    if not hist["undo"]:
-        raise RuntimeError("Nothing to undo.")
-    current = load_mods()
-    entry = hist["undo"].pop()
-    target = entry["state"]
-    hist["redo"].append({"state": current, "label": entry.get("label", "Change"), "at": datetime.now().isoformat(timespec="seconds")})
-    hist["redo"] = hist["redo"][-25:]
-    affected = {src for src in sources_for_state(current) | sources_for_state(target)
-                if _source_sig(current, src) != _source_sig(target, src)}
-    save_mods(target)
-    try:
-        rebuild_sources(affected, target)
-    except Exception:
-        save_mods(current)
-        raise
-    write_json(HISTORY_JSON, hist)
+    with _MUTATE_LOCK:
+        hist = read_json(HISTORY_JSON, default_history())
+        if not hist["undo"]:
+            raise RuntimeError("Nothing to undo.")
+        current = load_mods()
+        entry = hist["undo"].pop()
+        target = entry["state"]
+        hist["redo"].append({"state": current, "label": entry.get("label", "Change"), "at": datetime.now().isoformat(timespec="seconds")})
+        hist["redo"] = hist["redo"][-25:]
+        save_mods(target)
+        write_json(HISTORY_JSON, hist)
+        invalidate("pending_rebuild")
+    return {"ok": True, "label": entry.get("label", "Change")}
+
+
+def redo_change():
+    with _MUTATE_LOCK:
+        hist = read_json(HISTORY_JSON, default_history())
+        if not hist["redo"]:
+            raise RuntimeError("Nothing to redo.")
+        current = load_mods()
+        entry = hist["redo"].pop()
+        target = entry["state"]
+        hist["undo"].append({"state": current, "label": entry.get("label", "Change"), "at": datetime.now().isoformat(timespec="seconds")})
+        hist["undo"] = hist["undo"][-25:]
+        save_mods(target)
+        write_json(HISTORY_JSON, hist)
+        invalidate("pending_rebuild")
     return {"ok": True, "label": entry.get("label", "Change")}
 
 
 @_exclusive
-def redo_change():
-    hist = read_json(HISTORY_JSON, default_history())
-    if not hist["redo"]:
-        raise RuntimeError("Nothing to redo.")
+def apply_pending(progress=None):
     current = load_mods()
-    entry = hist["redo"].pop()
-    target = entry["state"]
-    hist["undo"].append({"state": current, "label": entry.get("label", "Change"), "at": datetime.now().isoformat(timespec="seconds")})
-    hist["undo"] = hist["undo"][-25:]
-    affected = {src for src in sources_for_state(current) | sources_for_state(target)
-                if _source_sig(current, src) != _source_sig(target, src)}
-    save_mods(target)
-    try:
-        rebuild_sources(affected, target)
-    except Exception:
-        save_mods(current)
-        raise
-    write_json(HISTORY_JSON, hist)
-    return {"ok": True, "label": entry.get("label", "Change")}
+    rebuilt = load_rebuilt_state()
+    if rebuilt is None:
+        save_rebuilt_state(current)
+        return {"ok": True, "message": "Nothing to apply."}
+    affected = {src for src in sources_for_state(current) | sources_for_state(rebuilt)
+                if _source_sig(current, src) != _source_sig(rebuilt, src)}
+    if not affected:
+        return {"ok": True, "message": "Nothing to apply."}
+    rebuild_sources(affected, current, progress)
+    save_rebuilt_state(current)
+    invalidate("pending_rebuild")
+    return {"ok": True, "applied": len(affected)}
 
 
 def apply_cursor(cursor_id, size, color=None, outline=None, outline_width=0):
@@ -4273,7 +4295,18 @@ def _launch_job(fps):
                 with _MUTATE_LOCK:
                     _reapply_work(lambda f, m: set_status(launch_message=m), reason)
 
-        # 4) Start the game and wait until it is actually running.
+        # 4a) Apply queued changes (mods made since the last game launch).
+        pending = pending_rebuild_sources()
+        if pending:
+            _launch_stage("updating", 52, 55 if needs_switch else 14, max(5, len(pending) * 8),
+                          "Applying your changes…", later=times[start_key])
+            rebuild_sources(pending, load_mods(), lambda f, m: set_status(launch_message=m))
+            save_rebuilt_state(load_mods())
+            invalidate("pending_rebuild")
+        elif load_rebuilt_state() is None:
+            save_rebuilt_state(load_mods())
+
+        # 4b) Start the game and wait until it is actually running.
         _launch_stage("launching", 55 if needs_switch else 12, 96, times[start_key],
                       "Starting PG3D through the FPS unlocker…")
         t0 = time.time()
@@ -4725,6 +4758,7 @@ def status_payload():
         "playtime": playtime_summary(account_info.get("current") or account_info.get("selected") or "unknown"),
         "rank": _safe_rank(account_info.get("current") or account_info.get("selected") or "unknown"),
         "game_update": game_update_info(),
+        "changes_pending": has_pending_rebuild(),
         "reapply_mods": reapply_enabled(),
         "mouse_fix": mouse_fix_enabled(),
         "job": {k[4:]: s.get(k) for k in ("job_kind", "job_id", "job_phase", "job_progress", "job_message", "job_error",
@@ -5856,10 +5890,8 @@ def apply_hud_sizes(sizes, restore_all=False):
                 layout[key] = {"source_file": src, "relative_file": rel,
                                "path_id": int(g["path_id"]), "name": g["name"], "pct": pct,
                                "mode": g.get("mode", "self"), "child_ids": g.get("child_ids", []), "path": g["path"]}
-    def job(progress):
-        mutate_state(change, "HUD size", progress)
-        return "HUD size applied. It shows the next time PG3D starts."
-    return start_job("hud", job, label="Resizing the HUD")
+    mutate_state(change, "HUD size")
+    return {"ok": True, "message": "Saved. It takes effect the next time PG3D starts."}
 
 
 def start_hud_scan():
@@ -7170,7 +7202,9 @@ def _reapply_work(progress, reason):
     rebuild_sources(sources_for_state(state) | {s for s in sources_for_state(before) if Path(s).exists()} |
                     set(_leftover_modded(sources_for_state(state))), state, _sub_progress(progress, .7, 1.0))
     save_mods(state)
+    save_rebuilt_state(state)
     invalidate("game_update")
+    invalidate("pending_rebuild")
     msg = ("Your mods were re-applied after the PG3D update." if reason == "update" else
            "Game files left half-changed by an interrupted change were put back." if reason == "leftover" else
            "Your mods were re-applied.")
@@ -7243,7 +7277,8 @@ def restore_game_files():
         def change(state):
             state.clear()
             state.update(default_mods())
-        mutate_state(change, "Restore original game files", progress)
+        mutate_state(change, "Restore original game files")
+        apply_pending(progress)
         set_status(quick_exit=None)
         return "Original game files restored. Start PG3D to check it opens."
     return start_job("restore", job)
@@ -7404,7 +7439,7 @@ def mods_reapply_watch():
         try:
             if not reapply_enabled() or game_running() or launch_busy() or jobs_pending():
                 continue
-            if _MUTATE_LOCK.locked() or game_update_info().get("updating"):
+            if _MUTATE_LOCK.locked() or game_update_info().get("updating") or has_pending_rebuild():
                 continue
             reason = mods_need_reapply()
             if reason:
@@ -8625,6 +8660,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(remove_all_skins())
             if path == "/api/prefs/reapply":
                 return self.send_json(set_reapply_pref(data.get("on", True)))
+            if path == "/api/mods/apply-now":
+                return self.send_json(start_job("apply", lambda progress: apply_pending(progress), label="Applying changes"))
             if path == "/api/mods/reapply":
                 reason = mods_need_reapply() or "restored"
                 return self.send_json(start_reapply(reason))
