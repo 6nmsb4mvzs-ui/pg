@@ -42,8 +42,15 @@ fail() {
 stop_running() {
   local STOPPED=()
   # Ask the old app to quit through AppKit so its Dock icon is removed cleanly.
+  # Wait up to 2 s for the graceful quit — this is what clears the Dock entry.
   /usr/bin/osascript -e 'tell application id "local.pg3d.macclient" to quit' 2>/dev/null &
   local QUIT_PID=$!
+  for i in {1..10}; do
+    /bin/kill -0 "$QUIT_PID" 2>/dev/null || break
+    /bin/sleep 0.2
+  done
+  /bin/kill "$QUIT_PID" 2>/dev/null || true
+  # Kill any server, shell, or overlay processes from older versions.
   for PF in "$SUPPORT"/server-v*.pid "$SUPPORT"/shell-v*.pid "$SUPPORT"/overlay*.pid; do
     [[ -f "$PF" ]] || continue
     OPID="$(cat "$PF" 2>/dev/null || true)"
@@ -59,8 +66,7 @@ stop_running() {
     [[ "$OPID" == "$PPID" || "$OPID" == "$$" ]] && continue
     /bin/kill "$OPID" 2>/dev/null && STOPPED+=("$OPID")
   done
-  /bin/kill "$QUIT_PID" 2>/dev/null || true
-  /bin/sleep 0.4
+  /bin/sleep 0.3
   # Anything that ignored the polite quit within 3 s is stopped for good (an old copy
   # left running kept its icon in the Dock next to the new one).
   for i in {1..15}; do

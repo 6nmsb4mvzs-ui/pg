@@ -5573,25 +5573,18 @@ def apply_texpack(pack_id):
     log(f"apply_texpack: {pack_id} → {len(targets)} target(s): "
         + ", ".join(f"{t['name']} pid={t['path_id']} in {Path(t['source_file']).name}" for t in targets))
 
-    def job(progress):
-        progress(0.1, f"Applying {meta.get('name', pack_id)}…")
-
-        def change(state):
-            state["texpack"] = {"pack": pack_id, "pack_dir": str(pack_dir),
-                                "name": meta.get("name", pack_id), "targets": targets}
-        mutate_state(change, f"Texture pack: {meta.get('name', pack_id)}",
-                     _sub_progress(progress, 0.2, 1.0))
-        return f'"{meta.get("name", pack_id)}" applied - {len(targets)} texture(s) matched.'
-    return start_job("texpack", job)
+    def change(state):
+        state["texpack"] = {"pack": pack_id, "pack_dir": str(pack_dir),
+                            "name": meta.get("name", pack_id), "targets": targets}
+    mutate_state(change, f"Texture pack: {meta.get('name', pack_id)}")
+    return {"ok": True, "message": f'"{meta.get("name", pack_id)}" saved. It takes effect the next time PG3D starts.'}
 
 
 def reset_texpack():
-    def job(progress):
-        def change(state):
-            state["texpack"] = None
-        mutate_state(change, "Reset texture pack", progress)
-        return "Original textures restored."
-    return start_job("texpack", job)
+    def change(state):
+        state["texpack"] = None
+    mutate_state(change, "Reset texture pack")
+    return {"ok": True, "message": "Original textures will be restored the next time PG3D starts."}
 
 
 # ----------------------------------------------------------------------------- Albums (file grouping)
@@ -8928,6 +8921,8 @@ def main():
     # launch.sh stops old servers with SIGTERM; turn that into a normal exit so
     # cleanup() runs and the replay-buffer ffmpeg process is stopped too.
     signal.signal(signal.SIGTERM, _on_sigterm)
+    if load_rebuilt_state() is None:
+        save_rebuilt_state(load_mods())
     start_cursor_init(False)
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.daemon_threads = True

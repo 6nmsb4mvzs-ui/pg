@@ -2380,7 +2380,7 @@ const FONT_LOADED=new Set();
 let hudData=null,hudEdit={},hudPoll=null;
 async function loadHud(){clearTimeout(hudPoll);try{hudData=await api('/api/hud');renderHud();renderKb();
   if(!hudData.scanned&&localStorage.pg3dTab==='hud')hudPoll=setTimeout(loadHud,4000)}catch(e){console.error(e)}}
-async function hudSend(sizes,extra={}){try{await post('/api/hud/apply',{sizes,...extra})}catch(e){toast(e.message,true)}}
+async function hudSend(sizes,extra={}){try{await post('/api/hud/apply',{sizes,...extra});await loadHud()}catch(e){toast(e.message,true)}}
 function hudRowSizes(row,pct){const o={};for(const k of row.keys)o[k]=pct;return o}
 function renderHud(){const d=hudData;const list=$('#hdList');if(!d||!list)return;list.innerHTML='';
   const rows=d.rows||[];$('#hdTop').hidden=!d.scanned||!rows.length;
@@ -2393,8 +2393,8 @@ function renderHud(){const d=hudData;const list=$('#hdList');if(!d||!list)return
     inp.oninput=()=>{hudEdit[id]=+inp.value;val.textContent=inp.value+'%';r.classList.toggle('changed',+inp.value!==100);$('#hdApply').disabled=!Object.keys(hudEdit).length;const db=r.querySelector('.hdDef');if(db)db.disabled=false};
     rr.append(inp,val);if(row.resizable===false){rr.innerHTML='';rr.append(el('small',null,hidden?'Tint removed':'Full-screen tint after respawn: Hide removes it'))}
     const btns=el('div','hdBtns');
-    const hide=el('button','btn',hidden?'Show':'Hide');hide.onclick=()=>{delete hudEdit[id];hudSend(hudRowSizes(row,hidden?100:0))};
-    const def=el('button','btn hdDef','Default');def.disabled=row.pct===100&&hudEdit[id]===undefined;def.onclick=()=>{delete hudEdit[id];hudSend(hudRowSizes(row,100))};
+    const hide=el('button','btn',hidden?'Show':'Hide');hide.onclick=async()=>{delete hudEdit[id];await hudSend(hudRowSizes(row,hidden?100:0))};
+    const def=el('button','btn hdDef','Default');def.disabled=row.pct===100&&hudEdit[id]===undefined;def.onclick=async()=>{delete hudEdit[id];await hudSend(hudRowSizes(row,100))};
     btns.append(hide,def);r.append(info,rr,btns);list.append(r)}
   $('#hdApply').disabled=!Object.keys(hudEdit).length;
   const anyMod=rows.some(r=>r.pct!==100)||(hudData?.kb||[]).some(b=>b.hidden||b.scale!==100);
