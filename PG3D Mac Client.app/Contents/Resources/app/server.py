@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.33"
+APP_VERSION = "1.77.34"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5427,6 +5427,8 @@ def files_search(q="", type_filter="", offset=0, limit=60):
     out = []
     for x in items:
         if tf and x["type"].lower() != tf:
+            continue
+        if not words and x["name"].lower().startswith("avatar_"):
             continue
         if words:
             haystack = (x["name"] + " " + x.get("relative_file", "")).lower()
