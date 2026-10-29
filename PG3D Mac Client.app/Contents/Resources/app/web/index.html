@@ -935,6 +935,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .flSelBar{display:none;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:hsl(var(--nh) var(--ns) 10%);border:1px solid var(--accent);margin-bottom:10px;flex-wrap:wrap}
 .flSelBar.show{display:flex}
 .flSelBar .flSelCount{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
+.btn.small{height:26px;padding:0 10px!important;font-size:11px!important;border-radius:7px!important}
 
 /* files: albums sidebar */
 .albCard{background:hsl(var(--nh) var(--ns) 6%);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden}
@@ -2720,9 +2721,8 @@ const FL=(function(){
     const d=F.data;if(!d)return;
     const c=$('#flCount');
     if(!d.generated){c.textContent='No scan data yet. Press "Scan game files" to index PG3D\'s assets.';return}
-    c.textContent=`${d.total} files indexed · PG3D build ${d.build||'?'}`;
+    c.textContent=`${d.total} files indexed \xb7 PG3D build ${d.build||'?'}`;
   };
-  F._itemKey=x=>`${x.source_file}::${x.path_id}`;
   F.search=async(reset,loadAll)=>{
     const q=encodeURIComponent($('#flSearch').value||'');
     const tf=encodeURIComponent($('#flType').value||'');
@@ -2737,35 +2737,37 @@ const FL=(function(){
     }catch(e){console.error(e)}
   };
   F._card=x=>{
-    const d=document.createElement('div');d.className='flCard';d.title=`${x.name}\n${x.type} ${x.width}×${x.height}\n${x.relative_file} #${x.path_id}`;
-    const chk=document.createElement('div');chk.className='flCheck'+(F.selected.has(F._itemKey(x))?' on':'');chk.textContent='✓';
-    chk.addEventListener('click',ev=>{ev.stopPropagation();F._toggleSelect(x,chk)});
+    const d=document.createElement('div');d.className='flCard';d.dataset.gid=String(x.gid);
+    d.title=`${x.name}\n${x.type} ${x.width}\xd7${x.height}\n${x.relative_file} #${x.path_id}`;
+    if(F.selected.has(x.gid))d.classList.add('sel');
+    const chk=document.createElement('div');chk.className='flCheck'+(F.selected.has(x.gid)?' on':'');
+    chk.textContent='✓';
+    chk.addEventListener('click',ev=>{ev.stopPropagation();F._toggleSel(x,d,chk)});
     d.append(chk);
     const ph=document.createElement('div');ph.className='flPlaceholder';
-    ph.textContent=x.type==='Cubemap'?'Cubemap':`${x.width}×${x.height}`;
+    ph.textContent=x.type==='Cubemap'?'Cubemap':`${x.width}\xd7${x.height}`;
     d.append(ph);
     if(x.type!=='Cubemap'){d.dataset.thumb=`/api/finder/thumb/${x.gid}.jpg`;F.observer.observe(d)}
     const tp=document.createElement('span');tp.className='flType';tp.textContent=x.type==='Texture2D'?'Tex2D':x.type;
     const b=document.createElement('b');b.textContent=x.name||`#${x.path_id}`;
-    const sm=document.createElement('small');sm.textContent=`${x.width}×${x.height} · ${(x.relative_file||'').split('/').pop()}`;
+    const sm=document.createElement('small');sm.textContent=`${x.width}\xd7${x.height} \xb7 ${(x.relative_file||'').split('/').pop()}`;
     d.append(tp,b,sm);
     d.addEventListener('click',()=>F._openModal(x));
     return d;
   };
-  F._toggleSelect=(x,chk)=>{
-    const k=F._itemKey(x);
-    if(F.selected.has(k)){F.selected.delete(k);chk.classList.remove('on')}
-    else{F.selected.set(k,x);chk.classList.add('on')}
+  F._toggleSel=(x,card,chk)=>{
+    if(F.selected.has(x.gid)){F.selected.delete(x.gid);card.classList.remove('sel');chk.classList.remove('on')}
+    else{F.selected.set(x.gid,x);card.classList.add('sel');chk.classList.add('on')}
     F._updateSelBar();
   };
   F._updateSelBar=()=>{
     const n=F.selected.size;
-    const bar=$('#flSelBar');bar.classList.toggle('show',n>0);
+    $('#flSelBar').classList.toggle('show',n>0);
     $('#flSelCount').textContent=`${n} selected`;
   };
-  F._clearSelection=()=>{
+  F._clearSel=()=>{
     F.selected.clear();
-    document.querySelectorAll('.flCheck.on').forEach(c=>c.classList.remove('on'));
+    $$('.flCard.sel').forEach(c=>{c.classList.remove('sel');const ck=c.querySelector('.flCheck');if(ck)ck.classList.remove('on')});
     F._updateSelBar();
   };
   F._render=reset=>{
@@ -2775,18 +2777,19 @@ const FL=(function(){
     const have=g.querySelectorAll('.flCard').length;
     F.items.slice(have).forEach(x=>g.append(F._card(x)));
     if(!F.items.length&&!have){const e=document.createElement('div');e.className='xEmpty';e.textContent='No files match your search.';g.append(e)}
-    const c=$('#flCount');c.textContent=F.data?`${F.total} results · ${F.data.total} files indexed`:'';
+    const c=$('#flCount');c.textContent=F.data?`${F.total} results \xb7 ${F.data.total} files indexed`:'';
     const rem=F.total-F.items.length;
     $('#flMore').hidden=rem<=0;$('#flMore').textContent=`Load more (${rem} remaining)`;
     $('#flLoadAll').hidden=rem<=0;$('#flLoadAll').textContent=`Load all (${F.total})`;
   };
+  /* --- modal --- */
   F._modalItem=null;
   F._openModal=x=>{
     F._modalItem=x;
     const m=$('#flModal'),img=$('#flMImg'),sp=$('#flMSpinner');
     $('#flMName').textContent=x.name||`#${x.path_id}`;
-    $('#flMDetail').textContent=`${x.type} · ${x.width}×${x.height} · ${(x.relative_file||'').split('/').pop()}`;
-    img.style.display='none';sp.style.display='';
+    $('#flMDetail').textContent=`${x.type} \xb7 ${x.width}\xd7${x.height} \xb7 ${(x.relative_file||'').split('/').pop()}`;
+    img.style.display='none';sp.style.display='';sp.textContent='Loading full size…';
     img.onload=()=>{img.style.display='';sp.style.display='none'};
     img.onerror=()=>{sp.textContent='Preview not available'};
     if(x.type==='Cubemap'){img.style.display='none';sp.textContent='Cubemaps cannot be previewed';$('#flMDl').style.display='none'}
@@ -2796,72 +2799,69 @@ const FL=(function(){
   F._closeModal=()=>{$('#flModal').classList.remove('open');$('#flMImg').src='';F._modalItem=null};
   F._download=async()=>{
     const x=F._modalItem;if(!x)return;
-    try{
-      const r=await post('/api/finder/save',{gid:x.gid});
-      if(r.ok)toast(`Saved to Downloads: ${r.name}`);
-      else toast(r.error||'Save failed',true);
+    try{const r=await post('/api/finder/save',{gid:x.gid});
+      if(r.ok)toast(`Saved to Downloads: ${r.name}`);else toast(r.error||'Save failed',true);
     }catch(e){toast('Save failed',true)}
   };
-  /* --- Albums --- */
+  /* --- albums --- */
   F._loadAlbums=async()=>{
-    try{const r=await api('/api/albums');F.albums=r.albums||[];F._renderAlbums();F._updateAlbumPicker()}catch(e){console.error(e)}
+    try{const r=await api('/api/albums');F.albums=r.albums||[];F._renderAlbums()}catch(e){console.error(e)}
   };
-  F._updateAlbumPicker=()=>{
-    const sel=$('#flAlbumPick');sel.innerHTML='<option value="">Add to album…</option>';
+  F._sync=r=>{if(r&&r.albums){F.albums=r.albums;F._renderAlbums()}};
+  F._renderAlbumPicker=()=>{
+    const sel=$('#flAlbumPick');
+    sel.innerHTML='<option value="">Add to album…</option>';
     for(const a of F.albums){const o=document.createElement('option');o.value=a.id;o.textContent=a.name;sel.append(o)}
   };
   F._renderAlbums=()=>{
-    const list=$('#flAlbumList');list.innerHTML='';
-    $('#flAlbumEmpty').style.display=F.albums.length?'none':'';
+    F._renderAlbumPicker();
+    const box=$('#flAlbumList'),empty=$('#flAlbumEmpty');
+    if(!F.albums.length){box.innerHTML='';if(empty)empty.hidden=false;return}
+    if(empty)empty.hidden=true;
+    box.innerHTML='';
     for(const a of F.albums){
       const card=document.createElement('div');card.className='albCard';
       const head=document.createElement('div');head.className='albHead';
       const arrow=document.createElement('span');arrow.className='albArrow';arrow.textContent='▶';
       const name=document.createElement('span');name.className='albName';name.textContent=a.name;
-      const cnt=document.createElement('span');cnt.className='albCount';cnt.textContent=`${a.items.length}`;
+      const cnt=document.createElement('span');cnt.className='albCount';cnt.textContent=`${a.files.length}`;
       head.append(arrow,name,cnt);
       const body=document.createElement('div');body.className='albBody';
       const grid=document.createElement('div');grid.className='albThumbGrid';
-      for(const it of a.items){
-        const th=document.createElement('div');th.className='albThumb';
-        if(it.gid!=null&&it.type!=='Cubemap'){const im=document.createElement('img');im.src=`/api/finder/thumb/${it.gid}.jpg`;im.alt='';th.append(im)}
-        const rm=document.createElement('div');rm.className='albRm';rm.textContent='×';
+      if(!a.files.length){const em=document.createElement('div');em.style.cssText='font-size:11px;color:var(--muted);padding:4px 0;grid-column:1/-1';em.textContent='Empty album';grid.append(em)}
+      for(const f of a.files){
+        const thumb=document.createElement('div');thumb.className='albThumb';thumb.title=f.name||'';
+        if(f.gid!=null&&f.type!=='Cubemap'){const im=document.createElement('img');im.alt='';im.loading='lazy';im.src=`/api/finder/thumb/${f.gid}.jpg`;thumb.append(im)}
+        const rm=document.createElement('div');rm.className='albRm';rm.textContent='\xd7';
         rm.addEventListener('click',async ev=>{ev.stopPropagation();
-          try{const r=await post('/api/albums/remove',{id:a.id,keys:[{source_file:it.source_file,path_id:it.path_id}]});
-            F._replaceAlbum(a.id,r);F._renderAlbums();F._updateAlbumPicker()}catch(e){toast(e.message,true)}});
-        th.append(rm);grid.append(th);
+          try{F._sync(await post('/api/albums/remove',{id:a.id,gids:[f.gid]}))}catch(ex){toast(ex.message,true)}});
+        thumb.addEventListener('click',()=>F._openModal(f));
+        thumb.append(rm);grid.append(thumb);
       }
       body.append(grid);
-      const actions=document.createElement('div');actions.className='albActions';
+      const acts=document.createElement('div');acts.className='albActions';
       const btnRen=document.createElement('button');btnRen.className='btn small ghost';btnRen.textContent='Rename';
-      btnRen.onclick=()=>{
-        name.style.display='none';
-        const inp=document.createElement('input');inp.className='albRename';inp.value=a.name;
-        name.parentElement.insertBefore(inp,name);inp.focus();inp.select();
-        const done=async()=>{const v=inp.value.trim();inp.remove();name.style.display='';
-          if(v&&v!==a.name){try{const r=await post('/api/albums/rename',{id:a.id,name:v});F._replaceAlbum(a.id,r);F._renderAlbums();F._updateAlbumPicker()}catch(e){toast(e.message,true)}}};
-        inp.onblur=done;inp.onkeydown=ev=>{if(ev.key==='Enter')done();if(ev.key==='Escape'){inp.remove();name.style.display=''}};
-      };
-      const btnCopy=document.createElement('button');btnCopy.className='btn small ghost';btnCopy.textContent='Duplicate';
-      btnCopy.onclick=async()=>{try{const r=await post('/api/albums/copy',{id:a.id});F.albums.push(r);F._renderAlbums();F._updateAlbumPicker();toast(`Duplicated "${a.name}"`)}catch(e){toast(e.message,true)}};
+      const btnCopy=document.createElement('button');btnCopy.className='btn small ghost';btnCopy.textContent='Copy';
       const btnDel=document.createElement('button');btnDel.className='btn small danger';btnDel.textContent='Delete';
-      btnDel.onclick=async()=>{try{await post('/api/albums/delete',{id:a.id});F.albums=F.albums.filter(x=>x.id!==a.id);F._renderAlbums();F._updateAlbumPicker()}catch(e){toast(e.message,true)}};
-      actions.append(btnRen,btnCopy,btnDel);body.append(actions);
-      head.onclick=()=>{const open=body.classList.toggle('open');arrow.classList.toggle('open',open)};
-      card.append(head,body);list.append(card);
+      btnRen.addEventListener('click',e=>{e.stopPropagation();
+        const cur=name.textContent;
+        const inp=document.createElement('input');inp.className='albRename';inp.value=cur;
+        name.replaceWith(inp);inp.focus();inp.select();
+        const done=async()=>{const v=inp.value.trim()||cur;inp.replaceWith(name);name.textContent=v;
+          if(v!==cur)try{F._sync(await post('/api/albums/rename',{id:a.id,name:v}))}catch(ex){toast(ex.message,true)}};
+        inp.addEventListener('blur',done);inp.addEventListener('keydown',ev=>{if(ev.key==='Enter')inp.blur()});
+      });
+      btnCopy.addEventListener('click',async e=>{e.stopPropagation();
+        try{F._sync(await post('/api/albums/copy',{id:a.id}));toast(`Copied "${a.name}"`)}catch(ex){toast(ex.message,true)}});
+      btnDel.addEventListener('click',async e=>{e.stopPropagation();
+        if(!confirm(`Delete album "${a.name}"?`))return;
+        try{F._sync(await post('/api/albums/delete',{id:a.id}))}catch(ex){toast(ex.message,true)}});
+      acts.append(btnRen,btnCopy,btnDel);body.append(acts);
+      head.addEventListener('click',()=>{const open=body.classList.toggle('open');arrow.classList.toggle('open',open)});
+      card.append(head,body);box.append(card);
     }
   };
-  F._replaceAlbum=(id,updated)=>{const i=F.albums.findIndex(a=>a.id===id);if(i>=0)F.albums[i]=updated};
-  F._addSelectedToAlbum=async()=>{
-    const aid=$('#flAlbumPick').value;if(!aid){toast('Pick an album first',true);return}
-    const items=[...F.selected.values()];if(!items.length){toast('Select some files first',true);return}
-    try{
-      const r=await post('/api/albums/add',{id:aid,items:items});
-      F._replaceAlbum(aid,r);F._renderAlbums();F._updateAlbumPicker();
-      toast(`Added ${items.length} file(s) to album`);F._clearSelection();
-    }catch(e){toast(e.message,true)}
-  };
-  /* --- Events --- */
+  /* --- wiring --- */
   $('#flMCloseBtn').onclick=()=>F._closeModal();
   $('#flMDl').onclick=()=>F._download();
   $('#flModal').onclick=e=>{if(e.target.id==='flModal')F._closeModal()};
@@ -2870,9 +2870,16 @@ const FL=(function(){
   $('#flType').onchange=()=>F.search(true);
   $('#flMore').onclick=()=>F.search(false);
   $('#flLoadAll').onclick=()=>F.search(true,true);
-  $('#flSelClear').onclick=()=>F._clearSelection();
-  $('#flSelAdd').onclick=()=>F._addSelectedToAlbum();
-  $('#flAlbumNew').onclick=async()=>{try{const r=await post('/api/albums/create',{name:'New Album'});F.albums.push(r);F._renderAlbums();F._updateAlbumPicker()}catch(e){toast(e.message,true)}};
+  $('#flSelClear').onclick=()=>F._clearSel();
+  $('#flSelAdd').onclick=async()=>{
+    const aid=$('#flAlbumPick').value;if(!aid){toast('Pick an album first',true);return}
+    const files=[...F.selected.values()];if(!files.length)return;
+    try{F._sync(await post('/api/albums/add',{id:aid,files}));toast(`Added ${files.length} file(s)`);F._clearSel()}catch(e){toast(e.message,true)}
+  };
+  $('#flAlbumNew').onclick=async()=>{
+    const name=prompt('Album name:');if(!name)return;
+    try{F._sync(await post('/api/albums/create',{name}))}catch(e){toast(e.message,true)}
+  };
   $('#flScan').onclick=async()=>{try{await post('/api/finder/scan',{});toast('Scanning PG3D\'s files… this takes a few minutes.')}catch(e){toast(e.message,true)}};
   return F;
 })();

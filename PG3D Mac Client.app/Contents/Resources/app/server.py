@@ -5555,88 +5555,6 @@ def reset_texpack():
     return start_job("texpack", job)
 
 
-# ----------------------------------------------------------------------------- Albums
-ALBUMS_JSON = STATE_DIR / "albums.json"
-
-
-def _load_albums():
-    return read_json(ALBUMS_JSON, {"albums": []})
-
-
-def _save_albums(data):
-    write_json(ALBUMS_JSON, data)
-
-
-def albums_list():
-    return _load_albums()
-
-
-def albums_create(name):
-    data = _load_albums()
-    album_id = f"album_{int(time.time() * 1000)}"
-    album = {"id": album_id, "name": name or "New Album", "items": []}
-    data["albums"].append(album)
-    _save_albums(data)
-    return album
-
-
-def albums_rename(album_id, name):
-    data = _load_albums()
-    for a in data["albums"]:
-        if a["id"] == album_id:
-            a["name"] = name
-            _save_albums(data)
-            return a
-    raise RuntimeError("Album not found.")
-
-
-def albums_delete(album_id):
-    data = _load_albums()
-    data["albums"] = [a for a in data["albums"] if a["id"] != album_id]
-    _save_albums(data)
-    return {"ok": True}
-
-
-def albums_copy(album_id):
-    data = _load_albums()
-    for a in data["albums"]:
-        if a["id"] == album_id:
-            new_id = f"album_{int(time.time() * 1000)}"
-            new_album = copy.deepcopy(a)
-            new_album["id"] = new_id
-            new_album["name"] = a["name"] + " (copy)"
-            data["albums"].append(new_album)
-            _save_albums(data)
-            return new_album
-    raise RuntimeError("Album not found.")
-
-
-def albums_add(album_id, items):
-    data = _load_albums()
-    for a in data["albums"]:
-        if a["id"] == album_id:
-            existing = {(it["source_file"], it["path_id"]) for it in a["items"]}
-            for it in items:
-                key = (it["source_file"], it["path_id"])
-                if key not in existing:
-                    a["items"].append(it)
-                    existing.add(key)
-            _save_albums(data)
-            return a
-    raise RuntimeError("Album not found.")
-
-
-def albums_remove(album_id, keys):
-    data = _load_albums()
-    for a in data["albums"]:
-        if a["id"] == album_id:
-            remove_set = {(k["source_file"], k["path_id"]) for k in keys}
-            a["items"] = [it for it in a["items"] if (it["source_file"], it["path_id"]) not in remove_set]
-            _save_albums(data)
-            return a
-    raise RuntimeError("Album not found.")
-
-
 # ----------------------------------------------------------------------------- Albums (file grouping)
 ALBUMS_JSON = STATE_DIR / "albums.json"
 
@@ -5678,12 +5596,11 @@ def albums_delete(aid):
 
 
 def albums_copy(aid):
-    import copy as _copy
     albums = _load_albums()
     src = next((a for a in albums if a["id"] == aid), None)
     if not src:
         raise RuntimeError("Album not found")
-    dup = _copy.deepcopy(src)
+    dup = copy.deepcopy(src)
     dup["id"] = f"ab_{int(time.time() * 1000)}"
     dup["name"] = src["name"] + " (copy)"
     albums.append(dup)
@@ -8383,8 +8300,6 @@ class Handler(BaseHTTPRequestHandler):
             if lim > 0:
                 lim = min(200, lim)
             return self.send_json(files_search(g("q"), g("type"), int(g("offset", "0") or 0), lim))
-        if path == "/api/albums":
-            return self.send_json(albums_list())
         if path == "/api/finder":
             return self.send_json(finder_payload())
         if path == "/api/hud":
@@ -8528,18 +8443,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(albums_add(data.get("id"), data.get("files", [])))
             if path == "/api/albums/remove":
                 return self.send_json(albums_remove(data.get("id"), data.get("gids", [])))
-            if path == "/api/albums/create":
-                return self.send_json(albums_create(data.get("name", "")))
-            if path == "/api/albums/rename":
-                return self.send_json(albums_rename(data.get("id", ""), data.get("name", "")))
-            if path == "/api/albums/delete":
-                return self.send_json(albums_delete(data.get("id", "")))
-            if path == "/api/albums/copy":
-                return self.send_json(albums_copy(data.get("id", "")))
-            if path == "/api/albums/add":
-                return self.send_json(albums_add(data.get("id", ""), data.get("items", [])))
-            if path == "/api/albums/remove":
-                return self.send_json(albums_remove(data.get("id", ""), data.get("keys", [])))
             if path == "/api/finder/picks":
                 return self.send_json(set_finder_picks(data.get("cat"), data.get("ids")))
             if path == "/api/hud/find":
