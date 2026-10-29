@@ -364,7 +364,7 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .fnGroupT{font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
 .fnGroupRow{display:flex;gap:8px;flex-wrap:wrap}
 .hdList{display:grid;gap:8px;margin-top:6px}.hdRow{display:grid;grid-template-columns:minmax(0,1fr) 220px auto;gap:14px;align-items:center;padding:11px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface2)}
-.hdRow b{display:block;font-size:13px}.hdRow small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdRow.changed{border-color:rgba(var(--accent-rgb),.45)}.hdRow.hidden{border-color:hsl(var(--nh) var(--ns) 18%);background:hsl(var(--nh) var(--ns) 4.5%)}.hdRow.hidden .hdTag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;color:hsl(var(--nh) var(--ns) 55%);background:hsl(var(--nh) var(--ns) 12%);border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle}.hdBtns{display:flex;gap:6px}.hdBtns .btn{padding:6px 10px;font-size:12px}
+.hdRow b{display:block;font-size:13px}.hdRow small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdRow.changed{border-color:rgba(var(--accent-rgb),.45)}.hdRow.hdHidden{border-color:hsl(var(--nh) var(--ns) 18%);background:hsl(var(--nh) var(--ns) 4.5%)}.hdRow.hdHidden .hdTag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;color:hsl(var(--nh) var(--ns) 55%);background:hsl(var(--nh) var(--ns) 12%);border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle}.hdBtns{display:flex;gap:6px}.hdBtns .btn{padding:6px 10px;font-size:12px}
 
 .fnChip{border:1px solid var(--border);background:hsl(var(--nh) var(--ns) 6%);color:var(--text);border-radius:10px;padding:10px 14px;cursor:pointer;font-size:15px;min-width:96px;text-align:center;position:relative}
 .fnChip:hover:not(:disabled){border-color:hsl(var(--nh) var(--ns) 30%)}.fnChip.sel{border-color:var(--accent);box-shadow:0 0 0 1px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .35)}
@@ -2386,7 +2386,7 @@ function renderHud(){const d=hudData;const list=$('#hdList');if(!d||!list)return
   const rows=d.rows||[];$('#hdTop').hidden=!d.scanned||!rows.length;
   if(!d.scanned){list.append(el('div','xEmpty',d.reading?'Reading PG3D\'s HUD layout… This happens by itself once per PG3D version and takes about a minute (it waits while PG3D is open).':'Pixel Gun 3D wasn\'t found.'));$('#hdApply').disabled=true;return}
   for(const row of rows){const id=row.keys.join('|');const hidden=row.pct===0;const cur=hudEdit[id]??(hidden?100:row.pct);
-    const r=el('div','hdRow'+(hidden?' hidden':cur!==100?' changed':''));
+    const r=el('div','hdRow'+(hidden?' hdHidden':cur!==100?' changed':''));
     const info=el('div');const lbl=el('b',null,row.label);if(hidden){lbl.append(el('span','hdTag','Hidden in game'))}info.append(lbl);info.title=row.names.join(', ');
     info.append(el('small',null,hidden?'Tap Show to restore':row.pct!==100?`Applied: ${row.pct}%`:'Default size'));
     const rr=el('div','rangeRow');const inp=document.createElement('input');inp.type='range';inp.min=40;inp.max=160;inp.step=5;inp.value=cur;inp.disabled=hidden;const val=el('div','rangeVal',cur+'%');
@@ -2410,7 +2410,7 @@ function renderKb(){const kb=hudData?.kb||[];if(!kb.length)return;
   const list=$('#hdList');if(!list)return;const gids=kb.map(b=>b.gid);
   const allHidden=kb.every(b=>b.hidden);const anyChanged=kb.some(b=>b.hidden||b.scale!==100);
   const curScale=kb.find(b=>b.scale!==100)?.scale||100;const cur=hudEdit._kb??(allHidden?100:curScale);
-  const r=el('div','hdRow'+(allHidden?' hidden':anyChanged?' changed':''));
+  const r=el('div','hdRow'+(allHidden?' hdHidden':anyChanged?' changed':''));
   const info=el('div');const kLbl=el('b',null,'Control buttons');if(allHidden){kLbl.append(el('span','hdTag','Hidden in game'))}info.append(kLbl);info.title=kb.map(b=>b.name).join(', ');
   info.append(el('small',null,allHidden?'Tap Show to restore':curScale!==100?`Applied: ${curScale}%`:`${kb.length} button textures`));
   const rr=el('div','rangeRow');const inp=document.createElement('input');inp.type='range';inp.min=10;inp.max=100;inp.step=5;inp.value=cur;inp.disabled=allHidden;const val=el('div','rangeVal',cur+'%');
