@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.42"
+APP_VERSION = "1.77.43"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5681,8 +5681,9 @@ def albums_remove(aid, gids):
     return {"ok": True, "albums": albums}
 
 
-def albums_export(aid):
-    """Export an album as a texture pack: dump original PNGs + pack.json manifest."""
+def albums_export_zip(aid):
+    """Build a ZIP with pack.json + original PNGs for an album and return the bytes."""
+    import zipfile, io
     albums = _load_albums()
     album = next((a for a in albums if a["id"] == aid), None)
     if not album:
@@ -5712,48 +5713,49 @@ def albums_export(aid):
                     break
         targets.append((name, match))
     if not targets:
-        raise RuntimeError("None of the album's files were found as Texture2D in the scan. "
+        raise RuntimeError("None of the album's files match a Texture2D in the scan. "
                            "The album may contain only Sprites, or the scan is outdated.")
-    slug = re.sub(r"[^A-Za-z0-9 _.-]+", "", album["name"]).strip().replace(" ", "_").lower()[:48] or "album"
-    pack_dir = TEXPACK_USER / slug
-    pack_dir.mkdir(parents=True, exist_ok=True)
     import UnityPy
     env_cache = {}
+    buf = io.BytesIO()
     manifest_textures = []
     exported = 0
-    for name, item in targets:
-        src = item["source_file"]
-        pid = int(item["path_id"])
-        fname = re.sub(r"[^A-Za-z0-9_.-]", "_", name) + ".png"
-        try:
-            if src not in env_cache:
-                env_cache[src] = UnityPy.load(src)
-            env = env_cache[src]
-            reader = None
-            for o in env.objects:
-                if int(o.path_id) == pid and o.type.name == "Texture2D":
-                    reader = o
-                    break
-            if reader is None:
-                log(f"album export: {name} pid={pid} not found in {Path(src).name}")
-                continue
-            data = reader.parse_as_object()
-            img = data.image.convert("RGBA")
-            img.save(pack_dir / fname)
-            manifest_textures.append({"name": name, "file": fname,
-                                      "width": int(data.m_Width), "height": int(data.m_Height)})
-            exported += 1
-        except Exception as e:
-            log(f"album export: {name} failed: {e}")
-    del env_cache
-    write_json(pack_dir / "pack.json", {"name": album["name"],
-               "description": f"Exported from album \"{album['name']}\"",
-               "textures": manifest_textures})
-    if not exported:
-        raise RuntimeError("Could not extract any textures from the game files.")
-    return {"ok": True, "message": f"Exported {exported} texture(s) to \"{slug}\". "
-            f"Edit the PNGs in the texture pack folder, then apply it from the Texture Packs tab.",
-            "pack_dir": str(pack_dir), "pack_id": slug}
+    slug = re.sub(r"[^A-Za-z0-9 _.-]+", "", album["name"]).strip().replace(" ", "_").lower()[:48] or "album"
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, item in targets:
+            src = item["source_file"]
+            pid = int(item["path_id"])
+            fname = re.sub(r"[^A-Za-z0-9_.-]", "_", name) + ".png"
+            try:
+                if src not in env_cache:
+                    env_cache[src] = UnityPy.load(src)
+                env = env_cache[src]
+                reader = None
+                for o in env.objects:
+                    if int(o.path_id) == pid and o.type.name == "Texture2D":
+                        reader = o
+                        break
+                if reader is None:
+                    log(f"album export: {name} pid={pid} not found in {Path(src).name}")
+                    continue
+                data = reader.parse_as_object()
+                img = data.image.convert("RGBA")
+                png_buf = io.BytesIO()
+                img.save(png_buf, "PNG")
+                zf.writestr(f"{slug}/{fname}", png_buf.getvalue())
+                manifest_textures.append({"name": name, "file": fname,
+                                          "width": int(data.m_Width), "height": int(data.m_Height)})
+                exported += 1
+            except Exception as e:
+                log(f"album export: {name} failed: {e}")
+        del env_cache
+        if not exported:
+            raise RuntimeError("Could not extract any textures from the game files.")
+        zf.writestr(f"{slug}/pack.json", json.dumps(
+            {"name": album["name"],
+             "description": f"Exported from album \"{album['name']}\"",
+             "textures": manifest_textures}, indent=2))
+    return buf.getvalue(), f"{slug}.zip"
 
 
 HUD_SCAN_JSON = STATE_DIR / "hud_scan.json"
@@ -8445,6 +8447,19 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(files_payload())
         if path == "/api/albums":
             return self.send_json(albums_list())
+        if path.startswith("/api/albums/export/"):
+            aid = path.split("/")[-1]
+            try:
+                data, filename = albums_export_zip(aid)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/zip")
+                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+            except Exception as e:
+                return self.send_json({"error": str(e)}, status=400)
+            return
         if path == "/api/files/search":
             qs = parse_qs(urlparse(self.path).query)
             g = lambda k, d="": (qs.get(k) or [d])[0]
@@ -8595,8 +8610,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(albums_add(data.get("id"), data.get("files", [])))
             if path == "/api/albums/remove":
                 return self.send_json(albums_remove(data.get("id"), data.get("gids", [])))
-            if path == "/api/albums/export":
-                return self.send_json(albums_export(data.get("id")))
             if path == "/api/finder/picks":
                 return self.send_json(set_finder_picks(data.get("cat"), data.get("ids")))
             if path == "/api/hud/find":
