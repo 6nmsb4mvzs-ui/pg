@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.39"
+APP_VERSION = "1.77.40"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -1695,6 +1695,10 @@ def _rebuild_one(source_str, state):
                 tex = reader.parse_as_object()
                 old = tex.image.convert("RGBA")
                 tex.image = fit_cursor(icon, old.size, pct, target.get("visible_bbox"))
+                if getattr(tex, "m_StreamData", None) is not None:
+                    tex.m_StreamData.path = ""
+                    tex.m_StreamData.offset = 0
+                    tex.m_StreamData.size = 0
                 save_parsed_object(tex, reader)
             elif target["object_type"] == "Sprite":
                 spr = reader.parse_as_object()
@@ -1725,6 +1729,10 @@ def _rebuild_one(source_str, state):
                 else:
                     img = scale_sprite_about_pivot(img, max(10.0, min(100.0, float(op.get("scale", 100)))), 0.5, 0.5)
                 tex.image = img
+                if getattr(tex, "m_StreamData", None) is not None:
+                    tex.m_StreamData.path = ""
+                    tex.m_StreamData.offset = 0
+                    tex.m_StreamData.size = 0
                 save_parsed_object(tex, reader)
                 continue
             if reader is None or reader.type.name != "Sprite":
@@ -1919,6 +1927,10 @@ def _rebuild_one(source_str, state):
                 if rep_img.size != tex_size:
                     rep_img = rep_img.resize(tex_size, Image.Resampling.LANCZOS)
                 data.image = rep_img
+                if getattr(data, "m_StreamData", None) is not None:
+                    data.m_StreamData.path = ""
+                    data.m_StreamData.offset = 0
+                    data.m_StreamData.size = 0
                 save_parsed_object(data, reader)
                 tp_applied += 1
                 log(f"texpack rebuild: applied {t['name']} {tex_size[0]}x{tex_size[1]} from {t['file']}")
@@ -1930,6 +1942,10 @@ def _rebuild_one(source_str, state):
         for entry in atlas_cache.values():
             if entry["dirty"]:
                 entry["data"].image = entry["image"]
+                if getattr(entry["data"], "m_StreamData", None) is not None:
+                    entry["data"].m_StreamData.path = ""
+                    entry["data"].m_StreamData.offset = 0
+                    entry["data"].m_StreamData.size = 0
                 save_parsed_object(entry["data"], entry["reader"])
 
         save_env(env, source)
