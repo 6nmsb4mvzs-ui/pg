@@ -365,7 +365,7 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 .fnGroupRow{display:flex;gap:8px;flex-wrap:wrap}
 .hdList{display:grid;gap:8px;margin-top:6px}.hdRow{display:grid;grid-template-columns:minmax(0,1fr) 220px auto;gap:14px;align-items:center;padding:11px 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface2)}
 .hdRow b{display:block;font-size:13px}.hdRow small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdRow.changed{border-color:rgba(var(--accent-rgb),.45)}.hdRow.hidden{opacity:.6}.hdBtns{display:flex;gap:6px}.hdBtns .btn{padding:6px 10px;font-size:12px}
-.kbGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:6px}.kbItem{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);cursor:pointer;transition:border-color .14s}.kbItem:hover{border-color:rgba(var(--accent-rgb),.4)}.kbItem.hidden{opacity:.45}.kbItem img{width:36px;height:36px;object-fit:contain;border-radius:4px;background:rgba(255,255,255,.06)}.kbItem span{font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+
 .fnChip{border:1px solid var(--border);background:hsl(var(--nh) var(--ns) 6%);color:var(--text);border-radius:10px;padding:10px 14px;cursor:pointer;font-size:15px;min-width:96px;text-align:center;position:relative}
 .fnChip:hover:not(:disabled){border-color:hsl(var(--nh) var(--ns) 30%)}.fnChip.sel{border-color:var(--accent);box-shadow:0 0 0 1px hsl(var(--ah) calc(100% * var(--as)) 55.1% / .35)}
 .fnChip:disabled{opacity:.45;cursor:not-allowed}.fnChip.add{color:var(--muted);font-size:13px}.fnChip.pixel{font-size:10px;line-height:19px}
@@ -1302,12 +1302,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="hdList" id="hdList"></div>
           <div class="xJob" id="hdJob" style="margin-top:12px"><div class="msg"></div><div class="bar"><i></i></div></div>
           <div class="xRow" style="margin-top:14px"><button class="btn primary" id="hdApply" disabled>Apply sizes</button><span class="sub" id="hdHint"></span></div>
-        </div>
-        <div class="crCard" id="kbCard" hidden style="margin-top:16px">
-          <div class="crCardHead"><h3>Control buttons</h3></div>
-          <p class="xNote">Hide or show the on-screen control button textures (kb_ files). Changes show the next time PG3D starts.</p>
-          <div class="xRow" id="kbTop" style="margin:4px 0 10px;gap:8px"><button class="btn" id="kbHideAll">Hide all</button><button class="btn" id="kbShowAll">Show all</button></div>
-          <div class="kbGrid" id="kbGrid"></div>
         </div>
       </div>
     </section>
@@ -2403,18 +2397,29 @@ function renderHud(){const d=hudData;const list=$('#hdList');if(!d||!list)return
     btns.append(hide,def);r.append(info,rr,btns);list.append(r)}
   $('#hdApply').disabled=!Object.keys(hudEdit).length;
   $('#hdHint').textContent=rows.some(r=>r.pct!==100)?'Changes show the next time PG3D starts.':''}
-$('#hdApply').onclick=async()=>{const sizes={};for(const [id,pct] of Object.entries(hudEdit))for(const k of id.split('|'))sizes[k]=pct;hudEdit={};$('#hdApply').disabled=true;await hudSend(sizes)};
-$('#hdHideAll').onclick=()=>{if(!hudData?.rows)return;const sizes={};for(const r of hudData.rows)Object.assign(sizes,hudRowSizes(r,0));hudEdit={};hudSend(sizes)};
-$('#hdRestoreAll').onclick=()=>{hudEdit={};hudSend({},{restore_all:true})};
-function renderKb(){const kb=hudData?.kb||[];const card=$('#kbCard');const grid=$('#kbGrid');
-  if(!kb.length){card.hidden=true;return}card.hidden=false;grid.innerHTML='';
-  for(const b of kb){const d=el('div','kbItem'+(b.hidden?' hidden':''));
-    const im=document.createElement('img');im.src=`/api/finder/thumb/${b.gid}.jpg`;im.loading='lazy';
-    const nm=el('span',null,b.name.replace(/^kb_/i,'').replace(/_/g,' '));
-    d.onclick=async()=>{try{await post('/api/hud/kb',{gids:[b.gid],hidden:!b.hidden});loadHud()}catch(e){toast(e.message,true)}};
-    d.append(im,nm);grid.append(d)}}
-$('#kbHideAll').onclick=async()=>{const kb=hudData?.kb||[];if(!kb.length)return;try{await post('/api/hud/kb',{gids:kb.map(b=>b.gid),hidden:true});loadHud()}catch(e){toast(e.message,true)}};
-$('#kbShowAll').onclick=async()=>{const kb=hudData?.kb||[];if(!kb.length)return;try{await post('/api/hud/kb',{gids:kb.map(b=>b.gid),hidden:false});loadHud()}catch(e){toast(e.message,true)}};
+$('#hdApply').onclick=async()=>{const sizes={};const kbPct=hudEdit._kb;for(const [id,pct] of Object.entries(hudEdit)){if(id==='_kb')continue;for(const k of id.split('|'))sizes[k]=pct}hudEdit={};$('#hdApply').disabled=true;
+  if(Object.keys(sizes).length)await hudSend(sizes);
+  if(kbPct!==undefined){const kb=hudData?.kb||[];if(kb.length){try{await post('/api/hud/kb',{gids:kb.map(b=>b.gid),scale:kbPct,hidden:false})}catch(e){toast(e.message,true)}}}loadHud()};
+$('#hdHideAll').onclick=async()=>{if(!hudData?.rows)return;const sizes={};for(const r of hudData.rows)Object.assign(sizes,hudRowSizes(r,0));hudEdit={};await hudSend(sizes);
+  const kb=hudData?.kb||[];if(kb.length)try{await post('/api/hud/kb',{gids:kb.map(b=>b.gid),hidden:true})}catch{}loadHud()};
+$('#hdRestoreAll').onclick=async()=>{hudEdit={};await hudSend({},{restore_all:true});
+  const kb=hudData?.kb||[];if(kb.length)try{await post('/api/hud/kb',{gids:kb.map(b=>b.gid),reset:true})}catch{}loadHud()};
+function renderKb(){const kb=hudData?.kb||[];if(!kb.length)return;
+  const list=$('#hdList');if(!list)return;const gids=kb.map(b=>b.gid);
+  const allHidden=kb.every(b=>b.hidden);const anyChanged=kb.some(b=>b.hidden||b.scale!==100);
+  const curScale=kb.find(b=>b.scale!==100)?.scale||100;const cur=hudEdit._kb??(allHidden?100:curScale);
+  const r=el('div','hdRow'+(allHidden?' hidden':anyChanged?' changed':''));
+  const info=el('div');info.append(el('b',null,'Control buttons'));info.title=kb.map(b=>b.name).join(', ');
+  info.append(el('small',null,allHidden?'Hidden':curScale!==100?`Applied: ${curScale}%`:`${kb.length} button textures`));
+  const rr=el('div','rangeRow');const inp=document.createElement('input');inp.type='range';inp.min=10;inp.max=100;inp.step=5;inp.value=cur;inp.disabled=allHidden;const val=el('div','rangeVal',cur+'%');
+  inp.oninput=()=>{hudEdit._kb=+inp.value;val.textContent=inp.value+'%';r.classList.toggle('changed',+inp.value!==100);$('#hdApply').disabled=!Object.keys(hudEdit).length;const db=r.querySelector('.hdDef');if(db)db.disabled=false};
+  rr.append(inp,val);
+  const btns=el('div','hdBtns');
+  const hide=el('button','btn',allHidden?'Show':'Hide');
+  hide.onclick=async()=>{delete hudEdit._kb;try{await post('/api/hud/kb',{gids,hidden:!allHidden,reset:allHidden});loadHud()}catch(e){toast(e.message,true)}};
+  const def=el('button','btn hdDef','Default');def.disabled=!anyChanged&&hudEdit._kb===undefined;
+  def.onclick=async()=>{delete hudEdit._kb;try{await post('/api/hud/kb',{gids,reset:true});loadHud()}catch(e){toast(e.message,true)}};
+  btns.append(hide,def);r.append(info,rr,btns);list.append(r)}
 function renderFonts(){const f=themeData?.font;const row=$('#fnRow');if(!f||!row)return;row.innerHTML='';
   const busy=statusData?.game_running||statusData?.job?.phase==='running';
   const mk=(id,name,family)=>{const b=el('button','fnChip'+((f.active||'')===id?' sel':'')+(id==='pixel'?' pixel':''),name);b.type='button';if(family)b.style.fontFamily=family;b.disabled=busy;

@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.35"
+APP_VERSION = "1.77.36"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5741,7 +5741,7 @@ def hud_payload():
 
 
 def _hud_kb_items():
-    """All kb_ textures from the finder scan, with their current hidden state."""
+    """All kb_ textures from the finder scan, with their current hidden/scale state."""
     data = _finder_data()
     if not data.get("generated"):
         return []
@@ -5752,16 +5752,19 @@ def _hud_kb_items():
             continue
         gid = x["gid"]
         state = gui_ops.get(gid, {})
-        out.append({"gid": gid, "name": x["name"], "hidden": bool(state.get("hidden"))})
+        out.append({"gid": gid, "name": x["name"], "hidden": bool(state.get("hidden")),
+                     "scale": int(state.get("scale", 100))})
     out.sort(key=lambda x: x["name"].lower())
     return out
 
 
-def hud_kb_toggle(gids, hidden):
-    """Toggle visibility of kb_ control-button textures."""
+def hud_kb_apply(gids, hidden=False, scale=100, reset=False):
+    """Hide, resize, or reset kb_ control-button textures."""
+    if reset:
+        return finder_gui_apply(gids, reset=True)
     if hidden:
         return finder_gui_apply(gids, hidden=True)
-    return finder_gui_apply(gids, reset=True)
+    return finder_gui_apply(gids, scale=scale, hidden=False)
 
 
 _HUD_FIX = {"done": False}
@@ -8480,7 +8483,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/hud/apply":
                 return self.send_json(apply_hud_sizes(data.get("sizes") or {}, bool(data.get("restore_all"))))
             if path == "/api/hud/kb":
-                return self.send_json(hud_kb_toggle([int(g) for g in data.get("gids", [])], bool(data.get("hidden"))))
+                return self.send_json(hud_kb_apply([int(g) for g in data.get("gids", [])],
+                    hidden=bool(data.get("hidden")), scale=int(data.get("scale", 100)), reset=bool(data.get("reset"))))
             if path == "/api/hud/scan":
                 return self.send_json(start_hud_scan())
             if path == "/api/hud/report":
