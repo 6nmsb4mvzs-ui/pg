@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.32"
+APP_VERSION = "1.77.33"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5385,7 +5385,8 @@ def finder_thumb_path(gid):
         if not out.exists():
             try:
                 customize.finder_thumb(x["source_file"], x["path_id"], out, _FINDER_ENVS)
-            except Exception:
+            except Exception as e:
+                log(f"finder thumb {gid} ({x['name']}): {e}")
                 return None
     return out
 
@@ -5406,7 +5407,8 @@ def finder_full_path(gid):
         if not out.exists():
             try:
                 customize.finder_full(x["source_file"], x["path_id"], out, _FINDER_ENVS)
-            except Exception:
+            except Exception as e:
+                log(f"finder full {gid} ({x['name']}): {e}")
                 return None, None
     return out, x["name"]
 

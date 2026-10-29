@@ -5,7 +5,7 @@
 set -u
 setopt NULL_GLOB
 
-VERSION="1.77.32"
+VERSION="1.77.33"
 PORT=38513
 APP_ID="pg3d-mac-client-v$VERSION"
 SOURCE_BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -41,6 +41,9 @@ fail() {
 }
 stop_running() {
   local STOPPED=()
+  # Ask the old app to quit through AppKit so its Dock icon is removed cleanly.
+  /usr/bin/osascript -e 'tell application id "local.pg3d.macclient" to quit' 2>/dev/null &
+  local QUIT_PID=$!
   for PF in "$SUPPORT"/server-v*.pid "$SUPPORT"/shell-v*.pid "$SUPPORT"/overlay*.pid; do
     [[ -f "$PF" ]] || continue
     OPID="$(cat "$PF" 2>/dev/null || true)"
@@ -56,6 +59,7 @@ stop_running() {
     [[ "$OPID" == "$PPID" || "$OPID" == "$$" ]] && continue
     /bin/kill "$OPID" 2>/dev/null && STOPPED+=("$OPID")
   done
+  /bin/kill "$QUIT_PID" 2>/dev/null || true
   /bin/sleep 0.4
   # Anything that ignored the polite quit within 3 s is stopped for good (an old copy
   # left running kept its icon in the Dock next to the new one).

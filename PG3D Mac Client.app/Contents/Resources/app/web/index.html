@@ -1432,7 +1432,12 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <div class="flMSpinner" id="flMSpinner">Loading full size…</div>
       <div class="flMBar">
         <button class="flMDl" id="flMDl">Download PNG</button>
+        <button class="flMDl" id="flMAlbBtn" style="background:hsl(var(--nh) var(--ns) 18%);color:var(--text)">Add to album</button>
         <button class="flMClose" id="flMCloseBtn">Close</button>
+      </div>
+      <div id="flMAlbPick" style="display:none;margin-top:8px">
+        <select class="select" id="flMAlbSel" style="width:auto;min-width:160px;font-size:12px"><option value="">Pick album…</option></select>
+        <button class="btn small" id="flMAlbAdd" style="margin-left:6px">Add</button>
       </div>
     </div>
 
@@ -2802,11 +2807,13 @@ const FL=(function(){
     img.style.display='none';sp.style.display='';sp.textContent='Loading full size…';
     img.onload=()=>{img.style.display='';sp.style.display='none'};
     img.onerror=()=>{sp.textContent='Preview not available'};
-    if(x.type==='Cubemap'){img.style.display='none';sp.textContent='Cubemaps cannot be previewed';$('#flMDl').style.display='none'}
-    else{$('#flMDl').style.display='';img.src=`/api/finder/full/${x.gid}.png`}
+    if(x.type==='Cubemap'){img.style.display='none';sp.textContent='Cubemaps cannot be previewed';$('#flMDl').style.display='none';$('#flMAlbBtn').style.display='none'}
+    else{$('#flMDl').style.display='';$('#flMAlbBtn').style.display='';img.src=`/api/finder/full/${x.gid}.png`;
+      img.onerror=()=>{img.src=`/api/finder/thumb/${x.gid}.jpg`;img.onerror=()=>{sp.textContent='Preview not available'}}}
+    $('#flMAlbPick').style.display='none';
     m.classList.add('open');
   };
-  F._closeModal=()=>{$('#flModal').classList.remove('open');$('#flMImg').src='';F._modalItem=null};
+  F._closeModal=()=>{$('#flModal').classList.remove('open');$('#flMImg').src='';F._modalItem=null;$('#flMAlbPick').style.display='none'};
   F._download=async()=>{
     const x=F._modalItem;if(!x)return;
     try{const r=await post('/api/finder/save',{gid:x.gid});
@@ -2815,7 +2822,7 @@ const FL=(function(){
   };
   /* --- albums --- */
   F._loadAlbums=async()=>{
-    try{const r=await api('/api/albums');F.albums=r.albums||[];F._renderAlbums()}catch(e){console.error(e)}
+    try{const r=await api('/api/albums');F.albums=r.albums||[];F._renderAlbums();await F._autoSort()}catch(e){console.error(e)}
   };
   F._sync=r=>{if(r&&r.albums){F.albums=r.albums;F._renderAlbums()}};
   F._renderAlbumPicker=()=>{
@@ -2891,6 +2898,30 @@ const FL=(function(){
     try{F._sync(await post('/api/albums/create',{name}))}catch(e){toast(e.message,true)}
   };
   $('#flScan').onclick=async()=>{try{await post('/api/finder/scan',{});toast('Scanning PG3D\'s files… this takes a few minutes.')}catch(e){toast(e.message,true)}};
+  $('#flMAlbBtn').onclick=()=>{
+    const p=$('#flMAlbPick'),s=$('#flMAlbSel');
+    s.innerHTML='<option value="">Pick album…</option>';
+    for(const a of F.albums){const o=document.createElement('option');o.value=a.id;o.textContent=a.name;s.append(o)}
+    p.style.display=p.style.display==='none'?'':'none';
+  };
+  $('#flMAlbAdd').onclick=async()=>{
+    const aid=$('#flMAlbSel').value;const x=F._modalItem;
+    if(!aid||!x){toast('Pick an album',true);return}
+    try{F._sync(await post('/api/albums/add',{id:aid,files:[x]}));toast(`Added to album`);$('#flMAlbPick').style.display='none'}catch(e){toast(e.message,true)}
+  };
+  F._autoSort=async()=>{
+    if(!F.data?.generated||!F.data.total)return;
+    const existing=F.albums.find(a=>a.name==='Avatars');
+    if(existing&&existing.files.length)return;
+    try{
+      const r=await api('/api/files/search?q=avatar_&type=&offset=0&limit=0');
+      if(!r.items.length)return;
+      let aid;
+      if(existing){aid=existing.id}
+      else{const cr=await post('/api/albums/create',{name:'Avatars'});F._sync(cr);aid=cr.id}
+      F._sync(await post('/api/albums/add',{id:aid,files:r.items}));
+    }catch(e){console.error('avatar auto-sort:',e)}
+  };
   return F;
 })();
 
