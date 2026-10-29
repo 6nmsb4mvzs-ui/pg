@@ -2896,7 +2896,11 @@ const FL=(function(){
       btnDel.addEventListener('click',async e=>{e.stopPropagation();
         if(!confirm(`Delete album "${a.name}"?`))return;
         try{F._sync(await post('/api/albums/delete',{id:a.id}))}catch(ex){toast(ex.message,true)}});
-      acts.append(btnRen,btnCopy,btnDel);body.append(acts);
+      const btnExp=document.createElement('button');btnExp.className='btn small ghost';btnExp.textContent='Export';
+      btnExp.title='Export as texture pack';
+      btnExp.addEventListener('click',async e=>{e.stopPropagation();
+        try{const r=await post('/api/albums/export',{id:a.id});toast(r.message)}catch(ex){toast(ex.message,true)}});
+      acts.append(btnRen,btnCopy,btnExp,btnDel);body.append(acts);
       head.addEventListener('click',()=>{const open=body.classList.toggle('open');arrow.classList.toggle('open',open)});
       card.append(head,body);box.append(card);
     }

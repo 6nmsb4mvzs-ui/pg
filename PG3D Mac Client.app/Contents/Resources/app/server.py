@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.40"
+APP_VERSION = "1.77.41"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5681,6 +5681,58 @@ def albums_remove(aid, gids):
     return {"ok": True, "albums": albums}
 
 
+def albums_export(aid):
+    """Export an album as a texture pack: dump original PNGs + pack.json manifest."""
+    albums = _load_albums()
+    album = next((a for a in albums if a["id"] == aid), None)
+    if not album:
+        raise RuntimeError("Album not found")
+    textures = [f for f in album["files"] if f.get("type") == "Texture2D"]
+    if not textures:
+        raise RuntimeError("Album has no Texture2D files to export.")
+    slug = re.sub(r"[^A-Za-z0-9 _.-]+", "", album["name"]).strip().replace(" ", "_").lower()[:48] or "album"
+    pack_dir = TEXPACK_USER / slug
+    pack_dir.mkdir(parents=True, exist_ok=True)
+    import UnityPy
+    env_cache = {}
+    manifest_textures = []
+    exported = 0
+    for f in textures:
+        src = f.get("source_file", "")
+        pid = int(f["path_id"])
+        name = f["name"]
+        fname = re.sub(r"[^A-Za-z0-9_.-]", "_", name) + ".png"
+        try:
+            if src not in env_cache:
+                env_cache[src] = UnityPy.load(src)
+            env = env_cache[src]
+            reader = None
+            for o in env.objects:
+                if int(o.path_id) == pid and o.type.name == "Texture2D":
+                    reader = o
+                    break
+            if reader is None:
+                log(f"album export: {name} pid={pid} not found in {Path(src).name}")
+                continue
+            data = reader.parse_as_object()
+            img = data.image.convert("RGBA")
+            img.save(pack_dir / fname)
+            manifest_textures.append({"name": name, "file": fname,
+                                      "width": int(data.m_Width), "height": int(data.m_Height)})
+            exported += 1
+        except Exception as e:
+            log(f"album export: {name} failed: {e}")
+    del env_cache
+    write_json(pack_dir / "pack.json", {"name": album["name"],
+               "description": f"Exported from album \"{album['name']}\"",
+               "textures": manifest_textures})
+    if not exported:
+        raise RuntimeError("Could not export any textures. Run a file scan first.")
+    return {"ok": True, "message": f"Exported {exported} texture(s) to \"{slug}\". "
+            f"Edit the PNGs in the texture pack folder, then apply it from the Texture Packs tab.",
+            "pack_dir": str(pack_dir), "pack_id": slug}
+
+
 HUD_SCAN_JSON = STATE_DIR / "hud_scan.json"
 HUD_GROUPS_JSON = STATE_DIR / "hud_groups.json"
 
@@ -8520,6 +8572,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(albums_add(data.get("id"), data.get("files", [])))
             if path == "/api/albums/remove":
                 return self.send_json(albums_remove(data.get("id"), data.get("gids", [])))
+            if path == "/api/albums/export":
+                return self.send_json(albums_export(data.get("id")))
             if path == "/api/finder/picks":
                 return self.send_json(set_finder_picks(data.get("cat"), data.get("ids")))
             if path == "/api/hud/find":
