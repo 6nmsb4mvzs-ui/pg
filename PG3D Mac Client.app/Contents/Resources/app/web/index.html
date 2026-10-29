@@ -925,8 +925,8 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 /* files: two-panel layout */
 .flPage{display:flex;gap:16px;align-items:flex-start}
 .flMain{flex:1;min-width:0}
-.flAlbums{width:300px;flex-shrink:0}
-@media(max-width:800px){.flPage{flex-direction:column}.flAlbums{width:100%}}
+.flAlbums{width:300px;flex-shrink:0;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto}
+@media(max-width:800px){.flPage{flex-direction:column}.flAlbums{width:100%;position:static;max-height:none}}
 
 /* files: selection */
 .flCard .flCheck{position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:5px;border:2px solid var(--border);background:rgba(0,0,0,.5);cursor:pointer;display:flex;align-items:center;justify-content:center;color:transparent;font-size:13px;font-weight:900;z-index:2;transition:border-color .1s,background .1s}
@@ -2699,9 +2699,9 @@ const TX=makeFinder('tx',['cursor']);
 
 /* ===== Files (game file scanner) ===== */
 const FL=(function(){
-  const F={data:null,items:[],total:0,req:0,loaded:false,observer:null,selected:new Map(),albums:[]};
+  const F={data:null,items:[],total:0,req:0,loaded:false,observer:null,albObserver:null,selected:new Map(),albums:[]};
   F.load=async()=>{
-    if(!F.loaded){F.loaded=true;F._initObserver()}
+    if(!F.loaded){F.loaded=true;F._initObserver();F._initAlbObserver()}
     try{F.data=await api('/api/files');F._renderInfo();await F.search(true);await F._loadAlbums()}catch(e){console.error(e)}
   };
   F._initObserver=()=>{
@@ -2716,6 +2716,16 @@ const FL=(function(){
         img.src=url;
       }
     },{rootMargin:'300px'});
+  };
+  F._initAlbObserver=()=>{
+    F.albObserver=new IntersectionObserver((entries)=>{
+      for(const e of entries){
+        if(!e.isIntersecting)continue;
+        const el=e.target;const url=el.dataset.src;if(!url)continue;
+        F.albObserver.unobserve(el);delete el.dataset.src;
+        el.src=url;
+      }
+    },{root:document.querySelector('.flAlbums'),rootMargin:'200px'});
   };
   F._renderInfo=()=>{
     const d=F.data;if(!d)return;
@@ -2831,7 +2841,7 @@ const FL=(function(){
       if(!a.files.length){const em=document.createElement('div');em.style.cssText='font-size:11px;color:var(--muted);padding:4px 0;grid-column:1/-1';em.textContent='Empty album';grid.append(em)}
       for(const f of a.files){
         const thumb=document.createElement('div');thumb.className='albThumb';thumb.title=f.name||'';
-        if(f.gid!=null&&f.type!=='Cubemap'){const im=document.createElement('img');im.alt='';im.loading='lazy';im.src=`/api/finder/thumb/${f.gid}.jpg`;thumb.append(im)}
+        if(f.gid!=null&&f.type!=='Cubemap'){const im=document.createElement('img');im.alt='';im.dataset.src=`/api/finder/thumb/${f.gid}.jpg`;thumb.append(im);if(F.albObserver)F.albObserver.observe(im)}
         const rm=document.createElement('div');rm.className='albRm';rm.textContent='\xd7';
         rm.addEventListener('click',async ev=>{ev.stopPropagation();
           try{F._sync(await post('/api/albums/remove',{id:a.id,gids:[f.gid]}))}catch(ex){toast(ex.message,true)}});
