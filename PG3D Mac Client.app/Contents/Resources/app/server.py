@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.34"
+APP_VERSION = "1.77.35"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5428,7 +5428,8 @@ def files_search(q="", type_filter="", offset=0, limit=60):
     for x in items:
         if tf and x["type"].lower() != tf:
             continue
-        if not words and x["name"].lower().startswith("avatar_"):
+        nl = x["name"].lower()
+        if not words and (nl.startswith("avatar_") or nl.startswith("kb_")):
             continue
         if words:
             haystack = (x["name"] + " " + x.get("relative_file", "")).lower()
@@ -5735,7 +5736,32 @@ def hud_payload():
         for r in rows.values():
             if r["label"] in HUD_ON_OFF_ROWS and r["pct"] not in (0, 100):
                 r["pct"] = 100
-    return {"ok": True, "scanned": fresh, "reading": bool(not fresh and reading), "rows": list(rows.values())}
+    kb = _hud_kb_items()
+    return {"ok": True, "scanned": fresh, "reading": bool(not fresh and reading), "rows": list(rows.values()), "kb": kb}
+
+
+def _hud_kb_items():
+    """All kb_ textures from the finder scan, with their current hidden state."""
+    data = _finder_data()
+    if not data.get("generated"):
+        return []
+    gui_ops = _finder_gui_ops()
+    out = []
+    for x in data.get("items", []):
+        if not x["name"].lower().startswith("kb_"):
+            continue
+        gid = x["gid"]
+        state = gui_ops.get(gid, {})
+        out.append({"gid": gid, "name": x["name"], "hidden": bool(state.get("hidden"))})
+    out.sort(key=lambda x: x["name"].lower())
+    return out
+
+
+def hud_kb_toggle(gids, hidden):
+    """Toggle visibility of kb_ control-button textures."""
+    if hidden:
+        return finder_gui_apply(gids, hidden=True)
+    return finder_gui_apply(gids, reset=True)
 
 
 _HUD_FIX = {"done": False}
@@ -8453,6 +8479,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(start_hud_find())
             if path == "/api/hud/apply":
                 return self.send_json(apply_hud_sizes(data.get("sizes") or {}, bool(data.get("restore_all"))))
+            if path == "/api/hud/kb":
+                return self.send_json(hud_kb_toggle([int(g) for g in data.get("gids", [])], bool(data.get("hidden"))))
             if path == "/api/hud/scan":
                 return self.send_json(start_hud_scan())
             if path == "/api/hud/report":
