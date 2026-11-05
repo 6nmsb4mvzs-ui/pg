@@ -435,10 +435,19 @@ class Recorder:
             proc.stdin.write(b"q")
             proc.stdin.flush()
             proc.stdin.close()
-            proc.wait(timeout=4)
+            proc.wait(timeout=2)
         except Exception:
+            pass
+        if proc.poll() is None:
+            try:
+                proc.terminate()
+                proc.wait(timeout=2)
+            except Exception:
+                pass
+        if proc.poll() is None:
             try:
                 proc.kill()
+                proc.wait(timeout=1)
             except Exception:
                 pass
         _log(f"Clips: replay buffer {reason}.")
@@ -1122,6 +1131,8 @@ def set_config(raw):
     merged = {**old, **(raw if isinstance(raw, dict) else {})}
     cfg = _validate(merged, base=old)
     _write_json(CONFIG_JSON, cfg)
-    if (cfg["quality"], cfg["screen"]) != (old["quality"], old["screen"]):
+    if not cfg["enabled"] and old["enabled"]:
+        RECORDER.stop("disabled by user")
+    elif (cfg["quality"], cfg["screen"]) != (old["quality"], old["screen"]):
         RECORDER.restart()
     return {"ok": True, "config": cfg}

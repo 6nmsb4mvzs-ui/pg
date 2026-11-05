@@ -94,7 +94,7 @@ import ranks
 import updater
 
 
-APP_VERSION = "1.77.50"
+APP_VERSION = "1.77.51"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5238,12 +5238,13 @@ def _queue_status():
     set_status(job_queue=q)
 
 
-def start_job(kind, fn, label=None):
+def start_job(kind, fn, label=None, skip_wait=False):
     """Queue a game-file task. Tasks run one after another; each waits by itself
     while PG3D is open or starting, so clicking Apply never fails with "busy"."""
     with _JOB_COND:
         _JOBS["seq"] += 1
-        task = {"id": _JOBS["seq"], "kind": kind, "label": label or JOB_LABELS.get(kind, kind.title()), "fn": fn}
+        task = {"id": _JOBS["seq"], "kind": kind, "label": label or JOB_LABELS.get(kind, kind.title()),
+                "fn": fn, "skip_wait": skip_wait}
         _JOBS["queue"].append(task)
         ahead = len(_JOBS["queue"]) - 1 + (1 if _JOBS["current"] else 0)
         if _JOBS["worker"] is None or not _JOBS["worker"].is_alive():
@@ -5283,7 +5284,8 @@ def _job_worker():
             _JOBS["current"] = task
         _queue_status()
         # Game files can only change while PG3D is closed: wait instead of failing.
-        while game_running() or (launch_busy() and not _LAUNCH.get("waiting_jobs")):
+        # Read-only jobs (scans) skip this wait.
+        while not task.get("skip_wait") and (game_running() or (launch_busy() and not _LAUNCH.get("waiting_jobs"))):
             set_status(job_kind=task["kind"], job_phase="waiting", job_progress=0, job_eta=None, job_error=None,
                        job_message=f"{task['label']}: waiting for PG3D to close…")
             time.sleep(1.0)
@@ -6017,7 +6019,7 @@ def start_finder_scan():
         counts = {c: sum(1 for x in items if c in x["cats"]) for c in FINDER_CATS}
         return (f"Listed {len(items)} textures ({counts['sky']} sky, {counts['cursor']} cursor, "
                 f"{counts['loading']} loading, {counts['gui']} GUI suggestions).")
-    return start_job("scan", job, label="Listing textures")
+    return start_job("scan", job, label="Listing textures", skip_wait=True)
 
 
 def set_finder_picks(cat, ids):

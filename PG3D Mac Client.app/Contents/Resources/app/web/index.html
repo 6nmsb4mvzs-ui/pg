@@ -2762,22 +2762,22 @@ const FL=(function(){
 const TP=(function(){
   const T={};
   const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  let tpScanned=false;
+  async function runScan(){
+    try{await post('/api/finder/scan',{});toast('Scanning game files… this takes a few minutes.')}
+    catch(e){toast(e.message,true)}
+  }
   T.load=async()=>{
     try{
       const r=await api('/api/texpack/list');
       const box=$('#tpList');if(!box)return;
       const packs=r.packs||[];
       const active=r.active||null;
-      const scanned=r.scanned;
+      tpScanned=r.scanned;
       const scanBtn=$('#tpScan');
       if(scanBtn){
-        scanBtn.style.display=scanned?'none':'';
-        scanBtn.onclick=async()=>{
-          scanBtn.disabled=true;
-          try{await post('/api/finder/scan',{});toast('Scanning game files… this takes a few minutes.')}
-          catch(e){toast(e.message,true)}
-          finally{setTimeout(()=>scanBtn.disabled=false,3000)}
-        };
+        scanBtn.textContent=tpScanned?'Rescan':'Scan Game Files';
+        scanBtn.onclick=async()=>{scanBtn.disabled=true;await runScan();setTimeout(()=>scanBtn.disabled=false,3000)};
       }
       const resetBtn=$('#tpResetAll');
       if(resetBtn){
@@ -2786,9 +2786,9 @@ const TP=(function(){
           try{await post('/api/texpack/reset');toast('Restoring original textures…');T.load()}catch(e){toast(e.message,true)}
         };
       }
-      if(!scanned){box.innerHTML='<div class="tpEmpty">Press <b>Scan Game Files</b> first. It takes a few minutes — textures appear here once the scan finishes.</div>';return}
       if(!packs.length){box.innerHTML='<div class="tpEmpty">No weapon textures available.</div>';return}
       let html='';
+      if(!tpScanned)html+='<div class="tpNote" style="grid-column:1/-1;color:var(--muted);font-size:12px;margin-bottom:4px">Press <b>Scan Game Files</b> above, then click a weapon to apply its textures.</div>';
       for(const p of packs){
         const isCur=active===p.id;
         const img=p.preview?`<img class="tpImg" src="${esc(p.preview)}" alt="${esc(p.name)}" draggable="false">`:`<div class="tpImg" style="display:grid;place-items:center;font-size:28px;color:var(--dim)">◈</div>`;
@@ -2805,6 +2805,7 @@ const TP=(function(){
           if(e.target.closest('.tpDisable'))return;
           const id=card.dataset.tp;
           if(active===id)return;
+          if(!tpScanned){toast('Scanning game files first…');await runScan();return}
           try{await post('/api/texpack/apply',{pack:id});toast('Applying textures…');T.load()}catch(e){toast(e.message,true)}
         };
       });
