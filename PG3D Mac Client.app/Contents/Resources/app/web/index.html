@@ -2004,7 +2004,7 @@ function renderClipStatus(){
   else if(st.phase==='off'){t='Clips are off';x='Turn on the replay buffer to record while you play.';acts.append(clipAction('Turn on',()=>setClipConfig({enabled:true}),true))}
   else{t='Waiting for Pixel Gun 3D';x='Recording starts by itself once you\'re in the game.'}
   if(st.ffmpeg&&(st.permission===false||st.phase==='error'))acts.append(clipAction('Allow screen recording',async()=>{if(window.webkit?.messageHandlers?.pg3d){window.webkit.messageHandlers.pg3d.postMessage({type:'requestScreenPermission'})}else{await post('/api/clips/permission')}toast('Turn on PG3D Mac Client in Screen Recording, then reopen the client.')}));
-  if(cfg.enabled&&st.phase!=='off')acts.append(clipAction('Turn off',()=>setClipConfig({enabled:false})));
+
   $('#clipStateTitle').textContent=t;$('#clipStateText').textContent=x||'';
   const buf=st.phase==='recording'?Math.min(st.buffered||0,CLIP_BUFFER_MAX):0;
   $('#clipMeterFill').style.width=`${buf/CLIP_BUFFER_MAX*100}%`;
