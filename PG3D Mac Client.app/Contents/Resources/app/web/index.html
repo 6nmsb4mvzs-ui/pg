@@ -134,70 +134,7 @@ body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(-
 /* v1.17 editor, previews, settings */
 [hidden]{display:none!important}
 .guiStyleList{align-items:start!important}
-.lkSearch{display:flex;gap:8px}.lkSearch input{flex:1;min-width:0;height:36px;padding:0 12px;font-size:13.5px}.lkSearch .btn{height:36px}
-.lkTop{padding:14px 16px!important}
-.lkPicks{display:flex;align-items:center;gap:8px;margin-top:10px;min-width:0}
-.lkPickLabel{font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--muted);text-transform:uppercase;width:52px;flex:none}
-.lkPickList{display:flex;gap:6px;overflow-x:auto;min-width:0;scrollbar-width:thin}
-.lkPick{display:flex;align-items:baseline;gap:6px;flex:none;height:28px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:hsl(var(--nh) var(--ns) 4.1%);color:var(--text);cursor:pointer;font-size:12px;white-space:nowrap}
-.lkPick b{font-weight:700}.lkPick small{color:var(--muted);font-size:11px}
-.lkPick.on{border-color:#1f5b3c}.lkPick.on b:before{content:'●';color:#7fe0a8;font-size:9px;margin-right:5px;vertical-align:1px}
-.lkPick:hover:not(:disabled){border-color:var(--border2)}.lkPick:disabled{opacity:.45;cursor:default}
-.lkPicks.accs{align-items:flex-start}.lkPicks.accs .lkPickLabel{padding-top:9px}
-.lkAccGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;flex:1;min-width:0}
-.lkAccGrid .lkPick{flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;height:auto;min-height:46px;padding:7px 11px;white-space:normal;text-align:left;min-width:0}
-.lkAccGrid .lkPick b,.lkAccGrid .lkPick small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lkCard{padding:16px!important}
-.lkHead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.lkAvatar{width:44px;height:44px;border-radius:10px;background:hsl(var(--nh) var(--ns) 4.1%);border:1px solid var(--border);image-rendering:pixelated;flex:none}
-.lkWho{min-width:0;margin-right:auto}.lkWho b{display:block;font-size:17px;color:#f5f5ff;letter-spacing:-.01em;line-height:1.2}.lkWho small{display:block;font-size:11.5px;color:var(--muted)}
-.lkHead .btn{height:28px}
-.lkNameRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lkBadge{font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;background:hsl(var(--nh) var(--ns) 10.0%);color:#d6d6e1;border:1px solid var(--border2)}
-.lkClan{display:inline-flex;align-items:center;gap:5px}.lkClan img{width:14px;height:14px;image-rendering:pixelated;border-radius:2px}
-#lkBadges,#lkMeta{overflow-wrap:anywhere;min-width:0}
-.lkBadge.good{background:#0d1d15;border-color:#1f5b3c;color:#9be7bd}.lkBadge.bad{background:#2a0d12;border-color:#7a2a35;color:#ff8e9c}
-.lkIco{object-fit:contain;flex:none}.lkIco.none{visibility:hidden}
-.lkCardS{display:flex;align-items:center;gap:9px;background:hsl(var(--nh) var(--ns) 4.1%);border:1px solid var(--border);border-radius:10px;padding:8px 10px;min-width:0}
-.lkCardS b{display:block;font-size:15px;color:#f5f5ff;line-height:1.15;white-space:nowrap}.lkCardS span{font-size:10.5px;color:var(--muted)}
-.lkBarRow{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px}
-.lkStatGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
-.lkSlots{display:flex;gap:8px;flex-wrap:wrap}.lkSlot{width:96px;display:flex;flex-direction:column;align-items:center;gap:3px;background:hsl(var(--nh) var(--ns) 4.1%);border:1px solid var(--border);border-radius:10px;padding:8px 6px;text-align:center}
-.lkSlot span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:800}.lkSlot b{font-size:11px;color:#f5f5ff;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lkGroupT{display:flex;justify-content:space-between}.lkGroupT span{color:var(--muted);letter-spacing:0;text-transform:none;font-weight:700}
-.lkModeGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
-.lkModeC{background:hsl(var(--nh) var(--ns) 4.1%);border:1px solid var(--border);border-radius:10px;padding:9px 11px}.lkModeC b{display:block;font-size:18px;color:#f5f5ff}.lkModeC span{font-size:11px;color:var(--muted)}.lkModeC.zero{opacity:.45}
-.lkFilter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.lkFilter .ovChip{height:28px}
-.lkList{display:grid;max-height:440px;overflow:auto;border:1px solid var(--border);border-radius:10px}
-.lkItem{display:grid;grid-template-columns:30px minmax(0,1fr) 90px 44px 82px;gap:10px;align-items:center;padding:4px 10px;font-size:12.5px;background:hsl(var(--nh) var(--ns) 4.1%)}
-.lkItem:nth-child(even){background:hsl(var(--nh) var(--ns) 5.1%)}.lkItem b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lkCat,.lkLv{color:var(--muted)}.lkRar{font-weight:800;font-size:11.5px;text-align:right}
-.lkGridItems{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;max-height:420px;overflow:auto}
-.lkTile{display:flex;flex-direction:column;align-items:center;gap:4px;background:hsl(var(--nh) var(--ns) 4.1%);border:1px solid var(--border);border-radius:10px;padding:8px 6px;text-align:center;min-width:0}
-.lkTile span{font-size:10.5px;color:#d6d6e1;line-height:1.25;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.lkSaveA{color:hsl(var(--ah) calc(100% * var(--as)) 70.8%);text-decoration:none}.lkSaveA:hover{text-decoration:underline}
-@media(max-width:900px){.lkStatGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.lkItem{grid-template-columns:30px minmax(0,1fr) 44px 74px}.lkCat{display:none}}
-.lkTabs{display:flex;gap:2px;margin:14px 0 12px;border-bottom:1px solid var(--border)}
-.lkTabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);font-weight:700;font-size:12.5px;padding:7px 12px;cursor:pointer;margin-bottom:-1px}
-.lkTabs button:hover{color:#f5f5ff}.lkTabs button.on{color:#f5f5ff;border-bottom-color:var(--accent)}
-.lkGroup+.lkGroup{margin-top:12px}.lkGroupT{font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
-.lkTexRow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
-.lkTex{margin:0;display:flex;flex-direction:column;gap:4px}.lkTex img{image-rendering:pixelated;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 6.5%) 0 25%,hsl(var(--nh) var(--ns) 4.9%) 0 50%) 0 0/10px 10px;border:1px solid var(--border);border-radius:6px}
-.lkTex figcaption{font-size:11px;color:var(--muted)}
-/* Lookup, cleaner: one header row, even spacing, uniform tiles */
-.lkCard{padding:20px 22px!important}
-.lkHead{flex-wrap:nowrap;gap:14px}.lkAvatar{width:52px;height:52px}
-.lkWho{flex:1}.lkWho b{font-size:19px}.lkWho small{margin-top:4px}
-#lkBadges{display:inline-flex;flex-wrap:wrap;gap:6px}.lkNameRow{gap:10px;row-gap:6px}
-.lkGroup+.lkGroup{margin-top:22px!important}.lkGroupT{margin-bottom:9px!important}
-.lkBarRow,.lkStatGrid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr))!important;gap:8px!important}
-.lkCardS{padding:10px 12px;gap:10px}.lkCardS b{font-size:16px}.lkCardS span{font-size:11px}
-.lkCardS .lkIco.none,.lkSlot .lkIco.none{display:none}
-.lkSlots{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}.lkSlot{width:auto;padding:10px 6px}
-.lkItem{padding:6px 12px}
-.lkTexRow{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;align-items:start}
-.lkTex{align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px}
-.lkTex img{width:100%!important;height:68px;object-fit:contain}
-.lkTex figcaption{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lkMore{margin-top:10px}.lkTex a{color:hsl(var(--ah) calc(100% * var(--as)) 70.8%);text-decoration:none}.lkTex a:hover{text-decoration:underline}
+
 
 .ovStyle{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px}
 .ovChip{height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--border2);background:hsl(var(--nh) var(--ns) 4.1%);color:var(--muted);font-weight:700;font-size:12px;cursor:pointer}
@@ -972,39 +909,8 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 
 /* mods */
 .emState{font-size:12px;font-weight:700;color:var(--muted)}.emState.on{color:#9be7bd}.emState.err{color:#ff8e9c}.emState.wait{color:#ffd866}
-.emAccGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:10px}
-.emAcc{padding:12px;border-radius:10px;background:hsl(var(--nh) var(--ns) 5.5%);border:2px solid var(--border);cursor:pointer;transition:border-color .15s}
-.emAcc:hover{border-color:var(--accent)}.emAcc.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
-.emAcc b{display:block;font-size:13px;margin-bottom:2px}.emAcc small{color:var(--muted);font-size:11px}
-.emCmdGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:10px}
-.emCmd{padding:10px 14px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:600;text-align:center;transition:all .15s}
-.emCmd:hover{background:hsl(var(--nh) var(--ns) 8%);border-color:var(--accent)}
-.emCmdSection{margin-top:18px}.emCmdSection h4{font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600}
-.emMaxGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:10px}
-.emMaxOpt{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);font-size:12px;cursor:pointer}
-.emMaxOpt input{accent-color:var(--accent)}
-.emCurIco{width:18px;height:18px;object-fit:contain;vertical-align:-3px;border-radius:3px;margin-right:2px}
-.emWepCats{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
-.emWepCats button{padding:3px 9px;border-radius:6px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);color:var(--fg);font:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
-.emWepCats button:hover,.emWepCats button.sel{background:hsl(var(--nh) var(--ns) 8%);border-color:var(--accent);color:var(--accent)}
-.emWepList{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;max-height:360px;overflow-y:auto;padding:2px;scrollbar-width:thin}
-.emWepItem{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);cursor:pointer;transition:all .15s;overflow:hidden}
-.emWepItem:hover{background:hsl(var(--nh) var(--ns) 8%);border-color:var(--accent)}
-.emWepItem.busy{opacity:.5;pointer-events:none}
-.emWepItem img{width:34px;height:34px;object-fit:contain;flex-shrink:0;border-radius:4px}
-.emWepItem .emWN{font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
-.emWepItem .emWN small{display:block;font-size:10px;color:var(--muted);font-weight:400}
-.emCmdIco{width:16px;height:16px;object-fit:contain;vertical-align:-2px;margin-right:4px;border-radius:2px;opacity:.85}
-.emStatGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:10px}
-.emStatRow{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);font-size:12px}
-.emStatRow .xLabel{margin:0;font-size:11px;white-space:nowrap;min-width:80px;font-weight:600}
-.emStatRow input{flex:1;min-width:0}
-.emStealGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-top:10px}
-.emStealItem{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;background:hsl(var(--nh) var(--ns) 5.5%);border:1px solid var(--border);cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;overflow:hidden}
-.emStealItem:hover{background:hsl(var(--nh) var(--ns) 8%);border-color:var(--accent)}
-.emStealItem img{width:28px;height:28px;object-fit:contain;flex-shrink:0;border-radius:4px}
-.emStealItem.busy{opacity:.5;pointer-events:none}
-/* cheats */
+
+
 
 /* v1.77 Skin Importer */
 .skinPage{display:grid;gap:14px;max-width:1040px}
@@ -1291,7 +1197,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <!-- Lookup tab removed in 1.77.1 -->
 
     <section class="page" id="page-hud">
       <div class="xPage">
@@ -1317,20 +1222,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <!-- Textures picker removed in 1.61 (the cursor is always GamepadCursor); kept hidden so its script runs. -->
-    <section class="page" id="page-textures" hidden>
-      <div class="xPage">
-        <div class="crCard">
-          <div class="crCardHead"><div class="curSeg" id="txSeg"><button data-c="cursor" class="active">Cursor</button></div><button class="btn" id="txScan">Scan game files</button></div>
-          <p class="xNote">Every texture in PG3D that could be the mouse cursor. Select one and press Use selected: the cursor uses your pick.</p>
-          <div class="xJob" id="txJob"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <div class="xRow" style="margin:10px 0;gap:8px"><input class="search" id="txSearch" placeholder="Filter by name or file" spellcheck="false" style="flex:1"><div class="curSeg" id="txScope"><button data-s="sug" class="active">Suggested</button><button data-s="all">All textures</button><button data-s="sel">Selected</button></div></div>
-          <div class="fdGrid" id="txGrid"></div>
-          <div class="xRow" style="justify-content:center;margin-top:8px"><button class="btn ghost" id="txMore" hidden>Show more</button></div>
-          <div class="xRow" style="margin-top:14px"><span class="sub" id="txCount"></span><button class="btn" id="txReport">Copy report</button><button class="btn primary" id="txUse">Use selected</button></div>
-        </div>
-      </div>
-    </section>
+
 
     <section class="page" id="page-sky">
       <div class="xPage">
@@ -1538,7 +1430,7 @@ const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already appl
 let TEXPACK_HIDDEN=true;  // texture packs archived for now; toggled from Settings
 let FILES_HIDDEN=true;
 const ARCHIVED_TABS=['files','texpack'];
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky')||(TEXPACK_HIDDEN&&tab==='texpack')||(FILES_HIDDEN&&tab==='files'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')loadLookup().then(renderAccounts);if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='textures')TX.load();if(tab==='skins')loadExistingSkins();if(tab==='files')FL.load();if(tab==='texpack')TP.load()}
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky')||(TEXPACK_HIDDEN&&tab==='texpack')||(FILES_HIDDEN&&tab==='files'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')renderAccounts();if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='skins')loadExistingSkins();if(tab==='files')FL.load();if(tab==='texpack')TP.load()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -2535,96 +2427,8 @@ $('#skApply').onclick=async()=>{if(!skySel)return $('#skFile').click();if(skMode
 $('#skReset').onclick=async()=>{try{await post(skMode==='loading'?'/api/loading/reset':'/api/sky/reset');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}};
 
 setInterval(()=>{if(document.visibilityState==='visible'&&$('#page-rank').classList.contains('active'))loadRank()},10000);
-// Player lookup
-let lookupSuggest=null;
-function lkRecent(){try{return JSON.parse(localStorage.pg3dLookupRecent||'[]')}catch{return[]}}
-function lkRemember(p){const r=lkRecent().filter(x=>x.id!==p.player_id);r.unshift({id:p.player_id,name:p.name||p.player_id});try{localStorage.pg3dLookupRecent=JSON.stringify(r.slice(0,6))}catch{}}
-async function loadLookup(){try{lookupSuggest=await api('/api/lookup/suggest');renderLookupSuggest()}catch(e){console.error(e)}}
-function renderLookupSuggest(){const box=$('#lkAccounts');box.innerHTML='';const accs=lookupSuggest?.accounts||[];
-  box.classList.add('accs');box.append(el('span','lkPickLabel','Steam'));const list=el('div','lkAccGrid');box.append(list);
-  if(!accs.length)list.append(el('span','sub','No Steam accounts found.'));
-  for(const a of accs){const b=el('button','lkPick'+(a.active?' on':''));b.type='button';b.append(el('b',null,a.steam_name||`Steam …${a.steamid64.slice(-4)}`));
-    b.append(el('small',null,a.player_id?(a.name?`${a.name} · ${a.player_id}`:a.player_id):'no ID yet'));b.title=a.player_id?`PG3D ID ${a.player_id}${a.active?' · active Steam account':''}`:'Play PG3D once on this account to pick up its ID.';
-    b.disabled=!a.player_id;if(a.player_id)b.onclick=()=>runLookup(a.player_id);list.append(b)}
-  const rec=lkRecent(),rw=$('#lkRecent');rw.innerHTML='';$('#lkRecentWrap').hidden=!rec.length;
-  for(const r of rec){const c=el('button','lkPick');c.type='button';c.append(el('b',null,r.name));c.title=`ID ${r.id}`;c.onclick=()=>runLookup(r.id);rw.append(c)}}
-function drawSkinHead(b64){const cv=$('#lkAvatar'),ctx=cv.getContext('2d');ctx.clearRect(0,0,64,64);if(!b64)return;const im=new Image();
-  im.onload=()=>{ctx.imageSmoothingEnabled=false;ctx.drawImage(im,8,8,8,8,0,0,64,64);
-    // overlay (hat) layer: PG3D often fills it with one opaque colour, which would hide the face
-    const t=document.createElement('canvas');t.width=8;t.height=8;const tc=t.getContext('2d');tc.drawImage(im,40,8,8,8,0,0,8,8);const px=tc.getImageData(0,0,8,8).data;
-    let uniform=true,anyAlpha=false;for(let i=0;i<px.length;i+=4){if(px[i+3]>0)anyAlpha=true;if(px[i]!==px[0]||px[i+1]!==px[1]||px[i+2]!==px[2]||px[i+3]!==px[3]){uniform=false;break}}
-    if(anyAlpha&&!uniform)ctx.drawImage(t,0,0,8,8,0,0,64,64)};im.src='data:image/png;base64,'+b64}
-async function runLookup(id){id=String(id||'').trim();if(!id)return;$('#lkId').value=id;const go=$('#lkForm button');go.disabled=true;
-  try{const d=await api('/api/lookup/'+encodeURIComponent(id));renderLookup(d.player);lkRemember(d.player);renderLookupSuggest()}
-  catch(e){toast(e.message,true)}finally{go.disabled=false}}
-const LK_MODES=[['2','Team Fight'],['0','Deathmatch'],['20','Battle Royale'],['4','Capture'],['16','Team Strike'],['8','Duels'],['1','Tournament'],['5','Free-Play'],['22e','Raids Easy'],['22m','Raids Medium'],['22h','Raids Hard']];
-const LK_SLOTS=[['pw','Primary','Weapons'],['bw','Backup','Weapons'],['mw','Melee','Weapons'],['spw','Special','Weapons'],['snw','Sniper','Weapons'],['prw','Heavy','Weapons'],['ar','Armor','Armor'],['pt','Pet','Pet']];
-const LK_RARITY=['Common','Uncommon','Rare','Epic','Legendary','Mythical'],LK_RCOL=['#9a9a9a','#4ece5f','#4a9eff','#f5c400','#ff4545','#b04fff'];
-const LK_CURRENCY_ICON={Coins:'Coin',Gems:'Gem',GemsCurrency:'Gem',Coupons:'Coupons',Silver:'Silver',ClanSilver:'Silver','PP Tickets':'PP Tickets'};
-function lkIcon(folder,name,size=28){const im=el('img','lkIco');im.width=size;im.height=size;im.loading='lazy';im.alt='';
-  if(name==null||name===''||Number(name)<=0){im.classList.add('none');return im}im.src=`/api/ember-icon/${folder}/${encodeURIComponent(String(name))}.png`;im.onerror=()=>{im.removeAttribute('src');im.classList.add('none')};return im}
-function lkCard(icon,value,label){const d=el('div','lkCardS');if(icon)d.append(icon);const t=el('div');t.append(el('b',null,typeof value==='number'?fmtNum(value):String(value)),el('span',null,label));d.append(t);return d}
-function lkGroup(title,node,right){const d=el('div','lkGroup');const h=el('div','lkGroupT',title);if(right!=null)h.append(el('span',null,right));d.append(h,node);return d}
-function lkSave(b64,label){const a=el('a','lkSaveA','Save');a.href='data:image/png;base64,'+b64;a.download=`${label}.png`;return a}
-function lkTexture(b64,label,scale){const f=el('figure','lkTex');const im=el('img');im.src='data:image/png;base64,'+b64;im.alt=label;im.onload=()=>{im.style.width=Math.min(260,im.naturalWidth*scale)+'px'};
-  const cap=el('figcaption',null,label+' · ');cap.append(lkSave(b64,label));f.append(im,cap);return f}
-let lkTab='profile',lkWepCat='All';
-function renderLookup(p){const F=p.full||{},P=F.profile||{},V=F.v3||{},w=P.weekly_stats||p.weekly||{};
-  $('#lkResult').hidden=false;drawSkinHead(p.skin);$('#lkName').textContent=p.name||'Unknown';
-  const badges=$('#lkBadges');badges.innerHTML='';const lv=P.level??F.level;if(lv!=null)badges.append(el('span','lkBadge',`Lv ${lv}`));
-  if(F.banned!=null)badges.append(el('span','lkBadge '+(F.banned?'bad':'good'),F.banned?'Banned':'Clean'));
-  if(p.clan){const cb=el('span','lkBadge lkClan');if(p.clan_logo){const im=el('img');im.src='data:image/png;base64,'+p.clan_logo;im.alt='';cb.append(im)}const tag=p.clan_tag&&String(p.clan_tag).length<=12?p.clan_tag:null;cb.append(document.createTextNode(tag?`[${tag}] ${p.clan}`:p.clan));badges.append(cb)}
-  for(const k of Object.keys(F.platforms||{}))if(!/^Platform \d+$/.test(k))badges.append(el('span','lkBadge',k));
-  const dt=t=>t?new Date(Number(t)*1000).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):null;
-  $('#lkMeta').textContent=[`ID ${p.player_id}`,P.registered?`Joined ${dt(P.registered)}`:null,P.last_seen?`Last active ${Date.now()/1000-P.last_seen<86400?ago(P.last_seen):dt(P.last_seen)}`:null].filter(Boolean).join(' · ');
-  $('#lkCopy').onclick=()=>{navigator.clipboard?.writeText(String(p.player_id)).then(()=>toast('ID copied.'),()=>{})};
-  const panes={};
-  // Profile
-  {const d=el('div');
-   const bar=el('div','lkBarRow');
-   for(const [k,label,icon] of [['weapon_count','Weapons','Weapons'],['gadget_count','Gadgets','Gadgets'],['pet_count','Pets','Pets'],['avatar_count','Avatars','Avatars'],['sets_count','Sets','Sets']]){const v=P[k]??F[k];if(v!=null)bar.append(lkCard(lkIcon('Lookup',icon,26),v,label))}
-   if(F.xp!=null)bar.append(lkCard(null,F.xp,'XP'));
-   if(bar.children.length)d.append(lkGroup('Collection',bar));
-   const cur=el('div','lkBarRow');
-   for(const [k,v] of Object.entries(F.currencies||{}))cur.append(lkCard(LK_CURRENCY_ICON[k]?lkIcon('Currency',LK_CURRENCY_ICON[k],22):null,v,k==='GemsCurrency'?'Gems':k));
-   if(cur.children.length)d.append(lkGroup('Currencies',cur));
-   const kd=w.deaths?(w.kills/w.deaths).toFixed(2):(w.kills?'∞':'0'),wr=w.matches?(100*w.wins/w.matches).toFixed(1)+'%':'0%';
-   const st=el('div','lkStatGrid');
-   for(const [icon,v,l] of [['Kills',w.kills||0,'Kills'],['Deaths',w.deaths||0,'Deaths'],['KD',kd,'K/D'],['Headshots',w.headshots||0,'Headshots'],['Matches',w.matches||0,'Matches'],['Wins',w.wins||0,'Wins'],['Killstreak',w.killstreak||0,'Killstreak'],['Winstreak',w.winstreak||0,'Winstreak'],['Winrate',wr,'Win rate'],['Score',w.score||0,'Score']])st.append(lkCard(lkIcon('Lookup',icon,30),v,l));
-   d.append(lkGroup('Last 30 days',st));
-   const lo=P.loadout||{},ln=P.loadout_names||{};const slots=LK_SLOTS.filter(([k])=>lo[k]!=null||ln[k]!=null);
-   if(slots.length){const g=el('div','lkSlots');for(const [k,label,folder] of slots){const c=el('div','lkSlot');c.append(lkIcon(folder,lo[k],56),el('span',null,label));if(ln[k])c.append(el('b',null,ln[k]));g.append(c)}d.append(lkGroup('Loadout',g))}
-   panes.profile={label:'Profile',node:d}}
-  // Wins
-  {const gw=P.global_wins||{},total=LK_MODES.reduce((a,[k])=>a+(Number(gw[k])||0),0);const d=el('div');
-   const g=el('div','lkModeGrid');for(const [k,label] of LK_MODES){if(gw[k]==null)continue;const c=el('div','lkModeC'+(Number(gw[k])?'':' zero'));c.append(el('b',null,fmtNum(gw[k])),el('span',null,label));g.append(c)}
-   d.append(lkGroup('All-time wins by mode',g.children.length?g:el('div','sub','No wins recorded.'),`${fmtNum(total)} total`));panes.wins={label:'Wins',node:d}}
-  // Weapons
-  {const all=(F.weapons||[]).slice().sort((a,b)=>(b.rarity??0)-(a.rarity??0)||(b.level??0)-(a.level??0)||String(a.name).localeCompare(String(b.name)));
-   const cats=['All',...[...new Set(all.map(x=>x.category).filter(Boolean))]];if(!cats.includes(lkWepCat))lkWepCat='All';
-   const d=el('div'),filt=el('div','lkFilter'),list=el('div','lkList');
-   const draw=()=>{list.innerHTML='';filt.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.c===lkWepCat));
-     for(const x of all.filter(x=>lkWepCat==='All'||x.category===lkWepCat)){const r=el('div','lkItem');const rar=el('span','lkRar',LK_RARITY[x.rarity]||'');rar.style.color=LK_RCOL[x.rarity]||'';
-       r.append(lkIcon('Weapons',x.id,30),el('b',null,x.name||'Unknown weapon'),el('span','lkCat',x.category||''),el('span','lkLv',x.level!=null?`Lv ${x.level}`:''),rar);list.append(r)}
-     if(!list.children.length)list.append(el('div','sub','No weapons.'))};
-   for(const c of cats){const b=el('button','ovChip',c==='All'?`All · ${all.length}`:c);b.type='button';b.dataset.c=c;b.onclick=()=>{lkWepCat=c;draw()};filt.append(b)}
-   if(all.length>1)d.append(filt);d.append(list);draw();panes.weapons={label:`Weapons · ${all.length}`,node:d}}
-  // Cosmetics
-  {const d=el('div');const tex=el('div','lkTexRow');
-   const texs=[];if(p.skin)texs.push([p.skin,'Current skin',3]);
-   if(F.cape?.texture)texs.push([F.cape.texture,F.cape.name||'Cape',5]);
-   for(const [i,ps] of (F.player_skins||[]).entries())if(ps?.texture&&ps.texture!==p.skin)texs.push([ps.texture,ps.name||`Skin ${i+1}`,3]);
-   if(texs.length){const shown=12,g=el('div');const fill=n=>{tex.innerHTML='';for(const t of texs.slice(0,n))tex.append(lkTexture(...t))};fill(shown);g.append(tex);
-     if(texs.length>shown){const m=el('button','btn ghost lkMore',`Show all ${texs.length}`);m.type='button';m.onclick=()=>{fill(texs.length);m.remove()};g.append(m)}
-     d.append(lkGroup('Skins & cape',g,texs.length))}
-   for(const [cat,items] of Object.entries(F.wear||{})){if(!items?.length)continue;const l=el('div','lkGridItems');for(const x of items){const c=el('div','lkTile');c.append(lkIcon(cat==='Armor'?'Armor':'Armor',x.id,44),el('span',null,x.name||cat));l.append(c)}d.append(lkGroup(cat,l,items.length))}
-   const sk=F.weapon_skins||[];if(sk.length){const l=el('div','lkGridItems');for(const x of sk){const c=el('div','lkTile');c.title=x.name||'';c.append(lkIcon('WeaponSkin',x.id,44),el('span',null,x.name||'Skin'));l.append(c)}d.append(lkGroup('Weapon skins',l,sk.length))}
-   if(!d.children.length)d.append(el('div','sub','No cosmetics shared.'));
-   panes.cosmetics={label:'Cosmetics',node:d}}
-  const tabs=$('#lkTabs'),body=$('#lkBody');tabs.innerHTML='';
-  const show=k=>{lkTab=k;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));body.innerHTML='';body.append(panes[k].node)};
-  for(const [k,v] of Object.entries(panes)){const b=el('button',null,v.label);b.type='button';b.dataset.k=k;b.onclick=()=>show(k);tabs.append(b)}
-  show(panes[lkTab]?lkTab:'profile')}
+
+
 // Client appearance (Settings > Appearance)
 const UI_THEMES=[
   {id:'ember',name:'Ember',desc:'Orange on near-black. The default.',c:['#050506','#0a0a0d','#ff6600','#ff8833']},

@@ -92,9 +92,9 @@ except Exception:
 import clips
 import ranks
 import updater
-import ember_client
 
-APP_VERSION = "1.77.46"
+
+APP_VERSION = "1.77.47"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -109,7 +109,7 @@ FPS_SOURCE_DIR = BASE / "fps_unlocker"
 FPS_SOURCE_DYLIB = FPS_SOURCE_DIR / "build/PG3DFPSUnlock.dylib"
 FPS_SOURCE_LAUNCHER = FPS_SOURCE_DIR / "build/launch-game"
 FPS_SOURCE_MOUSEFIX = FPS_SOURCE_DIR / "build/PG3DMouseFix.dylib"
-FPS_SOURCE_CHEATS = FPS_SOURCE_DIR / "build/PG3DCheats.dylib"
+
 
 SUPPORT = Path.home() / "Library/Application Support/PG3D Mac Client"
 HUD_SELECTOR_FILE = Path.home() / "Library/Application Support/PG3D HUD Asset Selector/hud_selection.json"
@@ -137,7 +137,7 @@ ACCOUNT_HELPER_RESULT = SUPPORT / "helper_result.txt"
 FPS_DYLIB = FPS_RUNTIME_DIR / "PG3DFPSUnlock.dylib"
 FPS_LAUNCHER = FPS_RUNTIME_DIR / "launch-game"
 MOUSEFIX_DYLIB = FPS_RUNTIME_DIR / "PG3DMouseFix.dylib"
-CHEATS_DYLIB = FPS_RUNTIME_DIR / "PG3DCheats.dylib"
+
 ORIGINAL_CURSOR_BASELINE = STATE_DIR / "original_cursor_baseline.png"
 OVERLAY_CONFIG_JSON = STATE_DIR / "overlay_config.json"
 OVERLAY_RUNTIME_JSON = STATE_DIR / "overlay_runtime.json"
@@ -346,13 +346,13 @@ def prepare_fps_runtime():
     try:
         FPS_RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
         for src, dst in ((FPS_SOURCE_DYLIB, FPS_DYLIB), (FPS_SOURCE_LAUNCHER, FPS_LAUNCHER),
-                         (FPS_SOURCE_MOUSEFIX, MOUSEFIX_DYLIB), (FPS_SOURCE_CHEATS, CHEATS_DYLIB)):
+                         (FPS_SOURCE_MOUSEFIX, MOUSEFIX_DYLIB)):
             if src.is_file() and src.stat().st_size > 0:
                 stamp = dst.with_name(dst.name + ".src-sha256")
                 src_sha = sha256_file(src)
                 if not dst.exists() or (stamp.read_text().strip() if stamp.exists() else sha256_file(dst)) != src_sha:
                     shutil.copy2(src, dst)
-                    if dst in (MOUSEFIX_DYLIB, FPS_DYLIB, CHEATS_DYLIB):
+                    if dst in (MOUSEFIX_DYLIB, FPS_DYLIB):
                         # Built without Apple's tools, so they get their ad-hoc signature here.
                         try:
                             subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", str(dst)],
@@ -3941,37 +3941,6 @@ def ensure_steam_running(timeout=60):
 
 
 
-def run_trace_cleaner():
-    """Run the ban trace cleaner silently before game launch."""
-    pgtc_script = BASE / "pgtc.py"
-    if not pgtc_script.is_file():
-        return
-    try:
-        r = subprocess.run(
-            [sys.executable, "-I", str(pgtc_script), "--auto", "--apply"],
-            capture_output=True, text=True, timeout=60
-        )
-        if r.returncode == 0:
-            log("Trace cleaner completed.")
-        else:
-            log(f"Trace cleaner: {r.stderr.strip() or r.stdout.strip()}")
-    except Exception as e:
-        log(f"Trace cleaner failed: {e}")
-
-
-def _setup_cheats_env(env, dylibs):
-    """Load the cheats dylib and write its config file. Returns the updated dylib string."""
-    cheats = ember_client.cheats_config()
-    if not CHEATS_DYLIB.is_file():
-        return dylibs
-    dylibs += f":{CHEATS_DYLIB}"
-    aim_log = FPS_LOG_DIR / f"aim-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
-    aim_config = STATE_DIR / "aim_controls.conf"
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    ember_client.write_aim_config(str(aim_config), cheats)
-    env["PG3D_AIM_LOG"] = str(aim_log)
-    env["PG3D_AIM_CONFIG"] = str(aim_config)
-    return dylibs
 
 
 def fps_launch(game: Path, fps: str):
@@ -8331,19 +8300,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"ok": True, "app": APP_ID, "version": APP_VERSION, "base": str(BASE), "pid": os.getpid(), "fps_bundle_present": fps_bundle_present()})
         if path == "/api/status":
             return self.send_json(status_payload())
-        if path == "/api/ember/me":
-            return self.send_json(ember_client.me())
-        if path == "/api/ember/accounts":
-            return self.send_json(ember_client.accounts())
-        if path == "/api/ember/session":
-            return self.send_json(ember_client.session())
-        if path == "/api/ember/items":
-            cat = query.get("cat", ["weapons"])[0]
-            return self.send_json(ember_client.items(cat))
         if path == "/api/skins":
             return self.send_json(list_skins())
-        if path == "/api/cheats/config":
-            return self.send_json(ember_client.cheats_config())
         if path == "/api/overlay/config":
             return self.send_json({"ok": True, "config": overlay_config(), "runtime": overlay_runtime()})
         if path == "/api/clips":
@@ -8826,40 +8784,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(clips.payload())
             if path == "/api/launch/fps":
                 return self.send_json(start_launch("fps", data.get("fps", prefs_payload().get("fps_target", "uncapped"))))
-            if path == "/api/ember/login":
-                username = str(data.get("username", "")).strip()
-                password = str(data.get("password", "")).strip()
-                if not username or not password:
-                    raise RuntimeError("Username and password are required.")
-                result = ember_client.login(username, password)
-                ember_client.save_credentials(username, password)
-                return self.send_json(result)
-            if path == "/api/ember/logout":
-                return self.send_json(ember_client.logout())
-            if path == "/api/ember/connect":
-                account_id = data.get("account_id")
-                if not account_id:
-                    raise RuntimeError("account_id is required.")
-                return self.send_json(ember_client.connect(account_id))
-            if path == "/api/ember/disconnect":
-                return self.send_json(ember_client.disconnect())
-            if path == "/api/ember/command":
-                action = str(data.get("command", "") or data.get("action", ""))
-                params = data.get("params", {})
-                if not action:
-                    raise RuntimeError("command/action is required.")
-                return self.send_json(ember_client.command(action, params))
-            if path == "/api/ember/max-progress":
-                options = data.get("options", {})
-                return self.send_json(ember_client.max_progress(options))
-            if path == "/api/ember/save-creds":
-                username = str(data.get("username", "")).strip()
-                password = str(data.get("password", "")).strip()
-                return self.send_json(ember_client.save_credentials(username, password))
-            if path == "/api/ember/load-creds":
-                return self.send_json(ember_client.load_credentials())
-            if path == "/api/cheats/save":
-                return self.send_json(ember_client.save_cheats(data))
             return self.send_json({"error": "Unknown endpoint"}, 404)
         except Exception as e:
             log(traceback.format_exc())
@@ -9033,15 +8957,7 @@ def main():
     threading.Thread(target=idle_watch, args=(server,), daemon=True).start()
     threading.Thread(target=health_watchdog, args=(port,), daemon=True).start()
     threading.Thread(target=playtime_watch, daemon=True).start()
-    def _ember_auto_login():
-        try:
-            creds = ember_client.load_credentials()
-            if creds.get("ok") and creds.get("username") and creds.get("password"):
-                ember_client.login(creds["username"], creds["password"])
-                log("Ember: auto-login succeeded.")
-        except Exception as e:
-            log(f"Ember: auto-login failed: {e}")
-    threading.Thread(target=_ember_auto_login, daemon=True).start()
+
     threading.Thread(target=ember_sync_watch, daemon=True).start()
     threading.Thread(target=mods_reapply_watch, daemon=True).start()
     threading.Thread(target=repair_sky_targets, daemon=True).start()
