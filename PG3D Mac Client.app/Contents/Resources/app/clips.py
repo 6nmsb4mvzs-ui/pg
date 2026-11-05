@@ -319,6 +319,8 @@ class Recorder:
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
             subprocess.run(["/usr/bin/pkill", "-f", str(CAPTURE_HELPER)],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+            subprocess.run(["/usr/bin/pkill", "-f", str(AUDIO_HELPER)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
         except Exception:
             pass
 
@@ -472,7 +474,7 @@ class Recorder:
         cfg = load_config()
         if not cfg["enabled"]:
             running = self.proc is not None and self.proc.poll() is None
-            if running:
+            if running or (self.audio_proc and self.audio_proc.poll() is None):
                 self.stop("disabled by user")
             with self.lock:
                 self.phase, self.message = "off", "Clips are turned off."

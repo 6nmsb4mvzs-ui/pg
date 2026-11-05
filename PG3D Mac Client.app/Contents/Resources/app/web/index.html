@@ -983,7 +983,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           </div>
           <div class="crCard clipSettings">
             <div class="crCardHead"><h3>Settings</h3></div>
-            <div id="clipEnableWrap"></div>
             <div class="crSectionLabel">Clip length</div>
             <div class="crMode clipModeGrid4" id="clipLengthMode" data-ui-control></div>
             <div class="crSectionLabel">Hotkey</div>
@@ -1761,13 +1760,12 @@ function renderClipStatus(){
 }
 function renderClipSettings(force=false){
   if(clipHotkeyRec)return;const cfg=clipsData.config,sig=JSON.stringify([cfg,clipsData.screens,clipsData.status?.audio]);if(!force&&sig===clipSigs.settings)return;clipSigs.settings=sig;
-  const ew=$('#clipEnableWrap');ew.innerHTML='';ew.appendChild(toggleRow('Screen recording','Records a replay buffer while you play.',cfg.enabled,()=>setClipConfig({enabled:!cfg.enabled})));
   const lm=$('#clipLengthMode');lm.innerHTML='';for(const n of clipsData.lengths){const b=document.createElement('button');b.textContent=clipLenLabel(n);b.classList.toggle('active',cfg.length===n);b.setAttribute('aria-pressed',cfg.length===n);b.onclick=()=>setClipConfig({length:n});lm.appendChild(b)}
   const qm=$('#clipQualityMode');qm.innerHTML='';for(const q of clipsData.qualities){const [res,fps]=CLIP_QUALITY[q]||[q,''];const b=document.createElement('button');b.textContent=`${res} ${fps.replace(' fps','')}`;b.title=`${res}, ${fps}`;b.classList.toggle('active',cfg.quality===q);b.setAttribute('aria-pressed',cfg.quality===q);b.onclick=()=>setClipConfig({quality:q});qm.appendChild(b)}
   const mb=Math.round((CLIP_QUALITY[cfg.quality]?.[2]||12)*CLIP_BUFFER_MAX/8);$('#clipDiskHint').textContent=`Keeps the last 3 minutes on disk, about ${mb} MB. Changing quality restarts the buffer.`;
   $('#clipHotkey').textContent=cfg.hotkey.display;
   const sw=$('#clipScreenWrap'),sel=$('#clipScreen');sw.hidden=(clipsData.screens||[]).length<2;sel.innerHTML='';for(const sc of clipsData.screens||[]){const o=document.createElement('option');o.value=sc.index;o.textContent=sc.name.replace('Capture screen','Display').replace(/(\d+)/,n=>String(+n+1));sel.appendChild(o)}if(cfg.screen!=null)sel.value=cfg.screen;
-  const tg=$('#clipToggles');tg.innerHTML='';for(const [key,label,sub] of [['notify','Notify when saved','Shows a macOS notification with a sound'],['game_audio','Game sound',clipsData.status?.audio==='unavailable'?'Needs macOS 13 or newer':clipsData.status?.audio==='no_permission'?'Needs Screen Recording permission':'Records PG3D only, no music or other apps'],['copy_after_save','Copy after saving','Ready to paste into Discord or Messages']])tg.appendChild(toggleRow(label,sub,cfg[key],()=>setClipConfig({[key]:!cfg[key]})));
+  const tg=$('#clipToggles');tg.innerHTML='';tg.appendChild(toggleRow('Screen recording','Records a replay buffer while you play.',cfg.enabled,()=>setClipConfig({enabled:!cfg.enabled})));for(const [key,label,sub] of [['notify','Notify when saved','Shows a macOS notification with a sound'],['game_audio','Game sound',clipsData.status?.audio==='unavailable'?'Needs macOS 13 or newer':clipsData.status?.audio==='no_permission'?'Needs Screen Recording permission':'Records PG3D only, no music or other apps'],['copy_after_save','Copy after saving','Ready to paste into Discord or Messages']])tg.appendChild(toggleRow(label,sub,cfg[key],()=>setClipConfig({[key]:!cfg[key]})));
 }
 function toggleRow(label,sub,on,onclick){const b=document.createElement('button');b.className='clipToggle'+(on?' on':'');b.setAttribute('role','switch');b.setAttribute('aria-checked',!!on);b.innerHTML='<div><span></span><small></small></div><span class="pill"></span>';b.querySelector(':scope>div>span').textContent=label;b.querySelector('small').textContent=sub;b.onclick=onclick;return b}
 function renderClipGrid(){
