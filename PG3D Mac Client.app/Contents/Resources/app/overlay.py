@@ -296,12 +296,31 @@ def fps_value():
 _FPS_HELPER={'proc':None,'denied_at':0.0}
 
 
+def _engine_fps_available():
+    """True when the FPS unlocker's injected helper is reporting recent measurements."""
+    pid=pg3d_pid()
+    if not pid:return False
+    try:
+        for f in sorted(FPS_LOG_DIR.glob('run-*.log'),key=lambda p:p.stat().st_mtime,reverse=True)[:3]:
+            if time.time()-f.stat().st_mtime>30:continue
+            if re.search(r'pid=%d\] engine measurement: rendered='%pid,f.read_text(errors='ignore')[-8000:]):return True
+    except Exception:pass
+    return False
+
 def ensure_fps_helper(wanted):
-    """Run game_fps.py while the overlay shows FPS and PG3D runs."""
+    """Run game_fps.py while the overlay shows FPS and PG3D runs, but only
+    when the FPS unlocker isn't already providing engine measurements (avoids
+    a ScreenCaptureKit session that triggers macOS's recording indicator)."""
     p=_FPS_HELPER['proc']
     if p is not None and p.poll() is not None:
-        if p.returncode in (3,4):_FPS_HELPER['denied_at']=time.time()  # no ScreenCaptureKit / no permission: retry later
+        if p.returncode in (3,4):_FPS_HELPER['denied_at']=time.time()
         _FPS_HELPER['proc']=p=None
+    if wanted and _engine_fps_available():
+        if p is not None:
+            try:p.terminate()
+            except Exception:pass
+            _FPS_HELPER['proc']=None
+        return
     if wanted and p is None and time.time()-_FPS_HELPER['denied_at']>300 and GAME_FPS_HELPER.exists():
         try:
             log_f=open(SUPPORT/'game_fps.log','a')

@@ -317,10 +317,9 @@ class Recorder:
         try:
             subprocess.run(["/usr/bin/pkill", "-f", str(BUFFER_DIR / "seg%03d.ts")],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-            subprocess.run(["/usr/bin/pkill", "-f", str(CAPTURE_HELPER)],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-            subprocess.run(["/usr/bin/pkill", "-f", str(AUDIO_HELPER)],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+            for helper in ("clip_capture.py", "game_audio.py"):
+                subprocess.run(["/usr/bin/pkill", "-f", helper],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
         except Exception:
             pass
 
