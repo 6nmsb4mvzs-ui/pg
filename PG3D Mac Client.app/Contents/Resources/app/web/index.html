@@ -1312,7 +1312,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
     <section class="page" id="page-texpack">
       <div class="xPage">
         <div class="crCard">
-          <div class="crCardHead"><div><h3>Weapon Textures</h3><p class="xNote" style="margin-top:4px">Replace weapon textures with custom skins. Requires a file scan first.</p></div><button class="btn small danger" id="tpResetAll" style="white-space:nowrap">Restore All</button></div>
+          <div class="crCardHead"><div><h3>Weapon Textures</h3><p class="xNote" style="margin-top:4px">Replace weapon textures with custom skins.</p></div><div style="display:flex;gap:6px;align-items:center"><button class="btn small" id="tpScan" style="white-space:nowrap">Scan Game Files</button><button class="btn small danger" id="tpResetAll" style="white-space:nowrap">Restore All</button></div></div>
           <div class="xJob" id="tpJob"><div class="msg"></div><div class="bar"><i></i></div></div>
           <div class="tpGrid" id="tpList"></div>
         </div>
@@ -2109,11 +2109,11 @@ let lastJobPhase=null;
 function jobLine(j){const q=j.queue||[];let t=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');
   if(j.phase==='running'&&j.eta!=null&&j.eta>0)t+=` · about ${fmtEta(j.eta)} left`;if(q.length)t+=` · then: ${q.join(', ')}`;return t}
 function renderJob(){const j=statusData?.job;if(!j)return;const active=j.phase==='running'||j.phase==='waiting';
-  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#hdJob',['hud','scan','change','reapply','restore']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#txJob',['scan','sky','change']],['#flJob',['scan']],['#tpJob',['texpack']]]){const box=$(id);if(!box)continue;
+  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#hdJob',['hud','scan','change','reapply','restore']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#txJob',['scan','sky','change']],['#flJob',['scan']],['#tpJob',['texpack','scan']]]){const box=$(id);if(!box)continue;
     const mine=(kinds.includes(j.kind)&&(active||j.phase==='error'))||(j.queue||[]).length>0;box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
     box.querySelector('.msg').textContent=jobLine(j);box.querySelector('.bar i').style.width=(j.phase==='running'?j.progress||0:0)+'%'}
   const hint=$('#skHint');if(hint)hint.textContent=statusData.game_stuck?'PG3D is stuck in the background: quit it on the Play tab, then this applies.':statusData.game_running?'PG3D is open: your change is applied as soon as it closes.':active?'Changes you click now are queued and run one after another.':'';
-  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='hud')loadHud();if(localStorage.pg3dTab==='files'&&j.kind==='scan')FL.load();if(localStorage.pg3dTab==='texpack'&&j.kind==='texpack')TP.load()}
+  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='hud')loadHud();if(localStorage.pg3dTab==='files'&&j.kind==='scan')FL.load();if(localStorage.pg3dTab==='texpack'&&(j.kind==='texpack'||j.kind==='scan'))TP.load()}
   if(fin||lastJobId===undefined)lastJobId=fin?j.id:null;lastJobPhase=j.phase}
 let lastJobId;
 
@@ -2768,6 +2768,17 @@ const TP=(function(){
       const box=$('#tpList');if(!box)return;
       const packs=r.packs||[];
       const active=r.active||null;
+      const scanned=r.scanned;
+      const scanBtn=$('#tpScan');
+      if(scanBtn){
+        scanBtn.style.display=scanned?'none':'';
+        scanBtn.onclick=async()=>{
+          scanBtn.disabled=true;
+          try{await post('/api/finder/scan',{});toast('Scanning game files… this takes a few minutes.')}
+          catch(e){toast(e.message,true)}
+          finally{setTimeout(()=>scanBtn.disabled=false,3000)}
+        };
+      }
       const resetBtn=$('#tpResetAll');
       if(resetBtn){
         resetBtn.style.display=active?'':'none';
@@ -2775,6 +2786,7 @@ const TP=(function(){
           try{await post('/api/texpack/reset');toast('Restoring original textures…');T.load()}catch(e){toast(e.message,true)}
         };
       }
+      if(!scanned){box.innerHTML='<div class="tpEmpty">Press <b>Scan Game Files</b> first. It takes a few minutes — textures appear here once the scan finishes.</div>';return}
       if(!packs.length){box.innerHTML='<div class="tpEmpty">No weapon textures available.</div>';return}
       let html='';
       for(const p of packs){

@@ -94,7 +94,7 @@ import ranks
 import updater
 
 
-APP_VERSION = "1.77.49"
+APP_VERSION = "1.77.50"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5510,7 +5510,8 @@ def texpack_list():
                        "textures": [{"name": t["name"], "file": t["file"]} for t in meta.get("textures", [])],
                        "dir": str(d)})
     active = (load_mods().get("texpack") or {}).get("pack")
-    return {"packs": packs, "active": active}
+    scanned = FINDER_JSON.is_file()
+    return {"packs": packs, "active": active, "scanned": scanned}
 
 
 def texpack_preview(pack_id):
