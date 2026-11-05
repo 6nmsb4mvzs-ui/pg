@@ -29,7 +29,13 @@ jobs:
           V: ${{ steps.v.outputs.version }}
         run: |
           if gh release view "v$V" >/dev/null 2>&1; then
-            echo "v$V is already released."; exit 0
+            if gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name==\"v$V\") | .draft" 2>/dev/null | grep -q true; then
+              echo "Found stuck draft v$V — deleting before recreate"
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name==\"v$V\") | .id")" || true
+              git push origin :refs/tags/"v$V" 2>/dev/null || true
+            else
+              echo "v$V is already released."; exit 0
+            fi
           fi
           zip="PG3D_Mac_Client_v$V.zip"
           # git archive keeps the launcher's executable bits.
