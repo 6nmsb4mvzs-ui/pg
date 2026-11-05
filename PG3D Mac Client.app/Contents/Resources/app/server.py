@@ -94,7 +94,7 @@ import ranks
 import updater
 
 
-APP_VERSION = "1.77.48"
+APP_VERSION = "1.77.49"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5502,12 +5502,27 @@ def texpack_list():
     packs = []
     for d in _texpack_dirs():
         meta = read_json(d / "pack.json", {})
+        preview = meta.get("preview")
         packs.append({"id": d.name, "name": meta.get("name", d.name),
                        "description": meta.get("description", ""),
                        "count": len(meta.get("textures", [])),
+                       "preview": f"/api/texpack/preview/{d.name}.png" if preview and (d / preview).is_file() else None,
+                       "textures": [{"name": t["name"], "file": t["file"]} for t in meta.get("textures", [])],
                        "dir": str(d)})
     active = (load_mods().get("texpack") or {}).get("pack")
     return {"packs": packs, "active": active}
+
+
+def texpack_preview(pack_id):
+    for d in _texpack_dirs():
+        if d.name == pack_id:
+            meta = read_json(d / "pack.json", {})
+            preview = meta.get("preview")
+            if preview:
+                fp = d / preview
+                if fp.is_file():
+                    return fp
+    return None
 
 
 def texpack_resolve(pack_id):
@@ -8427,6 +8442,20 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(hud_payload())
         if path == "/api/texpack/list":
             return self.send_json(texpack_list())
+        if path.startswith("/api/texpack/preview/"):
+            m = re.fullmatch(r"/api/texpack/preview/([\w\-]+)\.png", path)
+            if m:
+                fp = texpack_preview(m.group(1))
+                if fp:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/png")
+                    data = fp.read_bytes()
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Cache-Control", "public, max-age=86400")
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+            return self.send_error(404)
         if path == "/api/finder/list":
             qs = parse_qs(urlparse(self.path).query)
             g = lambda k, d="": (qs.get(k) or [d])[0]

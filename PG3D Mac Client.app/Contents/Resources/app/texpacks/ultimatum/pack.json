@@ -1,0 +1,9 @@
+{
+  "name": "Ultimatum",
+  "description": "Custom Ultimatum weapon textures.",
+  "preview": "ultimatum_icon1_big.png",
+  "textures": [
+    {"name": "ultimatum", "file": "ultimatum.png", "width": 64, "height": 64},
+    {"name": "ultimatum_icon1_big", "file": "ultimatum_icon1_big.png", "width": 256, "height": 256}
+  ]
+}
