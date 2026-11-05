@@ -983,6 +983,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           </div>
           <div class="crCard clipSettings">
             <div class="crCardHead"><h3>Settings</h3></div>
+            <div id="clipEnableWrap"></div>
             <div class="crSectionLabel">Clip length</div>
             <div class="crMode clipModeGrid4" id="clipLengthMode" data-ui-control></div>
             <div class="crSectionLabel">Hotkey</div>
@@ -1746,10 +1747,9 @@ function renderClipStatus(){
   else if(st.phase==='recording'){t='Recording';x=st.buffered>=cfg.length?`Press ${hk} to save the last ${clipLenLabel(cfg.length)}.`:`Building up footage. Press ${hk} any time to save what's recorded so far.`;if(st.capture_fps)x+=` Capturing ${Math.round(st.capture_fps)} FPS.`;dot.classList.add('rec')}
   else if(st.phase==='no_permission'){t='Needs Screen Recording';x=st.message;dot.classList.add('warn');acts.append(clipAction('Set up permissions',()=>{setTab('settings')},true))}
   else if(st.phase==='error'){t='Recording stopped';x=st.message;dot.classList.add('warn')}
-  else if(st.phase==='off'){t='Clips are off';x='Turn on the replay buffer to record while you play.';acts.append(clipAction('Turn on',()=>setClipConfig({enabled:true}),true))}
+  else if(st.phase==='off'){t='Clips are off';x='Turn them on in the sidebar to record while you play.'}
   else{t='Waiting for Pixel Gun 3D';x='Recording starts by itself once you\'re in the game.'}
   if(st.ffmpeg&&(st.permission===false||st.phase==='error'))acts.append(clipAction('Allow screen recording',async()=>{if(window.webkit?.messageHandlers?.pg3d){window.webkit.messageHandlers.pg3d.postMessage({type:'requestScreenPermission'})}else{await post('/api/clips/permission')}toast('Turn on PG3D Mac Client in Screen Recording, then reopen the client.')}));
-  if(cfg.enabled)acts.append(clipAction('Turn off',()=>setClipConfig({enabled:false})));
 
   $('#clipStateTitle').textContent=t;$('#clipStateText').textContent=x||'';
   const buf=st.phase==='recording'?Math.min(st.buffered||0,CLIP_BUFFER_MAX):0;
@@ -1761,6 +1761,7 @@ function renderClipStatus(){
 }
 function renderClipSettings(force=false){
   if(clipHotkeyRec)return;const cfg=clipsData.config,sig=JSON.stringify([cfg,clipsData.screens,clipsData.status?.audio]);if(!force&&sig===clipSigs.settings)return;clipSigs.settings=sig;
+  const ew=$('#clipEnableWrap');ew.innerHTML='';ew.appendChild(toggleRow('Screen recording','Records a replay buffer while you play.',cfg.enabled,()=>setClipConfig({enabled:!cfg.enabled})));
   const lm=$('#clipLengthMode');lm.innerHTML='';for(const n of clipsData.lengths){const b=document.createElement('button');b.textContent=clipLenLabel(n);b.classList.toggle('active',cfg.length===n);b.setAttribute('aria-pressed',cfg.length===n);b.onclick=()=>setClipConfig({length:n});lm.appendChild(b)}
   const qm=$('#clipQualityMode');qm.innerHTML='';for(const q of clipsData.qualities){const [res,fps]=CLIP_QUALITY[q]||[q,''];const b=document.createElement('button');b.textContent=`${res} ${fps.replace(' fps','')}`;b.title=`${res}, ${fps}`;b.classList.toggle('active',cfg.quality===q);b.setAttribute('aria-pressed',cfg.quality===q);b.onclick=()=>setClipConfig({quality:q});qm.appendChild(b)}
   const mb=Math.round((CLIP_QUALITY[cfg.quality]?.[2]||12)*CLIP_BUFFER_MAX/8);$('#clipDiskHint').textContent=`Keeps the last 3 minutes on disk, about ${mb} MB. Changing quality restarts the buffer.`;
