@@ -94,7 +94,7 @@ import ranks
 import updater
 
 
-APP_VERSION = "1.77.58"
+APP_VERSION = "1.77.59"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -4476,7 +4476,14 @@ def overlay_runtime():
 
 def ensure_overlay_process():
     try:
+        cfg = overlay_config()
         pid = int(OVERLAY_PID_FILE.read_text().strip()) if OVERLAY_PID_FILE.exists() else None
+        if not cfg.get("enabled", True):
+            if pid:
+                try: os.kill(pid, signal.SIGTERM)
+                except Exception: pass
+                OVERLAY_PID_FILE.unlink(missing_ok=True)
+            return False
         if pid:
             try:
                 os.kill(pid, 0)

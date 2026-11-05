@@ -947,6 +947,8 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 
     <section class="page" id="page-gui">
       <div class="xPage">
+        <div id="overlayMasterToggle" style="margin-bottom:12px"></div>
+        <div id="overlayBody">
         <div class="crCard">
           <div class="crCardHead"><h3>Show in game</h3><div class="xRow"><span class="sub">Show / hide key</span><button class="crHotkey" id="recordHotkey" data-ui-control>F8</button></div></div>
           <div class="guiElements" id="guiElements"></div>
@@ -963,6 +965,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="guiOrderCard" id="guiOrderCard" hidden><div class="xLabel" style="margin-top:14px">Order · drag to change</div><div class="crOrder horizontal" id="groupOrder"></div></div>
         </div>
         <div class="xRow"><button class="btn primary xBig" id="guiPlace" data-ui-control>Position in game</button><button class="btn ghost" id="resetOverlay" data-ui-control>Reset</button></div>
+        </div>
       </div>
     </section>
 
@@ -1706,6 +1709,10 @@ function renderGroupOrder(){const box=$('#groupOrder');if(!box)return;box.innerH
 function renderOverlayEditor(full=true){
   if(!overlayConfig)return;
   overlayConfig.group=overlayConfig.group||{enabled:false,orientation:'vertical',size_mode:'individual',size:18,color:'#FFFFFF',x:.5,y:.5,placed:false};
+  const on=overlayConfig.enabled!==false;
+  const mt=$('#overlayMasterToggle');mt.innerHTML='';mt.appendChild(toggleRow('HUD overlay','Shows FPS, clock, ping and music over the game. Runs a background process.',on,async()=>{overlayConfig.enabled=!on;markOverlayDirty();await saveOverlayQuiet(true);renderOverlayEditor()}));
+  $('#overlayBody').style.display=on?'':'none';
+  if(!on)return;
   $('#recordHotkey').textContent=hotkeyDisplay(overlayConfig.hotkey);
   renderElements();renderStyleList(full);
 }
