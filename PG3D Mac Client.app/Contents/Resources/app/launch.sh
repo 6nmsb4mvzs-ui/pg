@@ -5,7 +5,7 @@
 set -u
 setopt NULL_GLOB
 
-VERSION="1.77.51"
+VERSION="1.77.52"
 PORT=38513
 APP_ID="pg3d-mac-client-v$VERSION"
 SOURCE_BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -154,6 +154,11 @@ if [[ ! -f "$BUNDLE_CACHE/.bundle-stamp" || "$(cat "$BUNDLE_CACHE/.bundle-stamp"
 fi
 BASE="$BUNDLE_CACHE"
 chmod +x "$BASE/fps_unlocker/build/launch-game" "$BASE/fps_unlocker/build/PG3DFPSUnlock.dylib" 2>/dev/null || true
+# Ensure texpacks directory reaches the bundle cache even if the main copy missed it.
+if [[ -d "$SOURCE_BASE/texpacks" && ! -d "$BASE/texpacks" ]]; then
+  /usr/bin/ditto "$SOURCE_BASE/texpacks" "$BASE/texpacks" >>"$LOG" 2>&1 || true
+  echo "Copied texpacks to bundle cache" >>"$LOG"
+fi
 
 # ---------------------------------------------------------------- Python
 py_ok() { [[ -x "$1" ]] && "$1" -c 'import sys, venv, ssl; sys.exit(0 if sys.version_info >= (3, 9) else 1)' >/dev/null 2>&1; }

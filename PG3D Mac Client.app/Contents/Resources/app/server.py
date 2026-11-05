@@ -94,7 +94,7 @@ import ranks
 import updater
 
 
-APP_VERSION = "1.77.51"
+APP_VERSION = "1.77.52"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5488,21 +5488,37 @@ def files_payload():
 # ----------------------------------------------------------------------------- Texture packs
 TEXPACK_BUILTIN = BASE / "texpacks"
 TEXPACK_USER = SUPPORT / "texpacks"
+_TEXPACK_APP_BUNDLE = None
+_app_bundle_env = os.environ.get("PG3D_APP_BUNDLE")
+if _app_bundle_env:
+    _p = Path(_app_bundle_env) / "Contents" / "Resources" / "app" / "texpacks"
+    if _p.is_dir() and _p != TEXPACK_BUILTIN:
+        _TEXPACK_APP_BUNDLE = _p
 
 
 def _texpack_dirs():
     dirs = []
-    for root in (TEXPACK_BUILTIN, TEXPACK_USER):
+    seen = set()
+    roots = [TEXPACK_BUILTIN, TEXPACK_USER]
+    if _TEXPACK_APP_BUNDLE:
+        roots.append(_TEXPACK_APP_BUNDLE)
+    for root in roots:
         if root.is_dir():
             for d in sorted(root.iterdir()):
-                if (d / "pack.json").is_file():
+                if d.name not in seen and (d / "pack.json").is_file():
                     dirs.append(d)
+                    seen.add(d.name)
     return dirs
 
 
 def texpack_list():
     packs = []
-    for d in _texpack_dirs():
+    log(f"texpack_list: BUILTIN={TEXPACK_BUILTIN} exists={TEXPACK_BUILTIN.is_dir()}"
+        f" USER={TEXPACK_USER} exists={TEXPACK_USER.is_dir()}"
+        f" APP_BUNDLE={_TEXPACK_APP_BUNDLE} exists={_TEXPACK_APP_BUNDLE.is_dir() if _TEXPACK_APP_BUNDLE else 'N/A'}")
+    dirs = _texpack_dirs()
+    log(f"texpack_list: found {len(dirs)} pack dirs: {[str(d) for d in dirs]}")
+    for d in dirs:
         meta = read_json(d / "pack.json", {})
         preview = meta.get("preview")
         packs.append({"id": d.name, "name": meta.get("name", d.name),
