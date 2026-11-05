@@ -66,6 +66,11 @@ stop_running() {
     [[ "$OPID" == "$PPID" || "$OPID" == "$$" ]] && continue
     /bin/kill "$OPID" 2>/dev/null && STOPPED+=("$OPID")
   done
+  # Catch any orphaned server holding our port (pid file gone, pgrep misses it).
+  for OPID in $(/usr/sbin/lsof -ti:"$PORT" 2>/dev/null); do
+    [[ "$OPID" == "$$" || "$OPID" == "$PPID" ]] && continue
+    /bin/kill "$OPID" 2>/dev/null && STOPPED+=("$OPID")
+  done
   /bin/sleep 0.3
   # Anything that ignored the polite quit within 3 s is stopped for good (an old copy
   # left running kept its icon in the Dock next to the new one).
