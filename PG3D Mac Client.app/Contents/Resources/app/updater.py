@@ -269,6 +269,23 @@ class Updater:
         self._zip_cache = {}
         self.github = {"connected": bool(github_token()), "checked": 0, "latest": None, "error": None}
         self._gh_cand = None
+        self._recover_interrupted_install()
+
+    def _recover_interrupted_install(self):
+        """Restore the app bundle if a previous install was interrupted mid-swap."""
+        if not self.app_bundle:
+            return
+        dest = self.app_bundle
+        if not str(dest).endswith(".app") or "/AppTranslocation/" in str(dest):
+            dest = Path("/Applications") / APP_NAME
+        previous = dest.with_name(dest.name + ".previous")
+        if previous.exists() and not dest.exists():
+            try:
+                previous.rename(dest)
+                _log(f"Updater: recovered interrupted install — restored {dest} from .previous")
+            except OSError as e:
+                _log(f"Updater: recovery failed: {e}")
+        shutil.rmtree(STAGING, ignore_errors=True)
 
     # ----- discovery
     def _candidates(self):
@@ -399,7 +416,7 @@ class Updater:
                 return {"ok": True, "phase": self.phase}
             self.phase, self.message = "installing", f"Installing version {cand['version']}…"
         threading.Thread(target=self._install, args=(cand, stale + [c for c in newer if c is not cand]),
-                         daemon=True).start()
+                         daemon=False).start()
         return {"ok": True, "phase": "installing", "version": cand["version"]}
 
     def _install(self, cand, leftovers):
