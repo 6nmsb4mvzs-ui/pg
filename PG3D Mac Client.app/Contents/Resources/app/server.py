@@ -94,7 +94,7 @@ import ranks
 import updater
 import ember_client
 
-APP_VERSION = "1.77.43"
+APP_VERSION = "1.77.44"
 APP_ID = f"pg3d-mac-client-v{APP_VERSION}"
 STEAM_APP_ID = "2524890"
 APP_DIR = "Pixel Gun 3D PC Edition"
@@ -5755,7 +5755,16 @@ def albums_export_zip(aid):
             {"name": album["name"],
              "description": f"Exported from album \"{album['name']}\"",
              "textures": manifest_textures}, indent=2))
-    return buf.getvalue(), f"{slug}.zip"
+    downloads = Path.home() / "Downloads"
+    downloads.mkdir(exist_ok=True)
+    dest = downloads / f"{slug}.zip"
+    n = 1
+    while dest.exists():
+        dest = downloads / f"{slug} ({n}).zip"
+        n += 1
+    dest.write_bytes(buf.getvalue())
+    return {"ok": True, "message": f"Saved to Downloads/{dest.name}",
+            "path": str(dest), "count": exported}
 
 
 HUD_SCAN_JSON = STATE_DIR / "hud_scan.json"
@@ -8447,19 +8456,6 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(files_payload())
         if path == "/api/albums":
             return self.send_json(albums_list())
-        if path.startswith("/api/albums/export/"):
-            aid = path.split("/")[-1]
-            try:
-                data, filename = albums_export_zip(aid)
-                self.send_response(200)
-                self.send_header("Content-Type", "application/zip")
-                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-            except Exception as e:
-                return self.send_json({"error": str(e)}, status=400)
-            return
         if path == "/api/files/search":
             qs = parse_qs(urlparse(self.path).query)
             g = lambda k, d="": (qs.get(k) or [d])[0]
@@ -8610,6 +8606,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(albums_add(data.get("id"), data.get("files", [])))
             if path == "/api/albums/remove":
                 return self.send_json(albums_remove(data.get("id"), data.get("gids", [])))
+            if path == "/api/albums/export":
+                return self.send_json(albums_export_zip(data.get("id")))
             if path == "/api/finder/picks":
                 return self.send_json(set_finder_picks(data.get("cat"), data.get("ids")))
             if path == "/api/hud/find":
