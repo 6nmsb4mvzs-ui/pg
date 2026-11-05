@@ -834,82 +834,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
 .fdItem .fdTag{position:absolute;top:8px;left:10px;font-size:10px;font-weight:800;background:rgba(0,0,0,.6);color:#fff;border-radius:5px;padding:1px 5px}
 .fdGui{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
 .fdItem.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}.fdItem.sel::after{content:"✓";position:absolute;top:8px;right:10px;color:var(--accent);font-weight:900}
-.flGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
-.flCard{background:hsl(var(--nh) var(--ns) 7%);border:1px solid var(--border);border-radius:10px;padding:6px;text-align:left;color:var(--text);position:relative}
-.flCard .flThumb{width:100%;height:100px;object-fit:contain;border-radius:6px;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 9%) 0 25%,hsl(var(--nh) var(--ns) 6%) 0 50%) 0 0/14px 14px;display:block}
-.flCard .flPlaceholder{width:100%;height:100px;border-radius:6px;background:hsl(var(--nh) var(--ns) 9%);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
-.flCard b{display:block;font-size:11px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.flCard small{display:block;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.flCard .flType{position:absolute;top:8px;right:8px;font-size:9px;font-weight:700;background:rgba(0,0,0,.65);color:var(--dim);border-radius:4px;padding:1px 5px}
-.flBar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
-.flBar .search{flex:1;min-width:180px}
-.flCount{font-size:12px;color:var(--muted)}
-.flMore{display:flex;justify-content:center;margin-top:12px}
-.flCard{cursor:pointer}.flCard:hover{border-color:var(--accent)}
-.flModal{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .15s}
-.flModal.open{opacity:1;pointer-events:auto}
-.flModal img{max-width:90vw;max-height:70vh;object-fit:contain;border-radius:8px;background:repeating-conic-gradient(hsl(var(--nh) var(--ns) 12%) 0 25%,hsl(var(--nh) var(--ns) 8%) 0 50%) 0 0/16px 16px}
-.flModal .flMInfo{color:#fff;font-size:13px;margin-top:10px;text-align:center;max-width:80vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.flModal .flMSub{color:var(--muted);font-size:11px;margin-top:2px}
-.flModal .flMBar{display:flex;gap:8px;margin-top:14px}
-.flModal .flMBar button{padding:6px 18px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer}
-.flModal .flMDl{background:var(--accent);color:#fff}
-.flModal .flMDl:hover{filter:brightness(1.15)}
-.flModal .flMClose{background:hsl(var(--nh) var(--ns) 15%);color:var(--text)}
-.flModal .flMClose:hover{background:hsl(var(--nh) var(--ns) 20%)}
-.flModal .flMSpinner{color:var(--muted);font-size:12px;margin-top:12px}
-
-/* files: two-panel layout */
-.flPage{display:flex;gap:16px;align-items:flex-start}
-.flMain{flex:1;min-width:0}
-.flAlbums{width:300px;flex-shrink:0;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto}
-@media(max-width:800px){.flPage{flex-direction:column}.flAlbums{width:100%;position:static;max-height:none}}
-
-/* files: selection */
-.flCard .flCheck{position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:5px;border:2px solid var(--border);background:rgba(0,0,0,.5);cursor:pointer;display:flex;align-items:center;justify-content:center;color:transparent;font-size:13px;font-weight:900;z-index:2;transition:border-color .1s,background .1s}
-.flCard .flCheck:hover{border-color:var(--accent)}
-.flCard .flCheck.on{border-color:var(--accent);background:var(--accent);color:#fff}
-.flSelBar{display:none;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:hsl(var(--nh) var(--ns) 10%);border:1px solid var(--accent);margin-bottom:10px;flex-wrap:wrap}
-.flSelBar.show{display:flex}
-.flSelBar .flSelCount{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
 .btn.small{height:26px;padding:0 10px!important;font-size:11px!important;border-radius:7px!important}
-
-/* files: albums sidebar */
-.albCard{background:hsl(var(--nh) var(--ns) 6%);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden}
-.albHead{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none}
-.albHead:hover{background:hsl(var(--nh) var(--ns) 8%)}
-.albHead .albName{flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.albHead .albCount{font-size:11px;color:var(--muted);flex-shrink:0}
-.albHead .albArrow{font-size:10px;color:var(--muted);transition:transform .15s}
-.albHead .albArrow.open{transform:rotate(90deg)}
-.albBody{display:none;padding:8px 10px 10px}
-.albBody.open{display:block}
-.albThumbGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:4px}
-.albThumbGrid .albThumb{position:relative;border-radius:6px;overflow:hidden;aspect-ratio:1;background:hsl(var(--nh) var(--ns) 9%)}
-.albThumbGrid .albThumb img{width:100%;height:100%;object-fit:cover}
-.albThumbGrid .albThumb .albRm{position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;font-size:11px;line-height:16px;text-align:center;cursor:pointer;display:none}
-.albThumbGrid .albThumb:hover .albRm{display:block}
-.albActions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
-.albActions button{font-size:11px;padding:3px 8px}
-.albRename{background:transparent;border:none;color:var(--text);font-size:13px;font-weight:600;padding:0 2px;outline:none;min-width:40px;border-bottom:1px solid var(--accent)}
-
-/* weapon textures */
-.tpGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:10px}
-.tpCard{position:relative;border-radius:12px;background:hsl(var(--nh) var(--ns) 5.5%);border:2px solid var(--border);cursor:pointer;transition:border-color .15s,background .15s,transform .1s;overflow:hidden}
-.tpCard:hover{border-color:var(--accent);transform:translateY(-1px)}
-.tpCard.active{border-color:var(--accent);background:hsl(var(--nh) var(--ns) 8%)}
-.tpCard .tpImg{width:100%;aspect-ratio:1;object-fit:contain;image-rendering:auto;padding:12px;box-sizing:border-box;background:hsl(var(--nh) var(--ns) 3%)}
-.tpCard .tpInfo{padding:8px 10px 10px}
-.tpCard .tpName{font-size:13px;font-weight:600;color:var(--text);margin:0}
-.tpCard .tpDesc{font-size:11px;color:var(--muted);margin:2px 0 0}
-.tpCard .tpBadge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;margin-top:6px}
-.tpCard .tpBadge.on{background:var(--accent);color:#fff}
-.tpCard .tpBadge.off{background:hsl(var(--nh) var(--ns) 12%);color:var(--muted)}
-.tpCard .tpDisable{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.75);color:#ff8e9c;border:1px solid #3a2a2e;font-size:13px;line-height:24px;text-align:center;cursor:pointer;display:none;z-index:1}
-.tpCard:hover .tpDisable.show{display:block}
-.tpCard .tpDisable:hover{background:#2a1218;border-color:#5a2a33}
-.tpEmpty{color:var(--muted);font-size:13px;padding:20px 0}
-
 /* mods */
 .emState{font-size:12px;font-weight:700;color:var(--muted)}.emState.on{color:#9be7bd}.emState.err{color:#ff8e9c}.emState.wait{color:#ffd866}
 
@@ -955,8 +880,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       <button data-tab="cursor"><span class="ico">⊕</span><span class="label">Cursor</span></button>
       <button data-tab="theme"><span class="ico">A</span><span class="label">Font</span></button>
       <button data-tab="skins"><span class="ico">◑</span><span class="label">Skins</span></button>
-      <button data-tab="files" hidden><span class="ico">☰</span><span class="label">Files</span></button>
-      <button data-tab="texpack"><span class="ico">◈</span><span class="label">Textures</span></button>
     </nav>
     <nav class="nav navBottom">
       <button data-tab="accounts"><span class="ico">◎</span><span class="label">Accounts</span></button>
@@ -1169,10 +1092,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
           <div class="setRows" id="storageRows"></div>
         </div>
         <div class="crCard setCard">
-          <div class="crCardHead"><h3>Tabs</h3></div>
-          <button class="xSwitch" id="archivedTabsSw" role="switch"><div><b>Show archived tabs</b><small>Tabs that are hidden because they are unfinished or unstable.</small></div><span class="pillToggle"></span></button>
-        </div>
-        <div class="crCard setCard">
           <div class="crCardHead"><h3>Troubleshooting</h3></div>
           <p class="setNote">If something isn't working, copy the report and paste it into your message.</p>
           <button class="xSwitch" id="mouseFixSw" role="switch" style="margin-bottom:12px"><div><b>Mouse fix</b><small>Fixes PG3D's Mac cursor staying in the middle and clicks needing two tries. Applies the next time PG3D starts from here.</small></div><span class="pillToggle"></span></button>
@@ -1272,69 +1191,6 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
       </div>
     </section>
 
-    <section class="page" id="page-files">
-      <div class="xPage">
-        <div class="crCard">
-          <div class="crCardHead"><div><h3>Game File Scanner</h3><p class="xNote" style="margin-top:4px">Browse and search every texture, sprite and cubemap in PG3D. Type partial names — each word is matched independently.</p></div><button class="btn" id="flScan">Scan game files</button></div>
-          <div class="xJob" id="flJob"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <div class="flPage">
-            <div class="flMain">
-              <div class="flBar">
-                <input class="search" id="flSearch" placeholder="Search by name (e.g. gun blue scope)" spellcheck="false">
-                <select class="select" id="flType" style="width:auto;min-width:120px"><option value="">All types</option><option value="Texture2D">Texture2D</option><option value="Sprite">Sprite</option><option value="Cubemap">Cubemap</option></select>
-              </div>
-              <div class="flSelBar" id="flSelBar">
-                <span class="flSelCount" id="flSelCount">0 selected</span>
-                <select class="select" id="flAlbumPick" style="width:auto;min-width:140px;font-size:12px"><option value="">Add to album…</option></select>
-                <button class="btn small" id="flSelAdd">Add</button>
-                <button class="btn small ghost" id="flSelClear">Clear selection</button>
-              </div>
-              <div class="flCount" id="flCount"></div>
-              <div class="flGrid" id="flGrid"></div>
-              <div class="flMore">
-                <button class="btn ghost" id="flMore" hidden>Load more</button>
-                <button class="btn ghost" id="flLoadAll" hidden style="margin-left:8px">Load all</button>
-              </div>
-            </div>
-            <div class="flAlbums">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                <h4 style="margin:0;font-size:14px">Albums</h4>
-                <button class="btn small" id="flAlbumNew">New album</button>
-              </div>
-              <div id="flAlbumList"></div>
-              <div id="flAlbumEmpty" style="color:var(--muted);font-size:12px;padding:8px 0">No albums yet. Select files and create an album to organize them.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="page" id="page-texpack">
-      <div class="xPage">
-        <div class="crCard">
-          <div class="crCardHead"><div><h3>Weapon Textures</h3><p class="xNote" style="margin-top:4px">Replace weapon textures with custom skins.</p></div><div style="display:flex;gap:6px;align-items:center"><button class="btn small" id="tpScan" style="white-space:nowrap">Scan Game Files</button><button class="btn small danger" id="tpResetAll" style="white-space:nowrap">Restore All</button></div></div>
-          <div class="xJob" id="tpJob"><div class="msg"></div><div class="bar"><i></i></div></div>
-          <div class="tpGrid" id="tpList"></div>
-        </div>
-      </div>
-    </section>
-
-    <div class="flModal" id="flModal">
-      <img id="flMImg" alt="">
-      <div class="flMInfo" id="flMName"></div>
-      <div class="flMSub" id="flMDetail"></div>
-      <div class="flMSpinner" id="flMSpinner">Loading full size…</div>
-      <div class="flMBar">
-        <button class="flMDl" id="flMDl">Download PNG</button>
-        <button class="flMDl" id="flMAlbBtn" style="background:hsl(var(--nh) var(--ns) 18%);color:var(--text)">Add to album</button>
-        <button class="flMClose" id="flMCloseBtn">Close</button>
-      </div>
-      <div id="flMAlbPick" style="display:none;margin-top:8px">
-        <select class="select" id="flMAlbSel" style="width:auto;min-width:160px;font-size:12px"><option value="">Pick album…</option></select>
-        <button class="btn small" id="flMAlbAdd" style="margin-left:6px">Add</button>
-      </div>
-    </div>
-
   </main>
 </div>
 <div class="modalShade" id="credModal"><div class="modalBox">
@@ -1408,7 +1264,7 @@ let statusData=null,cursorCatalog=[],selectedCursor='clean_dot',cursorSize=45,st
 let cursorColor='#FFFFFF',cursorOutline='#000000',cursorOutlineWidth=0;
 const CURSOR_SWATCHES=['#FFFFFF','#FF2D1A','#FF8A3D','#FFE24A','#4DD58B','#36C5FF','#9B6BFF','#FF5CE1'];
 var clipsTimer=null,settingsTimer=null;
-const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',theme:'Font',skins:'Skins',files:'Files',texpack:'Textures',clips:'Clips',settings:'Settings'};
+const pageNames={play:'Play',rank:'Rank',accounts:'Accounts',gui:'Overlay',hud:'HUD',cursor:'Cursor',theme:'Font',skins:'Skins',clips:'Clips',settings:'Settings'};
 function toast(msg,bad=false){const t=$('#toast');t.textContent=msg;t.className='toast show'+(bad?' bad':'');clearTimeout(t._x);t._x=setTimeout(()=>t.className='toast',3000)}
 let netFails=0,netRecovering=false;
 async function netLost(){
@@ -1428,9 +1284,7 @@ function fmtEta(sec){return sec<60?`${Math.max(5,Math.round(sec/5)*5)} s`:`${Mat
 function post(path,obj={}){return api(path,{method:'POST',body:JSON.stringify(obj)}).then(r=>{if(r&&r.queued===true)toast(statusData?.game_running?'Queued: it is applied as soon as PG3D closes.':'Queued: it runs right after the current change.');return r})}
 const RANKS_HIDDEN=true;  // ranks are taken out of the client for now; their code stays
 const SKY_HIDDEN=true;    // the Sky tab is put away for now (skies already applied stay); its code stays
-let FILES_HIDDEN=true;
-const ARCHIVED_TABS=['files'];
-function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky')||(FILES_HIDDEN&&tab==='files'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')renderAccounts();if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='skins')loadExistingSkins();if(tab==='files')FL.load();if(tab==='texpack')TP.load()}
+function setTab(tab){if(!pageNames[tab]||(RANKS_HIDDEN&&tab==='rank')||(SKY_HIDDEN&&tab==='sky'))tab='play';$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));$$('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${tab}`));$('#pageTitle').textContent=pageNames[tab];localStorage.pg3dTab=tab;try{window.webkit?.messageHandlers?.pg3d?.postMessage({type:'tab',tab})}catch{}if(tab==='clips'){refreshClips().then(scheduleClips)}else{clearTimeout(clipsTimer);pauseEditor()}if(tab==='settings'){refreshSettings().then(scheduleSettings)}else clearTimeout(settingsTimer);if(tab==='rank')loadRank();if(tab==='accounts')renderAccounts();if(tab==='theme')loadTheme();if(tab==='hud')loadHud();if(tab==='sky')loadSky();if(tab==='finder')FD.load();if(tab==='skins')loadExistingSkins()}
 $$('.nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function cursorUrl(id){if(id==='custom')return '/api/custom-cursor.png?t='+Date.now();const x=cursorCatalog.find(c=>c.id===id);return x?'/'+x.file:''}
 function displayName(a){return a?.display_name||a?.nickname||a?.persona_name||a?.account_name||'Steam Account'}
@@ -1895,6 +1749,7 @@ function renderClipStatus(){
   else if(st.phase==='off'){t='Clips are off';x='Turn on the replay buffer to record while you play.';acts.append(clipAction('Turn on',()=>setClipConfig({enabled:true}),true))}
   else{t='Waiting for Pixel Gun 3D';x='Recording starts by itself once you\'re in the game.'}
   if(st.ffmpeg&&(st.permission===false||st.phase==='error'))acts.append(clipAction('Allow screen recording',async()=>{if(window.webkit?.messageHandlers?.pg3d){window.webkit.messageHandlers.pg3d.postMessage({type:'requestScreenPermission'})}else{await post('/api/clips/permission')}toast('Turn on PG3D Mac Client in Screen Recording, then reopen the client.')}));
+  if(cfg.enabled)acts.append(clipAction('Turn off',()=>setClipConfig({enabled:false})));
 
   $('#clipStateTitle').textContent=t;$('#clipStateText').textContent=x||'';
   const buf=st.phase==='recording'?Math.min(st.buffered||0,CLIP_BUFFER_MAX):0;
@@ -2109,11 +1964,11 @@ let lastJobPhase=null;
 function jobLine(j){const q=j.queue||[];let t=j.phase==='error'?(j.error||'Failed.'):(j.message||'Working…');
   if(j.phase==='running'&&j.eta!=null&&j.eta>0)t+=` · about ${fmtEta(j.eta)} left`;if(q.length)t+=` · then: ${q.join(', ')}`;return t}
 function renderJob(){const j=statusData?.job;if(!j)return;const active=j.phase==='running'||j.phase==='waiting';
-  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#hdJob',['hud','scan','change','reapply','restore']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#txJob',['scan','sky','change']],['#flJob',['scan']],['#tpJob',['texpack','scan']]]){const box=$(id);if(!box)continue;
+  for(const [id,kinds] of [['#thJob',['font','scan','change','reapply','restore','repair']],['#hdJob',['hud','scan','change','reapply','restore']],['#skJob',['sky','scan','change','reapply','restore','repair']],['#txJob',['scan','sky','change']],]){const box=$(id);if(!box)continue;
     const mine=(kinds.includes(j.kind)&&(active||j.phase==='error'))||(j.queue||[]).length>0;box.className='xJob'+(mine?' show':'')+(j.phase==='error'?' error':'');
     box.querySelector('.msg').textContent=jobLine(j);box.querySelector('.bar i').style.width=(j.phase==='running'?j.progress||0:0)+'%'}
   const hint=$('#skHint');if(hint)hint.textContent=statusData.game_stuck?'PG3D is stuck in the background: quit it on the Play tab, then this applies.':statusData.game_running?'PG3D is open: your change is applied as soon as it closes.':active?'Changes you click now are queued and run one after another.':'';
-  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='hud')loadHud();if(localStorage.pg3dTab==='files'&&j.kind==='scan')FL.load();if(localStorage.pg3dTab==='texpack'&&(j.kind==='texpack'||j.kind==='scan'))TP.load()}
+  const fin=(j.phase==='done'||j.phase==='error')&&j.id!=null;if(fin&&lastJobId!==j.id&&lastJobId!==undefined){if(j.phase==='done')toast(j.message||'Done.');else toast(j.error||'Failed.',true);loadTheme();loadSky();try{loadSprites()}catch{}if(localStorage.pg3dTab==='hud')loadHud();}
   if(fin||lastJobId===undefined)lastJobId=fin?j.id:null;lastJobPhase=j.phase}
 let lastJobId;
 
@@ -2337,19 +2192,6 @@ $('#mouseFixSw').onclick=async()=>{try{await post('/api/prefs/mouse-fix',{on:sta
 $('#fixMouse').onclick=async()=>{try{await post('/api/game/refocus',{});toast('Switched back to PG3D. In game you can also press Ctrl+Shift+M.')}catch(e){toast(e.message,true)}};
 $('#rescanGame').onclick=async()=>{const b=$('#rescanGame');b.disabled=true;try{await post('/api/gui/scan',{deep:false});try{await post('/api/customize/scan')}catch(e){if(!/running/.test(e.message))throw e}toast('Rescanning PG3D. This takes about a minute.');await refreshStatus();scheduleStatus()}catch(e){toast(e.message,true)}finally{setTimeout(()=>b.disabled=false,3000)}};
 
-// Archived tabs toggle
-(function(){
-  const sw=$('#archivedTabsSw');if(!sw)return;
-  const key='pg3dShowArchived';
-  function apply(on){
-    FILES_HIDDEN=!on;
-    ARCHIVED_TABS.forEach(t=>{const b=document.querySelector(`[data-tab="${t}"]`);if(b)b.hidden=!on});
-    setSwitch('#archivedTabsSw',on);
-    try{localStorage[key]=on?'1':''}catch{}
-  }
-  sw.onclick=()=>apply(FILES_HIDDEN);
-  try{if(localStorage[key]==='1')apply(true)}catch{}
-})();
 
 // Sky
 let loadTargetsOn=null;let skyData=null,skySel=null,skyTargetsOff=new Set(),skMode='sky',skyPoll=null;
@@ -2528,299 +2370,6 @@ function makeFinder(px,cats,gui){const F={data:null,cat:cats[0],scope:'sug',pick
     toast(F.cat==='cursor'?`Your cursor now uses ${r.target}.`:r.applied?`Applying your ${F.cat==='sky'?'sky':'loading screen'} to the ${r.count} selected textures…`:`Saved. Pick a picture in the Loading tab and apply it; it goes onto these ${r.count} textures.`);await refreshStatus();scheduleStatus();loadSky()}catch(e){toast(e.message,true)}};
   return F}
 const TX=makeFinder('tx',['cursor']);
-
-/* ===== Files (game file scanner) ===== */
-const FL=(function(){
-  const F={data:null,items:[],total:0,req:0,loaded:false,observer:null,albObserver:null,selected:new Map(),albums:[]};
-  F.load=async()=>{
-    if(!F.loaded){F.loaded=true;F._initObserver();F._initAlbObserver()}
-    try{F.data=await api('/api/files');F._renderInfo();await F.search(true);await F._loadAlbums()}catch(e){console.error(e)}
-  };
-  F._initObserver=()=>{
-    F.observer=new IntersectionObserver((entries)=>{
-      for(const e of entries){
-        if(!e.isIntersecting)continue;
-        const card=e.target;const url=card.dataset.thumb;if(!url)continue;
-        F.observer.unobserve(card);delete card.dataset.thumb;
-        const img=document.createElement('img');img.className='flThumb';img.alt='';
-        img.onload=()=>{const ph=card.querySelector('.flPlaceholder');if(ph)ph.replaceWith(img)};
-        img.onerror=()=>{const ph=card.querySelector('.flPlaceholder');if(ph)ph.textContent='No preview'};
-        img.src=url;
-      }
-    },{rootMargin:'300px'});
-  };
-  F._initAlbObserver=()=>{
-    F.albObserver=new IntersectionObserver((entries)=>{
-      for(const e of entries){
-        if(!e.isIntersecting)continue;
-        const el=e.target;const url=el.dataset.src;if(!url)continue;
-        F.albObserver.unobserve(el);delete el.dataset.src;
-        el.src=url;
-      }
-    },{root:document.querySelector('.flAlbums'),rootMargin:'200px'});
-  };
-  F._renderInfo=()=>{
-    const d=F.data;if(!d)return;
-    const c=$('#flCount');
-    if(!d.generated){c.textContent='No scan data yet. Press "Scan game files" to index PG3D\'s assets.';return}
-    c.textContent=`${d.total} files indexed \xb7 PG3D build ${d.build||'?'}`;
-  };
-  F.search=async(reset,loadAll)=>{
-    const q=encodeURIComponent($('#flSearch').value||'');
-    const tf=encodeURIComponent($('#flType').value||'');
-    const off=reset?0:F.items.length;
-    const lim=loadAll?0:60;
-    const req=++F.req;
-    try{
-      const r=await api(`/api/files/search?q=${q}&type=${tf}&offset=${off}&limit=${lim}`);
-      if(req!==F.req)return;
-      F.items=reset?r.items:F.items.concat(r.items);F.total=r.total;
-      F._render(reset);
-    }catch(e){console.error(e)}
-  };
-  F._card=x=>{
-    const d=document.createElement('div');d.className='flCard';d.dataset.gid=String(x.gid);
-    d.title=`${x.name}\n${x.type} ${x.width}\xd7${x.height}\n${x.relative_file} #${x.path_id}`;
-    if(F.selected.has(x.gid))d.classList.add('sel');
-    const chk=document.createElement('div');chk.className='flCheck'+(F.selected.has(x.gid)?' on':'');
-    chk.textContent='✓';
-    chk.addEventListener('click',ev=>{ev.stopPropagation();F._toggleSel(x,d,chk)});
-    d.append(chk);
-    const ph=document.createElement('div');ph.className='flPlaceholder';
-    ph.textContent=x.type==='Cubemap'?'Cubemap':`${x.width}\xd7${x.height}`;
-    d.append(ph);
-    if(x.type!=='Cubemap'){d.dataset.thumb=`/api/finder/thumb/${x.gid}.jpg`;F.observer.observe(d)}
-    const tp=document.createElement('span');tp.className='flType';tp.textContent=x.type==='Texture2D'?'Tex2D':x.type;
-    const b=document.createElement('b');b.textContent=x.name||`#${x.path_id}`;
-    const sm=document.createElement('small');sm.textContent=`${x.width}\xd7${x.height} \xb7 ${(x.relative_file||'').split('/').pop()}`;
-    d.append(tp,b,sm);
-    d.addEventListener('click',()=>F._openModal(x));
-    return d;
-  };
-  F._toggleSel=(x,card,chk)=>{
-    if(F.selected.has(x.gid)){F.selected.delete(x.gid);card.classList.remove('sel');chk.classList.remove('on')}
-    else{F.selected.set(x.gid,x);card.classList.add('sel');chk.classList.add('on')}
-    F._updateSelBar();
-  };
-  F._updateSelBar=()=>{
-    const n=F.selected.size;
-    $('#flSelBar').classList.toggle('show',n>0);
-    $('#flSelCount').textContent=`${n} selected`;
-  };
-  F._clearSel=()=>{
-    F.selected.clear();
-    $$('.flCard.sel').forEach(c=>{c.classList.remove('sel');const ck=c.querySelector('.flCheck');if(ck)ck.classList.remove('on')});
-    F._updateSelBar();
-  };
-  F._render=reset=>{
-    const g=$('#flGrid');
-    if(reset){g.innerHTML='';g.scrollTop=0}
-    if(!F.data?.generated){g.innerHTML='';const e=document.createElement('div');e.className='xEmpty';e.textContent='Scan the game files first.';g.append(e);$('#flMore').hidden=true;$('#flLoadAll').hidden=true;return}
-    const have=g.querySelectorAll('.flCard').length;
-    F.items.slice(have).forEach(x=>g.append(F._card(x)));
-    if(!F.items.length&&!have){const e=document.createElement('div');e.className='xEmpty';e.textContent='No files match your search.';g.append(e)}
-    const c=$('#flCount');c.textContent=F.data?`${F.total} results \xb7 ${F.data.total} files indexed`:'';
-    const rem=F.total-F.items.length;
-    $('#flMore').hidden=rem<=0;$('#flMore').textContent=`Load more (${rem} remaining)`;
-    $('#flLoadAll').hidden=rem<=0;$('#flLoadAll').textContent=`Load all (${F.total})`;
-  };
-  /* --- modal --- */
-  F._modalItem=null;
-  F._openModal=x=>{
-    F._modalItem=x;
-    const m=$('#flModal'),img=$('#flMImg'),sp=$('#flMSpinner');
-    $('#flMName').textContent=x.name||`#${x.path_id}`;
-    $('#flMDetail').textContent=`${x.type} \xb7 ${x.width}\xd7${x.height} \xb7 ${(x.relative_file||'').split('/').pop()}`;
-    img.style.display='none';sp.style.display='';sp.textContent='Loading full size…';
-    img.onload=()=>{img.style.display='';sp.style.display='none'};
-    img.onerror=()=>{sp.textContent='Preview not available'};
-    if(x.type==='Cubemap'){img.style.display='none';sp.textContent='Cubemaps cannot be previewed';$('#flMDl').style.display='none';$('#flMAlbBtn').style.display='none'}
-    else{$('#flMDl').style.display='';$('#flMAlbBtn').style.display='';img.src=`/api/finder/full/${x.gid}.png`;
-      img.onerror=()=>{img.src=`/api/finder/thumb/${x.gid}.jpg`;img.onerror=()=>{sp.textContent='Preview not available'}}}
-    $('#flMAlbPick').style.display='none';
-    m.classList.add('open');
-  };
-  F._closeModal=()=>{$('#flModal').classList.remove('open');$('#flMImg').src='';F._modalItem=null;$('#flMAlbPick').style.display='none'};
-  F._download=async()=>{
-    const x=F._modalItem;if(!x)return;
-    try{const r=await post('/api/finder/save',{gid:x.gid});
-      if(r.ok)toast(`Saved to Downloads: ${r.name}`);else toast(r.error||'Save failed',true);
-    }catch(e){toast('Save failed',true)}
-  };
-  /* --- albums --- */
-  F._loadAlbums=async()=>{
-    try{const r=await api('/api/albums');F.albums=r.albums||[];F._renderAlbums();await F._autoSort()}catch(e){console.error(e)}
-  };
-  F._sync=r=>{if(r&&r.albums){F.albums=r.albums;F._renderAlbums()}};
-  F._renderAlbumPicker=()=>{
-    const sel=$('#flAlbumPick');
-    sel.innerHTML='<option value="">Add to album…</option>';
-    for(const a of F.albums){const o=document.createElement('option');o.value=a.id;o.textContent=a.name;sel.append(o)}
-  };
-  F._renderAlbums=()=>{
-    F._renderAlbumPicker();
-    const box=$('#flAlbumList'),empty=$('#flAlbumEmpty');
-    if(!F.albums.length){box.innerHTML='';if(empty)empty.hidden=false;return}
-    if(empty)empty.hidden=true;
-    box.innerHTML='';
-    for(const a of F.albums){
-      const card=document.createElement('div');card.className='albCard';
-      const head=document.createElement('div');head.className='albHead';
-      const arrow=document.createElement('span');arrow.className='albArrow';arrow.textContent='▶';
-      const name=document.createElement('span');name.className='albName';name.textContent=a.name;
-      const cnt=document.createElement('span');cnt.className='albCount';cnt.textContent=`${a.files.length}`;
-      head.append(arrow,name,cnt);
-      const body=document.createElement('div');body.className='albBody';
-      const grid=document.createElement('div');grid.className='albThumbGrid';
-      if(!a.files.length){const em=document.createElement('div');em.style.cssText='font-size:11px;color:var(--muted);padding:4px 0;grid-column:1/-1';em.textContent='Empty album';grid.append(em)}
-      for(const f of a.files){
-        const thumb=document.createElement('div');thumb.className='albThumb';thumb.title=f.name||'';
-        if(f.gid!=null&&f.type!=='Cubemap'){const im=document.createElement('img');im.alt='';im.dataset.src=`/api/finder/thumb/${f.gid}.jpg`;thumb.append(im);if(F.albObserver)F.albObserver.observe(im)}
-        const rm=document.createElement('div');rm.className='albRm';rm.textContent='\xd7';
-        rm.addEventListener('click',async ev=>{ev.stopPropagation();
-          try{F._sync(await post('/api/albums/remove',{id:a.id,gids:[f.gid]}))}catch(ex){toast(ex.message,true)}});
-        thumb.addEventListener('click',()=>F._openModal(f));
-        thumb.append(rm);grid.append(thumb);
-      }
-      body.append(grid);
-      const acts=document.createElement('div');acts.className='albActions';
-      const btnRen=document.createElement('button');btnRen.className='btn small ghost';btnRen.textContent='Rename';
-      const btnCopy=document.createElement('button');btnCopy.className='btn small ghost';btnCopy.textContent='Copy';
-      const btnDel=document.createElement('button');btnDel.className='btn small danger';btnDel.textContent='Delete';
-      btnRen.addEventListener('click',e=>{e.stopPropagation();
-        const cur=name.textContent;
-        const inp=document.createElement('input');inp.className='albRename';inp.value=cur;
-        name.replaceWith(inp);inp.focus();inp.select();
-        const done=async()=>{const v=inp.value.trim()||cur;inp.replaceWith(name);name.textContent=v;
-          if(v!==cur)try{F._sync(await post('/api/albums/rename',{id:a.id,name:v}))}catch(ex){toast(ex.message,true)}};
-        inp.addEventListener('blur',done);inp.addEventListener('keydown',ev=>{if(ev.key==='Enter')inp.blur()});
-      });
-      btnCopy.addEventListener('click',async e=>{e.stopPropagation();
-        try{F._sync(await post('/api/albums/copy',{id:a.id}));toast(`Copied "${a.name}"`)}catch(ex){toast(ex.message,true)}});
-      btnDel.addEventListener('click',async e=>{e.stopPropagation();
-        if(!confirm(`Delete album "${a.name}"?`))return;
-        try{F._sync(await post('/api/albums/delete',{id:a.id}))}catch(ex){toast(ex.message,true)}});
-      const btnExp=document.createElement('button');btnExp.className='btn small ghost';btnExp.textContent='Export';
-      btnExp.title='Export album as texture pack ZIP to Downloads';
-      btnExp.addEventListener('click',async e=>{e.stopPropagation();
-        btnExp.disabled=true;btnExp.textContent='Exporting…';
-        try{const r=await post('/api/albums/export',{id:a.id});toast(r.message)}
-        catch(ex){toast(ex.message,true)}finally{btnExp.disabled=false;btnExp.textContent='Export'}
-      });
-      acts.append(btnRen,btnCopy,btnExp,btnDel);body.append(acts);
-      head.addEventListener('click',()=>{const open=body.classList.toggle('open');arrow.classList.toggle('open',open)});
-      card.append(head,body);box.append(card);
-    }
-  };
-  /* --- wiring --- */
-  $('#flMCloseBtn').onclick=()=>F._closeModal();
-  $('#flMDl').onclick=()=>F._download();
-  $('#flModal').onclick=e=>{if(e.target.id==='flModal')F._closeModal()};
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')F._closeModal()});
-  let qT;$('#flSearch').oninput=()=>{clearTimeout(qT);qT=setTimeout(()=>F.search(true),300)};
-  $('#flType').onchange=()=>F.search(true);
-  $('#flMore').onclick=()=>F.search(false);
-  $('#flLoadAll').onclick=()=>F.search(true,true);
-  $('#flSelClear').onclick=()=>F._clearSel();
-  $('#flSelAdd').onclick=async()=>{
-    const aid=$('#flAlbumPick').value;if(!aid){toast('Pick an album first',true);return}
-    const files=[...F.selected.values()];if(!files.length)return;
-    try{F._sync(await post('/api/albums/add',{id:aid,files}));toast(`Added ${files.length} file(s)`);F._clearSel()}catch(e){toast(e.message,true)}
-  };
-  $('#flAlbumNew').onclick=async()=>{
-    const name=prompt('Album name:');if(!name)return;
-    try{F._sync(await post('/api/albums/create',{name}))}catch(e){toast(e.message,true)}
-  };
-  $('#flScan').onclick=async()=>{try{await post('/api/finder/scan',{});toast('Scanning PG3D\'s files… this takes a few minutes.')}catch(e){toast(e.message,true)}};
-  $('#flMAlbBtn').onclick=()=>{
-    const p=$('#flMAlbPick'),s=$('#flMAlbSel');
-    s.innerHTML='<option value="">Pick album…</option>';
-    for(const a of F.albums){const o=document.createElement('option');o.value=a.id;o.textContent=a.name;s.append(o)}
-    p.style.display=p.style.display==='none'?'':'none';
-  };
-  $('#flMAlbAdd').onclick=async()=>{
-    const aid=$('#flMAlbSel').value;const x=F._modalItem;
-    if(!aid||!x){toast('Pick an album',true);return}
-    try{F._sync(await post('/api/albums/add',{id:aid,files:[x]}));toast(`Added to album`);$('#flMAlbPick').style.display='none'}catch(e){toast(e.message,true)}
-  };
-  F._autoSort=async()=>{
-    if(!F.data?.generated||!F.data.total)return;
-    const existing=F.albums.find(a=>a.name==='Avatars');
-    if(existing&&existing.files.length)return;
-    try{
-      const r=await api('/api/files/search?q=avatar_&type=&offset=0&limit=0');
-      if(!r.items.length)return;
-      let aid;
-      if(existing){aid=existing.id}
-      else{const cr=await post('/api/albums/create',{name:'Avatars'});F._sync(cr);aid=cr.id}
-      F._sync(await post('/api/albums/add',{id:aid,files:r.items}));
-    }catch(e){console.error('avatar auto-sort:',e)}
-  };
-  return F;
-})();
-
-const TP=(function(){
-  const T={};
-  const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  let tpScanned=false;
-  async function runScan(){
-    try{await post('/api/finder/scan',{});toast('Scanning game files… this takes a few minutes.')}
-    catch(e){toast(e.message,true)}
-  }
-  T.load=async()=>{
-    try{
-      const r=await api('/api/texpack/list');
-      const box=$('#tpList');if(!box)return;
-      const packs=r.packs||[];
-      const active=r.active||null;
-      tpScanned=r.scanned;
-      const scanBtn=$('#tpScan');
-      if(scanBtn){
-        scanBtn.textContent=tpScanned?'Rescan':'Scan Game Files';
-        scanBtn.onclick=async()=>{scanBtn.disabled=true;await runScan();setTimeout(()=>scanBtn.disabled=false,3000)};
-      }
-      const resetBtn=$('#tpResetAll');
-      if(resetBtn){
-        resetBtn.style.display=active?'':'none';
-        resetBtn.onclick=async()=>{
-          try{await post('/api/texpack/reset');toast('Restoring original textures…');T.load()}catch(e){toast(e.message,true)}
-        };
-      }
-      if(!packs.length){box.innerHTML='<div class="tpEmpty">No weapon textures available.</div>';return}
-      let html='';
-      if(!tpScanned)html+='<div class="tpNote" style="grid-column:1/-1;color:var(--muted);font-size:12px;margin-bottom:4px">Press <b>Scan Game Files</b> above, then click a weapon to apply its textures.</div>';
-      for(const p of packs){
-        const isCur=active===p.id;
-        const img=p.preview?`<img class="tpImg" src="${esc(p.preview)}" alt="${esc(p.name)}" draggable="false">`:`<div class="tpImg" style="display:grid;place-items:center;font-size:28px;color:var(--dim)">◈</div>`;
-        html+=`<div class="tpCard${isCur?' active':''}" data-tp="${esc(p.id)}">`
-          +`<div class="tpDisable${isCur?' show':''}" data-tp-off="${esc(p.id)}" title="Restore original">✕</div>`
-          +img
-          +`<div class="tpInfo"><div class="tpName">${esc(p.name)}</div>`
-          +`<span class="tpBadge ${isCur?'on':'off'}">${isCur?'Applied':'Apply'}</span>`
-          +`</div></div>`;
-      }
-      box.innerHTML=html;
-      box.querySelectorAll('.tpCard').forEach(card=>{
-        card.onclick=async e=>{
-          if(e.target.closest('.tpDisable'))return;
-          const id=card.dataset.tp;
-          if(active===id)return;
-          if(!tpScanned){toast('Scanning game files first…');await runScan();return}
-          try{await post('/api/texpack/apply',{pack:id});toast('Applying textures…');T.load()}catch(e){toast(e.message,true)}
-        };
-      });
-      box.querySelectorAll('.tpDisable').forEach(btn=>{
-        btn.onclick=async e=>{
-          e.stopPropagation();
-          const id=btn.dataset.tpOff;
-          if(active!==id)return;
-          try{await post('/api/texpack/reset');toast('Restoring original textures…');T.load()}catch(e){toast(e.message,true)}
-        };
-      });
-    }catch(e){console.error(e)}
-  };
-  return T;
-})();
 
 (function(){try{const hz=window.screen?.refreshRate||window.screen?.mozRefreshRate;if(hz&&hz>60){const o=$('#fpsAutoOpt');if(o)o.textContent=`Auto (${hz} Hz)`}}catch{}})();
 </script>
