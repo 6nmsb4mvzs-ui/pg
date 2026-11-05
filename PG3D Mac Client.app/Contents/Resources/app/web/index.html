@@ -38,7 +38,7 @@
 :root{--crimson-soft:hsl(var(--ah) calc(100% * var(--as)) 64.5%)}
 body{background:radial-gradient(circle at 14% -8%,hsl(var(--ah) calc(78% * var(--as)) 30.6% / .25) 0,hsl(var(--nh) var(--ns) 8.6%) 24%,hsl(var(--nh) var(--ns) 4.9%) 52%);}
 .side{background:linear-gradient(180deg,hsl(var(--nh) var(--ns) 7.8% / .97),hsl(var(--nh) var(--ns) 5.1% / .97));border-right-color:hsl(var(--nh) var(--ns) 17.6%)}
-.logo{background:transparent!important;overflow:hidden;box-shadow:0 7px 20px hsl(var(--ah) calc(82% * var(--as)) 32.5% / .26)}.logo img{width:100%;height:100%;display:block;object-fit:cover}
+.logo{background:transparent!important;overflow:hidden;box-shadow:none!important}.logo img{width:100%;height:100%;display:block;object-fit:contain}
 .nav button.active{background:linear-gradient(90deg,hsl(var(--ah) calc(100% * var(--as)) 55.1% / .24),hsl(var(--ah) calc(100% * var(--as)) 62.0% / .05));box-shadow:inset 3px 0 0 var(--accent);color:#f5f5ff}.nav button:hover{background:hsl(var(--nh) var(--ns) 8.6%);color:#f5f5ff}
 .card{border-color:hsl(var(--nh) var(--ns) 14.7%);background:linear-gradient(180deg,hsl(var(--nh) var(--ns) 5.9%),hsl(var(--nh) var(--ns) 3.9%));box-shadow:0 18px 52px rgba(0,0,0,.5),inset 0 1px 0 hsl(var(--ah) calc(100% * var(--as)) 65.7% / .05)}
 .btn.primary,.freeMoveBtn{background:linear-gradient(135deg,var(--ember),var(--accent) 45%,var(--accent-deep))!important;border-color:hsl(var(--ah) calc(100% * var(--as)) 61.4%)!important;color:#f5f5ff}.launchFps{background:linear-gradient(135deg,var(--ember),var(--accent) 50%,var(--accent-deep));border-color:hsl(var(--ah) calc(100% * var(--as)) 61.4%)}.launchNormal{background:linear-gradient(180deg,hsl(var(--nh) var(--ns) 8.0%),hsl(var(--nh) var(--ns) 5.7%));border-color:hsl(var(--ah) calc(37% * var(--as)) 19.2%)}.launchBtn:hover{filter:brightness(1.08)}
@@ -504,7 +504,7 @@ h1,h2,h3,h4,.top h1,.crCardHead h3,.sectionHead h2,.rkTitle,.lkWho b,.emHead b,.
 .side{background:var(--side)!important;border-right:1px solid var(--border)!important;padding:0 0 14px!important}
 .brand{height:72px;padding:0 20px!important;border-bottom:1px solid var(--border);margin-bottom:10px;gap:11px}
 .brand b{font-size:17px;font-weight:700;background:linear-gradient(180deg,var(--accent-bright),var(--accent) 55%,var(--accent-deep));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 10px rgba(var(--accent-rgb),.28))}
-.logo{width:34px;height:34px;border-radius:9px;box-shadow:0 4px 16px rgba(var(--accent-rgb),.18)!important}
+.logo{width:40px;height:40px;border-radius:0;box-shadow:none!important}
 .nav{padding:0 10px;gap:2px}
 .nav button{color:var(--muted);font-weight:500;font-size:13.5px;padding:9px 12px;border-radius:9px;gap:12px}
 .nav button:hover{background:rgba(255,255,255,.04)!important;color:var(--text)}

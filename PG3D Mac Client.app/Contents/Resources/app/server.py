@@ -2448,7 +2448,12 @@ def ci_key(d: dict, key: str):
 
 def steam_files():
     root = steam_root()
-    return root / "config/loginusers.vdf", root / "registry.vdf"
+    login = root / "config/loginusers.vdf"
+    if not login.exists():
+        alt = root / "loginusers.vdf"
+        if alt.exists():
+            login = alt
+    return login, root / "registry.vdf"
 
 
 def steam_config_file():
@@ -2834,9 +2839,12 @@ def steam_accounts():
 def _steam_accounts_uncached():
     login_path, registry_path = steam_files()
     if not login_path.exists():
-        return {"accounts": [], "selected": None, "current": None, "error": "Steam loginusers.vdf was not found."}
+        root = steam_root()
+        log(f"Steam accounts: loginusers.vdf not found. Checked {root/'config/loginusers.vdf'} and {root/'loginusers.vdf'}. Steam root exists: {root.exists()}")
+        return {"accounts": [], "selected": None, "current": None, "error": f"loginusers.vdf not found. Is Steam installed?"}
     data = load_vdf(login_path, {})
     users = ci_get(data, "users", {}) or {}
+    log(f"Steam accounts: loaded {login_path}, found {len(users)} user entries")
     current_name = None
     try:
         registry = load_vdf(registry_path, {})
