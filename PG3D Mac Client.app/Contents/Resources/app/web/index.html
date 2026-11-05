@@ -701,13 +701,12 @@ body{background:radial-gradient(1100px 600px at 100% 110%,rgba(var(--accent-rgb)
 @keyframes ruHit{0%{transform:scale(.6)}100%{transform:scale(1)}}
 .ruNode.final img{transform:scale(1.18)}
 @media (prefers-reduced-motion:reduce){.ruRays{animation:none}.ruOverlay.revealed .ruNew{animation:none;opacity:1;transform:none}.ruTrack,.ruFill{transition-duration:.01s}}
-/* v1.30 launch progress */
-.launchProg{margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
-.lpTop{display:flex;justify-content:space-between;gap:12px;font-size:13px}.lpTop b{font-weight:600}.lpTop span{font-family:var(--font-head);font-weight:700;color:var(--accent-light)}
+/* launch status */
+.launchProg{margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:13px}
 .lpBar{height:8px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;margin:9px 0 7px}
 .lpBar i{display:block;height:100%;width:0;background:var(--grad);border-radius:6px;transition:width .6s ease;box-shadow:0 0 12px rgba(var(--accent-rgb),.5)}
-.launchProg small{font-size:11.5px;color:var(--muted)}
-.launchProg.done .lpBar i{background:#4ece5f;box-shadow:0 0 12px rgba(76,206,95,.5)}.launchProg.done .lpTop span{color:#4ece5f}
+.launchProg b{font-weight:600}
+.launchProg.done b{color:#4ece5f}
 
 /* v1.30 clips footer, theme shot, sky gallery */
 .clipFoot{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
@@ -979,9 +978,7 @@ html[data-ui-style="noble"] .rkItem.on,html[data-ui-style="noble"] .rkItem.cur,h
             </div>
           </div>
           <div class="launchProg" id="launchProg" hidden>
-            <div class="lpTop"><b id="lpMsg">Getting ready…</b><span id="lpPct">0%</span></div>
-            <div class="lpBar"><i id="lpFill"></i></div>
-            <small id="lpEta"></small>
+            <b id="lpMsg">Getting ready…</b>
           </div>
           <div class="buildBadge" id="buildBadge"></div><div class="buildBadge warn" id="gameStuck"><span>PG3D is running in the background without a window, so it can't be played and game files can't change. </span><button class="btn" type="button">Quit PG3D</button></div><div class="buildBadge warn" id="quickExit"><span></span><button class="btn" type="button">Restore original game files</button></div><div class="buildBadge pending" id="changesPending" hidden>Your changes will be applied when you start PG3D.</div><div class="message" id="launchMessage"></div>
         </div>
@@ -1488,9 +1485,8 @@ async function launch(){try{await post('/api/launch/fps',{fps:fpsValue()});await
 const LAUNCH_BUSY=['preparing','switching','updating','launching','starting'];let lpWasBusy=false;
 function renderLaunch(){const s=statusData;if(!s)return;const busy=LAUNCH_BUSY.includes(s.launch_phase),box=$('#launchProg');
   $('#startFps').disabled=busy||s.game_running||!s.fps_bundle_present;
-  if(busy){box.hidden=false;box.classList.remove('done');const pct=Math.max(1,Math.min(99,s.launch_progress||0));$('#lpFill').style.width=pct+'%';$('#lpPct').textContent=pct+'%';$('#lpMsg').textContent=s.launch_message||'Starting…';
-    const eta=s.launch_eta;$('#lpEta').textContent=eta==null?'':eta<0?'Taking longer than usual…':eta<=2?'Almost there…':`About ${fmtEta(eta)} left`}
-  else if(lpWasBusy){if(!s.launch_error&&s.launch_progress===100){box.hidden=false;box.classList.add('done');$('#lpFill').style.width='100%';$('#lpPct').textContent='100%';$('#lpMsg').textContent=s.launch_message||'PG3D is running.';$('#lpEta').textContent='Have fun!';setTimeout(()=>{if(!LAUNCH_BUSY.includes(statusData?.launch_phase))$('#launchProg').hidden=true},5000)}else box.hidden=true}
+  if(busy){box.hidden=false;box.classList.remove('done');$('#lpMsg').textContent=s.launch_message||'Starting…'}
+  else if(lpWasBusy){if(!s.launch_error&&s.launch_progress===100){box.hidden=false;box.classList.add('done');$('#lpMsg').textContent='PG3D is running.';setTimeout(()=>{if(!LAUNCH_BUSY.includes(statusData?.launch_phase))$('#launchProg').hidden=true},5000)}else box.hidden=true}
   lpWasBusy=busy}
 $('#startFps').onclick=()=>launch();
 
