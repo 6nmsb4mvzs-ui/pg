@@ -225,10 +225,12 @@ def github_main(token):
 def github_download(token, rel, progress=None):
     """Download a release zip (or the main branch's zipball). GitHub answers with a
     redirect to signed storage, which must be fetched without the token."""
+    is_zipball = "zipball" in rel
     url = rel.get("zipball") or f"{GITHUB_API}/releases/assets/{rel['asset_id']}"
+    accept = "application/vnd.github+json" if is_zipball else "application/octet-stream"
     opener = build_opener(_NoRedirect)
     try:
-        resp = opener.open(_gh_request(url, token, "application/octet-stream"), timeout=30)
+        resp = opener.open(_gh_request(url, token, accept), timeout=30)
         location = None
     except HTTPError as e:
         if e.code not in (301, 302, 303, 307, 308):
