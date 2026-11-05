@@ -470,12 +470,18 @@ class Recorder:
         if self.shutting_down:
             return
         cfg = load_config()
+        if not cfg["enabled"]:
+            running = self.proc is not None and self.proc.poll() is None
+            if running:
+                self.stop("disabled by user")
+            with self.lock:
+                self.phase, self.message = "off", "Clips are turned off."
+            return
         ffmpeg = find_ffmpeg()
         with self.lock:
             if not ffmpeg:
                 self.phase, self.message = "no_ffmpeg", "Setting up the recording tools…"
-                if cfg["enabled"]:
-                    self.install_ffmpeg()
+                self.install_ffmpeg()
                 return
             # Only record while PG3D is actually running, and only once it has
             # been up for a few seconds (a game that quits right away isn't play).
@@ -1133,6 +1139,7 @@ def set_config(raw):
     _write_json(CONFIG_JSON, cfg)
     if not cfg["enabled"] and old["enabled"]:
         RECORDER.stop("disabled by user")
+        Recorder.kill_orphans()
     elif (cfg["quality"], cfg["screen"]) != (old["quality"], old["screen"]):
         RECORDER.restart()
     return {"ok": True, "config": cfg}

@@ -5496,6 +5496,22 @@ if _app_bundle_env:
         _TEXPACK_APP_BUNDLE = _p
 
 
+def _ensure_builtin_texpacks():
+    if TEXPACK_BUILTIN.is_dir() and any(TEXPACK_BUILTIN.iterdir()):
+        return
+    src = _TEXPACK_APP_BUNDLE
+    if not src:
+        return
+    try:
+        import shutil as _sh
+        if TEXPACK_BUILTIN.exists():
+            _sh.rmtree(TEXPACK_BUILTIN, ignore_errors=True)
+        _sh.copytree(str(src), str(TEXPACK_BUILTIN))
+        log(f"texpack: copied builtin texpacks from {src} to {TEXPACK_BUILTIN}")
+    except Exception as e:
+        log(f"texpack: failed to copy from {src}: {e}")
+
+
 def _texpack_dirs():
     dirs = []
     seen = set()
@@ -5512,6 +5528,7 @@ def _texpack_dirs():
 
 
 def texpack_list():
+    _ensure_builtin_texpacks()
     packs = []
     log(f"texpack_list: BUILTIN={TEXPACK_BUILTIN} exists={TEXPACK_BUILTIN.is_dir()}"
         f" USER={TEXPACK_USER} exists={TEXPACK_USER.is_dir()}"
@@ -8461,6 +8478,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(hud_payload())
         if path == "/api/texpack/list":
             return self.send_json(texpack_list())
+        if path == "/api/texpack/debug":
+            info = {"BASE": str(BASE), "BUILTIN": str(TEXPACK_BUILTIN),
+                    "BUILTIN_exists": TEXPACK_BUILTIN.is_dir(),
+                    "BUILTIN_contents": sorted(p.name for p in TEXPACK_BUILTIN.iterdir()) if TEXPACK_BUILTIN.is_dir() else [],
+                    "USER": str(TEXPACK_USER), "USER_exists": TEXPACK_USER.is_dir(),
+                    "APP_BUNDLE": str(_TEXPACK_APP_BUNDLE) if _TEXPACK_APP_BUNDLE else None,
+                    "APP_BUNDLE_exists": _TEXPACK_APP_BUNDLE.is_dir() if _TEXPACK_APP_BUNDLE else False,
+                    "PG3D_APP_BUNDLE_env": os.environ.get("PG3D_APP_BUNDLE"),
+                    "dirs_found": [str(d) for d in _texpack_dirs()]}
+            return self.send_json(info)
         if path.startswith("/api/texpack/preview/"):
             m = re.fullmatch(r"/api/texpack/preview/([\w\-]+)\.png", path)
             if m:
